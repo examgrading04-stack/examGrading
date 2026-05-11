@@ -214,7 +214,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 .collection('users')
                                 .doc(_uid)
                                 .collection('exams')
-                                .doc('${selectedSubject!.id}_${nameController.text.trim()}').set(data);
+                                .doc('${selectedSubjectCode}_${nameController.text.trim()}').set(data);
                           }
 
                           if (!mounted) return;

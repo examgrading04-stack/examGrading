@@ -110,7 +110,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 if (isEdit) {
                   await _subjectsRef.doc(subject.id).update(data);
                 } else {
-                  await _subjectsRef.doc(code).set(data);
+                  await _subjectsRef.doc(codeController.text).set(data);
                 }
 
                 await _fetchSubjects();
