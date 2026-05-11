@@ -161,57 +161,62 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            <!-- Subjects Section -->
-            <div>
-              <div class="flex justify-between items-center mb-4">
-                <h4 class="text-lg font-bold text-slate-700">รายวิชาทั้งหมด</h4>
-                <button onclick="openModal('subjectModal')"
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium"><i
-                    class="fa-solid fa-plus mr-2"></i>เพิ่มรายวิชา</button>
-              </div>
-              <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
-                <table class="w-full text-left border-collapse min-w-[600px]">
-                  <thead>
-                    <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-sm">
-                      <th class="p-4 border-b font-semibold">รหัสวิชา</th>
-                      <th class="p-4 border-b font-semibold">ชื่อวิชา</th>
-                      <th class="p-4 border-b font-semibold">ภาค/ปี</th>
-                      <th class="p-4 border-b font-semibold text-center">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody id="subjectTableBody">
-                    <!-- Data will be loaded here -->
-                  </tbody>
-                </table>
-              </div>
+          <div id="subjectsViewContainer" class="block">
+            <div class="flex justify-between items-center mb-4">
+              <h4 class="text-lg font-bold text-slate-700">รายวิชาทั้งหมด</h4>
+              <button onclick="openModal('subjectModal')"
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                <i class="fa-solid fa-plus mr-2"></i>เพิ่มรายวิชา
+              </button>
             </div>
-
-            <!-- Classes Section -->
-            <div>
-              <div class="flex justify-between items-center mb-4">
-                <h4 class="text-lg font-bold text-slate-700">กลุ่มเรียน (Section)</h4>
-                <button onclick="openModal('classModal')"
-                  class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition text-sm font-medium"><i
-                    class="fa-solid fa-plus mr-2"></i>เพิ่มกลุ่มเรียน</button>
-              </div>
-              <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
-                <table class="w-full text-left border-collapse min-w-[400px]">
-                  <thead>
-                    <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-sm">
-                      <th class="p-4 border-b font-semibold text-center">ลำดับ</th>
-                      <th class="p-4 border-b font-semibold">รหัส-ชื่อวิชา</th>
-                      <th class="p-4 border-b font-semibold text-center">sec</th>
-                      <th class="p-4 border-b font-semibold text-center">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody id="classTableBody">
-                    <!-- Data will be loaded here -->
-                  </tbody>
-                </table>
-              </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+              <table class="w-full text-left border-collapse min-w-[600px]">
+                <thead>
+                  <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-sm">
+                    <th class="p-4 border-b font-semibold">รหัสวิชา</th>
+                    <th class="p-4 border-b font-semibold">ชื่อวิชา</th>
+                    <th class="p-4 border-b font-semibold">ภาค/ปี</th>
+                    <th class="p-4 border-b font-semibold text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="subjectTableBody">
+                  <!-- Data will be loaded here -->
+                </tbody>
+              </table>
             </div>
           </div>
+
+          <!-- Classes Section -->
+          <div id="classesViewContainer" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+              <div class="flex items-center gap-4">
+                <button onclick="backToSubjects()" class="bg-slate-200 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-300 transition text-sm font-medium flex items-center justify-center">
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <h4 class="text-lg font-bold text-slate-700" id="classesViewTitle">กลุ่มเรียน (Section)</h4>
+              </div>
+              <button onclick="openClassModalForSubject()"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                <i class="fa-solid fa-plus mr-2"></i>เพิ่มกลุ่มเรียน
+              </button>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+              <table class="w-full text-left border-collapse min-w-[400px]">
+                <thead>
+                  <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200 text-sm">
+                    <th class="p-4 border-b font-semibold text-center">ลำดับ</th>
+                    <th class="p-4 border-b font-semibold">รหัส-ชื่อวิชา</th>
+                    <th class="p-4 border-b font-semibold text-center">sec</th>
+                    <th class="p-4 border-b font-semibold text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="classTableBody">
+                  <!-- Data will be loaded here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div> <!-- End mainPageContainer -->
     </main>
@@ -409,13 +414,7 @@
           <input type="text" id="classCode" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
             required>
         </div>
-        <div class="mb-4">
-          <label class="block text-gray-700 text-sm font-bold mb-2">รายวิชา</label>
-          <select id="classSubject" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-            required>
-            <!-- Options generated dynamically -->
-          </select>
-        </div>
+        <input type="hidden" id="classSubject">
 
         <div class="flex justify-end gap-3 border-t pt-4">
           <button type="button" onclick="closeModal('classModal')"
@@ -965,7 +964,23 @@
 
     async function initData() {
       subjectsList = await dbService.getDocs('subjects');
-      classesList = await dbService.getDocs('classes');
+      
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
       studentsList = await dbService.getDocs('students');
       exams = await dbService.getDocs('exams');
       resultsList = await dbService.getDocs('results');
@@ -1427,31 +1442,52 @@
 
     async function saveClass(e) {
       e.preventDefault();
-      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const id = document.getElementById('classId').value;
+      const code = document.getElementById('classCode').value;
+      const subject = document.getElementById('classSubject').value;
+      
+      if (!subject) return Swal.fire('แจ้งเตือน', 'ไม่พบรายวิชา กรุณากลับไปหน้ารายวิชาใหม่', 'warning');
 
+      const data = {
+        sec: code,
+        subject: subject,
+      };
+
+      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
       try {
-        const id = document.getElementById('classId').value;
-        const data = {
-          subject: document.getElementById('classSubject').value,
-          sec: document.getElementById('classCode').value
-        };
         if (id) {
-          data.code = firebase.firestore.FieldValue.delete();
-          data.name = firebase.firestore.FieldValue.delete();
-          data.time = firebase.firestore.FieldValue.delete();
-          data.room = firebase.firestore.FieldValue.delete();
+          const parts = id.split('_');
+          const realSubjectId = parts[0];
+          const realSectionId = parts[1];
+          await db.collection('users').doc(currentUser.uid).collection('subjects').doc(realSubjectId).collection('sections').doc(realSectionId).update(data);
+        } else {
+          await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject).collection('sections').add({ ...data, created_at: firebase.firestore.FieldValue.serverTimestamp() });
         }
-        if (id) await dbService.updateDoc('classes', id, data);
-        else await dbService.addDoc('classes', data);
-        closeModal('classModal');
-        classesList = await dbService.getDocs('classes');
+        
+        // Refresh classesList manually instead of reloading everything
+        let allSections = [];
+        if (subjectsList && subjectsList.length > 0) {
+          for (const s of subjectsList) {
+            const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(s.id).collection('sections').get();
+            sectionsSnap.forEach(doc => {
+              allSections.push({ 
+                id: s.id + '_' + doc.id, 
+                sec: doc.data().sec, 
+                subject: s.id, 
+                realId: doc.id 
+              });
+            });
+          }
+        }
+        classesList = allSections;
+
         renderClasses();
         updateDashboardStats();
-        updateSelectOptions();
-        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+        closeModal('classModal');
+        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', showConfirmButton: false, timer: 1500 });
       } catch (error) {
-        console.error("Save Class Error:", error);
-        Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+        console.error(error);
+        Swal.fire('ข้อผิดพลาด', error.message, 'error');
       }
     }
 
@@ -1479,6 +1515,38 @@
       }
     }
 
+    
+    let currentViewSubjectId = null;
+
+    function viewSections(subjectId) {
+      currentViewSubjectId = subjectId;
+      const subject = subjectsList.find(s => s.id === subjectId);
+      if (subject) {
+          const titleEl = document.getElementById('classesViewTitle');
+          if(titleEl) titleEl.innerText = 'กลุ่มเรียน: ' + subject.code + ' ' + subject.name;
+      }
+      
+      const subjectsView = document.getElementById('subjectsViewContainer');
+      const classesView = document.getElementById('classesViewContainer');
+      if(subjectsView) subjectsView.classList.add('hidden');
+      if(classesView) classesView.classList.remove('hidden');
+      
+      renderClasses();
+    }
+
+    function backToSubjects() {
+      currentViewSubjectId = null;
+      const subjectsView = document.getElementById('subjectsViewContainer');
+      const classesView = document.getElementById('classesViewContainer');
+      if(classesView) classesView.classList.add('hidden');
+      if(subjectsView) subjectsView.classList.remove('hidden');
+    }
+
+    function openClassModalForSubject() {
+      openModal('classModal');
+      document.getElementById('classSubject').value = currentViewSubjectId;
+    }
+
     function renderSubjects() {
       const tbody = document.getElementById('subjectTableBody');
       if (!tbody) return;
@@ -1487,39 +1555,45 @@
         return;
       }
       tbody.innerHTML = subjectsList.map((s, index) => `
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="p-4 border-b font-medium">${s.code}</td>
+                <tr class="hover:bg-blue-50 transition cursor-pointer" onclick="viewSections('${s.id}')">
+                    <td class="p-4 border-b font-medium text-blue-600 hover:underline">${s.code}</td>
                     <td class="p-4 border-b">${s.name}</td>
-                    <td class="p-4 border-b text-center">${s.term}/${s.year}</td>
-                    <td class="p-4 border-b text-center">
-                        <button onclick="editSubject('${s.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-2 py-1 rounded-md mr-1 text-xs"><i class="fa-solid fa-pen"></i> แก้ไข</button>
-                        <button onclick="deleteSubject('${s.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-2 py-1 rounded-md text-xs"><i class="fa-solid fa-trash"></i> ลบ</button>
+                    <td class="p-4 border-b text-center">${s.year}/${s.term}</td>
+                    <td class="p-4 border-b text-center" onclick="event.stopPropagation()">
+                        <button onclick="editSubject('${s.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-3 py-1 rounded-lg mr-2"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteSubject('${s.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-3 py-1 rounded-lg"><i class="fa-solid fa-trash"></i></button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`).join('');
     }
 
     function renderClasses() {
       const tbody = document.getElementById('classTableBody');
       if (!tbody) return;
-      if (classesList.length === 0) {
+      
+      let filteredClasses = classesList;
+      if (currentViewSubjectId) {
+          filteredClasses = classesList.filter(c => c.subject === currentViewSubjectId);
+      }
+      
+      if (filteredClasses.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500 italic">ยังไม่มีข้อมูลกลุ่มเรียน</td></tr>`;
         return;
       }
-      tbody.innerHTML = classesList.map((c, index) => {
-        const subject = subjectsList.find(s => s.code === c.subject) || { name: c.subject };
+      
+      tbody.innerHTML = filteredClasses.map((c, index) => {
+        const subject = subjectsList.find(s => s.code === c.subject || s.id === c.subject) || { name: c.subject, code: c.subject };
         const sec = c.sec || c.code || '-';
         return `
                 <tr class="hover:bg-gray-50 transition">
                     <td class="p-4 border-b font-medium text-sm text-center">${index + 1}</td>
-                    <td class="p-4 border-b text-blue-600">${c.subject} - ${subject.name}</td>
+                    <td class="p-4 border-b text-blue-600">${subject.code || c.subject} - ${subject.name}</td>
                     <td class="p-4 border-b text-center">${sec}</td>
                     <td class="p-4 border-b text-center">
-                        <button onclick="editClass('${c.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-3 py-1 rounded-lg mr-2"><i class="fa-solid fa-pen"></i> แก้ไข</button>
-                        <button onclick="deleteClass('${c.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-3 py-1 rounded-lg"><i class="fa-solid fa-trash"></i> ลบ</button>
+                        <button onclick="editClass('${c.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-3 py-1 rounded-lg mr-2"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteClass('${c.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-3 py-1 rounded-lg"><i class="fa-solid fa-trash"></i></button>
                     </td>
-                </tr>
-            `}).join('');
+                </tr>`;
+      }).join('');
     }
 
     function renderStudents() {
@@ -1612,7 +1686,23 @@
       }).then(async (result) => {
         if (result.isConfirmed) {
           await dbService.deleteDoc('classes', id);
-          classesList = await dbService.getDocs('classes');
+          
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
           renderClasses();
           updateDashboardStats();
           updateSelectOptions();

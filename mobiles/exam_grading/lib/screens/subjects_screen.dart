@@ -5,8 +5,8 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 
-import '../models/class_model.dart';
 import '../models/subject_model.dart';
+import 'sections_screen.dart';
 
 class SubjectsScreen extends StatefulWidget {
   const SubjectsScreen({Key? key}) : super(key: key);
@@ -24,12 +24,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           .collection('users')
           .doc(_uid)
           .collection('subjects');
-
-  CollectionReference<Map<String, dynamic>> get _classesRef => FirebaseFirestore
-      .instance
-      .collection('users')
-      .doc(_uid)
-      .collection('classes');
 
   @override
   void initState() {
@@ -131,75 +125,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  void _showClassDialog([ClassModel? cls]) {
-    final secController = TextEditingController(text: cls?.sec);
-    String? selectedSubject = cls?.subject;
-    final isEdit = cls != null;
-
-    if (_subjects.isEmpty && !isEdit) {
-      _warn('กรุณาเพิ่มรายวิชาก่อนสร้างกลุ่มเรียน');
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return _SheetFrame(
-              title: isEdit ? 'แก้ไขกลุ่มเรียน' : 'เพิ่มกลุ่มเรียน',
-              children: [
-                _buildField('sec', secController, Icons.numbers),
-                const SizedBox(height: 16),
-                _buildSubjectDropdown(
-                  selectedSubject,
-                  (value) => setModalState(() => selectedSubject = value),
-                ),
-                const SizedBox(height: 28),
-                _buildSubmitButton(
-                  color: const Color(0xFF10B981),
-                  onPressed: () async {
-                    if (secController.text.isEmpty || selectedSubject == null) {
-                      _warn('กรุณากรอกข้อมูลให้ครบถ้วน');
-                      return;
-                    }
-
-                    final baseData = <String, dynamic>{
-                      'subject': selectedSubject!,
-                      'sec': secController.text,
-                    };
-
-                    if (isEdit) {
-                      await _classesRef.doc(cls.id).update({
-                        ...baseData,
-                        'code': FieldValue.delete(),
-                        'name': FieldValue.delete(),
-                        'time': FieldValue.delete(),
-                        'room': FieldValue.delete(),
-                      });
-                    } else {
-                      await _classesRef.add(baseData);
-                    }
-
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                    _success(
-                      isEdit
-                          ? 'แก้ไขกลุ่มเรียนสำเร็จ'
-                          : 'เพิ่มกลุ่มเรียนสำเร็จ',
-                    );
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildField(
     String label,
     TextEditingController controller,
@@ -240,54 +165,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  Widget _buildSubjectDropdown(String? value, ValueChanged<String?> onChanged) {
-    final normalizedValue =
-        _subjects.any((s) => s.code == value || s.id == value)
-        ? _subjects.firstWhere((s) => s.code == value || s.id == value).code
-        : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'รายวิชา',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: normalizedValue,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(
-              Icons.book,
-              color: Color(0xFF94A3B8),
-              size: 18,
-            ),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-          ),
-          items: _subjects
-              .map(
-                (subject) => DropdownMenuItem(
-                  value: subject.code,
-                  child: Text('${subject.code} ${subject.name}'),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-
   Widget _buildSubmitButton({
     required Color color,
     required VoidCallback onPressed,
@@ -320,7 +197,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       context: context,
       type: QuickAlertType.warning,
       title: 'ยืนยันการลบ',
-      text: 'คุณแน่ใจหรือไม่ที่จะลบรายวิชานี้?',
+      text:
+          'คุณแน่ใจหรือไม่ที่จะลบรายวิชานี้? กลุ่มเรียนในวิชานี้จะถูกลบไปด้วย',
       confirmBtnText: 'ลบ',
       cancelBtnText: 'ยกเลิก',
       showCancelBtn: true,
@@ -331,25 +209,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
         await _fetchSubjects();
         if (!mounted) return;
         _success('ลบรายวิชาเรียบร้อยแล้ว');
-      },
-    );
-  }
-
-  void _deleteClass(String id) {
-    QuickAlert.show(
-      context: context,
-      type: QuickAlertType.warning,
-      title: 'ยืนยันการลบ',
-      text: 'คุณแน่ใจหรือไม่ที่จะลบกลุ่มเรียนนี้?',
-      confirmBtnText: 'ลบ',
-      cancelBtnText: 'ยกเลิก',
-      showCancelBtn: true,
-      confirmBtnColor: Colors.red,
-      onConfirmBtnTap: () async {
-        Navigator.pop(context);
-        await _classesRef.doc(id).delete();
-        if (!mounted) return;
-        _success('ลบกลุ่มเรียนเรียบร้อยแล้ว');
       },
     );
   }
@@ -373,80 +232,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF2563EB),
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (context) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.menu_book,
-                          color: Color(0xFF2563EB),
-                        ),
-                      ),
-                      title: const Text(
-                        'เพิ่มรายวิชา',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _showSubjectDialog();
-                      },
-                    ),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.group_add_outlined,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                      title: const Text(
-                        'เพิ่มกลุ่มเรียน',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _showClassDialog();
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+        onPressed: () => _showSubjectDialog(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: CustomScrollView(
@@ -458,7 +244,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             backgroundColor: const Color(0xFF2563EB),
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(
-                'รายวิชาและกลุ่มเรียน',
+                'รายวิชาทั้งหมด',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -490,20 +276,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
           ),
           _buildSubjectsSection(),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-              child: Text(
-                'กลุ่มเรียน',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ),
-          ),
-          _buildClassesSection(),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -549,195 +321,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  Widget _buildClassesSection() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _uid.isNotEmpty ? _classesRef.snapshots() : const Stream.empty(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: SpinKitCircle(color: Color(0xFF10B981), size: 36),
-              ),
-            ),
-          );
-        }
-
-        final classes = (snapshot.data?.docs ?? [])
-            .map((doc) => ClassModel.fromMap(doc.id, doc.data()))
-            .toList();
-
-        if (classes.isEmpty) {
-          return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Center(
-                child: Text(
-                  'ยังไม่มีข้อมูลกลุ่มเรียน',
-                  style: TextStyle(color: Color(0xFF64748B)),
-                ),
-              ),
-            ),
-          );
-        }
-
-        return SliverToBoxAdapter(child: _buildClassesTable(classes));
-      },
-    );
-  }
-
-  Widget _buildClassesTable(List<ClassModel> classes) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(2),
-              1: FlexColumnWidth(1),
-              2: IntrinsicColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: [
-              TableRow(
-                decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'รายวิชา',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'กลุ่ม',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'จัดการ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              ...classes.map((cls) {
-                final subject = _findSubject(cls.subject);
-                return TableRow(
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            subject?.code ?? cls.subject,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          if (subject != null)
-                            Text(
-                              subject.name,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        cls.sec.isEmpty ? '-' : cls.sec,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            color: Color(0xFF2563EB),
-                            size: 16,
-                          ),
-                          onPressed: () => _showClassDialog(cls),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          icon: const Icon(
-                            FontAwesomeIcons.trashCan,
-                            color: Color(0xFFEF4444),
-                            size: 16,
-                          ),
-                          onPressed: () => _deleteClass(cls.id),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                    ),
-                  ],
-                );
-              }).toList(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  SubjectModel? _findSubject(String subjectRef) {
-    for (final subject in _subjects) {
-      if (subject.code == subjectRef || subject.id == subjectRef) {
-        return subject;
-      }
-    }
-    return null;
-  }
-
   Widget _buildSubjectsTable(List<SubjectModel> subjects) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -766,8 +349,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             children: [
               TableRow(
                 decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
-                children: [
-                  const Padding(
+                children: const [
+                  Padding(
                     padding: EdgeInsets.all(12),
                     child: Text(
                       'รายวิชา',
@@ -778,7 +361,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       ),
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(12),
                     child: Text(
                       'ปี/เทอม',
@@ -789,7 +372,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       ),
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(12),
                     child: Text(
                       'จัดการ',
@@ -808,27 +391,41 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
                   ),
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            subject.code,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF1E293B),
-                            ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                SectionsScreen(subject: subject),
                           ),
-                          Text(
-                            subject.name,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF64748B),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              subject.code,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF1E293B),
+                              ),
                             ),
-                          ),
-                        ],
+                            Text(
+                              subject.name,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(
+                                  0xFF2563EB,
+                                ), // Make it look clickable
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Padding(
@@ -924,7 +521,7 @@ class _SheetFrame extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ...children,
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
           ],
         ),
       ),

@@ -948,7 +948,23 @@
 
           async function initData() {
             subjectsList = await dbService.getDocs('subjects');
-            classesList = await dbService.getDocs('classes');
+            
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
             studentsList = await dbService.getDocs('students');
             exams = await dbService.getDocs('exams');
             resultsList = await dbService.getDocs('results');
@@ -1403,7 +1419,23 @@
               if (id) await dbService.updateDoc('classes', id, data);
               else await dbService.addDoc('classes', data);
               closeModal('classModal');
-              classesList = await dbService.getDocs('classes');
+              
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
               renderClasses();
               updateDashboardStats();
               updateSelectOptions();
@@ -1569,7 +1601,23 @@
             }).then(async (result) => {
               if (result.isConfirmed) {
                 await dbService.deleteDoc('classes', id);
-                classesList = await dbService.getDocs('classes');
+                
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
                 renderClasses();
                 updateDashboardStats();
                 updateSelectOptions();

@@ -5,7 +5,18 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../models/student_model.dart';
-import '../models/class_model.dart';
+
+class SectionOption {
+  final String id;
+  final String subjectCode;
+  final String sec;
+  final String subjectId;
+  final String sectionId;
+
+  SectionOption(this.id, this.subjectCode, this.sec, this.subjectId, this.sectionId);
+
+  String get displayName => '$subjectCode - $sec';
+}
 
 class StudentsScreen extends StatefulWidget {
   const StudentsScreen({Key? key}) : super(key: key);
@@ -16,36 +27,48 @@ class StudentsScreen extends StatefulWidget {
 
 class _StudentsScreenState extends State<StudentsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-  List<ClassModel> _classes = [];
-  String? _filterClassId;
+  List<SectionOption> _sections = [];
+  String? _filterSectionId;
 
   @override
   void initState() {
     super.initState();
-    _fetchClasses();
+    _fetchSections();
   }
 
-  Future<void> _fetchClasses() async {
+  Future<void> _fetchSections() async {
     if (_uid.isEmpty) return;
-    final snapshot = await FirebaseFirestore.instance
+    
+    final subjectsSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(_uid)
-        .collection('classes')
+        .collection('subjects')
         .get();
+
+    List<SectionOption> options = [];
+    for (var subjectDoc in subjectsSnapshot.docs) {
+      final subjectCode = subjectDoc.data()['code'] ?? '';
+      final sectionsSnapshot = await subjectDoc.reference.collection('sections').get();
+      for (var sectionDoc in sectionsSnapshot.docs) {
+        final sec = sectionDoc.data()['sec'] ?? '';
+        final id = '${subjectDoc.id}_${sectionDoc.id}'; // Unique ID for dropdown
+        options.add(SectionOption(id, subjectCode, sec, subjectDoc.id, sectionDoc.id));
+      }
+    }
+    
+    if (!mounted) return;
     setState(() {
-      _classes = snapshot.docs
-          .map((doc) => ClassModel.fromMap(doc.id, doc.data()))
-          .toList();
+      _sections = options;
     });
   }
 
   void _showStudentDialog([StudentModel? student]) {
     final codeController = TextEditingController(text: student?.code);
     final nameController = TextEditingController(text: student?.name);
-    String? selectedClassId = student?.className;
+    String? selectedSectionId = student?.className;
     final isEdit = student != null;
 
-    if (_classes.isEmpty && !isEdit) {
+    if (_sections.isEmpty && !isEdit) {
       QuickAlert.show(
         context: context,
         type: QuickAlertType.warning,
@@ -116,9 +139,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     const SizedBox(height: 16),
                     _buildDropdownField(
                       'กลุ่มเรียน',
-                      selectedClassId,
-                      _classes,
-                      (val) => setModalState(() => selectedClassId = val),
+                      selectedSectionId,
+                      _sections,
+                      (val) => setModalState(() => selectedSectionId = val),
                     ),
                     const SizedBox(height: 28),
                     Container(
@@ -141,7 +164,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         onPressed: () async {
                           if (codeController.text.isEmpty ||
                               nameController.text.isEmpty ||
-                              selectedClassId == null) {
+                              selectedSectionId == null) {
                             QuickAlert.show(
                               context: context,
                               type: QuickAlertType.warning,
@@ -153,7 +176,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           final data = {
                             'code': codeController.text,
                             'name': nameController.text,
-                            'class': selectedClassId,
+                            'class': selectedSectionId,
                           };
 
                           if (isEdit) {
@@ -254,7 +277,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
   Widget _buildDropdownField(
     String label,
     String? value,
-    List<ClassModel> classes,
+    List<SectionOption> sections,
     ValueChanged<String?> onChanged,
   ) {
     return Column(
@@ -286,12 +309,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            value: classes.any((c) => c.id == value) ? value : null,
-            items: classes
+            value: sections.any((s) => s.id == value) ? value : null,
+            items: sections
                 .map(
-                  (c) => DropdownMenuItem(
-                    value: c.id,
-                    child: Text('กลุ่ม ${c.code}'),
+                  (s) => DropdownMenuItem(
+                    value: s.id,
+                    child: Text(s.displayName),
                   ),
                 )
                 .toList(),
@@ -417,20 +440,20 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(horizontal: 12),
                       ),
-                      value: _filterClassId,
+                      value: _filterSectionId,
                       items: [
                         const DropdownMenuItem(
                           value: null,
                           child: Text('แสดงทั้งหมด'),
                         ),
-                        ..._classes.map(
-                          (c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text('กลุ่ม ${c.code}'),
+                        ..._sections.map(
+                          (s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.displayName),
                           ),
                         ),
                       ],
-                      onChanged: (val) => setState(() => _filterClassId = val),
+                      onChanged: (val) => setState(() => _filterSectionId = val),
                       style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF1E293B),
@@ -459,12 +482,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
               }
 
               var docs = snapshot.data?.docs ?? [];
-              if (_filterClassId != null) {
+              if (_filterSectionId != null) {
                 docs = docs
                     .where(
                       (doc) =>
                           (doc.data() as Map<String, dynamic>)['class'] ==
-                          _filterClassId,
+                          _filterSectionId,
                     )
                     .toList();
               }
@@ -503,16 +526,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       docs[index].id,
                       docs[index].data() as Map<String, dynamic>,
                     );
-                    final className = _classes
-                        .firstWhere(
-                          (c) => c.id == student.className,
-                          orElse: () => ClassModel(
-                            id: '',
-                            code: 'ไม่ทราบ',
-                            subject: '',
-                          ),
-                        )
-                        .code;
+                    
+                    String className = 'ไม่ทราบ';
+                    try {
+                      final section = _sections.firstWhere((s) => s.id == student.className);
+                      className = section.displayName;
+                    } catch (e) {
+                      // ignore
+                    }
+
                     return _buildStudentCard(student, className);
                   }, childCount: docs.length),
                 ),
