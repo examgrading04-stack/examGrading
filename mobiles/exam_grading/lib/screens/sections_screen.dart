@@ -17,7 +17,7 @@ class SectionsScreen extends StatefulWidget {
 }
 
 class _SectionsScreenState extends State<SectionsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<SectionModel> _sections = [];
 
   void _showSectionDialog([SectionModel? section]) {
@@ -133,7 +133,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                   .collection('subjects')
                                   .doc(widget.subject.id)
                                   .collection('sections')
-                                  .add(data);
+                                  .doc(secController.text.trim()).set(data);
                             }
 
                             if (!mounted) return;

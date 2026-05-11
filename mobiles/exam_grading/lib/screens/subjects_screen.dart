@@ -16,7 +16,7 @@ class SubjectsScreen extends StatefulWidget {
 }
 
 class _SubjectsScreenState extends State<SubjectsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<SubjectModel> _subjects = [];
 
   CollectionReference<Map<String, dynamic>> get _subjectsRef =>
@@ -110,7 +110,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 if (isEdit) {
                   await _subjectsRef.doc(subject.id).update(data);
                 } else {
-                  await _subjectsRef.add(data);
+                  await _subjectsRef.doc(code).set(data);
                 }
 
                 await _fetchSubjects();

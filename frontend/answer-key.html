@@ -652,7 +652,7 @@
 
         // Update Firestore User Document
         if (useFirebase) {
-          await db.collection('users').doc(currentUser.uid).set({
+          await db.collection('users').doc(currentUser.email).set({
             displayName,
             photoURL,
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -857,35 +857,42 @@
     // --------------------------------------------------------
     // Database Service (Cloud Firestore)
     // --------------------------------------------------------
-    const dbService = {
-      async getDocs(collectionName) {
-        if (currentUser) {
-          const snapshot = await db.collection('users').doc(currentUser.uid).collection(collectionName).get();
-          return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        }
-        return [];
-      },
-      async addDoc(collectionName, data) {
-        if (currentUser) {
-          const docRef = await db.collection('users').doc(currentUser.uid).collection(collectionName).add(data);
-          return docRef.id;
-        }
-        throw new Error("Authentication required to save data.");
-      },
-      async updateDoc(collectionName, id, data) {
-        if (currentUser) {
-          await db.collection('users').doc(currentUser.uid).collection(collectionName).doc(id).update(data);
-        } else {
-          throw new Error("Authentication required to update data.");
-        }
-      },
-      async deleteDoc(collectionName, id) {
-        if (currentUser) {
-          await db.collection('users').doc(currentUser.uid).collection(collectionName).doc(id).delete();
-        } else {
-          throw new Error("Authentication required to delete data.");
-        }
-      }
+        const dbService = {
+    async getDocs(collectionName) {
+    if (currentUser && currentUser.email) {
+    const snapshot = await db.collection('users').doc(currentUser.email).collection(collectionName).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    return [];
+    },
+    async addDoc(collectionName, data) {
+    if (currentUser && currentUser.email) {
+    const docRef = await db.collection('users').doc(currentUser.email).collection(collectionName).add(data);
+    return docRef.id;
+    }
+    throw new Error("Authentication required to save data.");
+    },
+    async setDocWithId(collectionName, customId, data) {
+    if (currentUser && currentUser.email) {
+    await db.collection('users').doc(currentUser.email).collection(collectionName).doc(customId).set(data);
+    return customId;
+    }
+    throw new Error("Authentication required to save data.");
+    },
+    async updateDoc(collectionName, id, data) {
+    if (currentUser && currentUser.email) {
+    await db.collection('users').doc(currentUser.email).collection(collectionName).doc(id).update(data);
+    } else {
+    throw new Error("Authentication required to update data.");
+    }
+    },
+    async deleteDoc(collectionName, id) {
+    if (currentUser && currentUser.email) {
+    await db.collection('users').doc(currentUser.email).collection(collectionName).doc(id).delete();
+    } else {
+    throw new Error("Authentication required to delete data.");
+    }
+    }
     };
 
     // Global State variables based on new dbService
@@ -966,7 +973,7 @@
       let allSections = [];
       if (subjectsList && subjectsList.length > 0) {
         for (const subject of subjectsList) {
-          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
           sectionsSnap.forEach(doc => {
             allSections.push({ 
               id: subject.id + '_' + doc.id, 
@@ -993,7 +1000,7 @@
       // Legacy fallback: migrate old users/{uid}/answerKeys docs into exams/{examId}.answerKey.
       if (currentUser) {
         try {
-          const akSnapshot = await db.collection('users').doc(currentUser.uid).collection('answerKeys').get();
+          const akSnapshot = await db.collection('users').doc(currentUser.email).collection('answerKeys').get();
           for (const doc of akSnapshot.docs) {
             const legacyKey = doc.data().data || {};
             if (!answerKeys[doc.id] || Object.keys(answerKeys[doc.id]).length === 0) {
@@ -1425,7 +1432,7 @@
           teacher: document.getElementById('subjectTeacher').value
         };
         if (id) await dbService.updateDoc('subjects', id, data);
-        else await dbService.addDoc('subjects', data);
+        else await dbService.setDocWithId('subjects', data.code, data);
         closeModal('subjectModal');
         subjectsList = await dbService.getDocs('subjects');
         renderSubjects();
@@ -1439,23 +1446,24 @@
     }
 
     async function saveClass(e) {
-      e.preventDefault();
-      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    e.preventDefault();
+    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      try {
-        const id = document.getElementById('classId').value;
-        const data = {
-                                code: document.getElementById('classCode').value,
-                                subject: document.getElementById('classSubject').value
-                            };
-        if (id) await dbService.updateDoc('classes', id, data);
-        else await dbService.addDoc('classes', data);
-        closeModal('classModal');
+    try {
+    const id = document.getElementById('classId').value;
+    const subjectId = document.getElementById('classSubject').value;
+    const data = {
+    subject: subjectId,
+    sec: document.getElementById('classCode').value
+    };
+    if (id) await dbService.updateDoc(`subjects/${subjectId}/sections`, id, data);
+    else await dbService.setDocWithId(`subjects/${subjectId}/sections`, data.sec, data);
+    closeModal('classModal');
         
       let allSections = [];
       if (subjectsList && subjectsList.length > 0) {
         for (const subject of subjectsList) {
-          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
           sectionsSnap.forEach(doc => {
             allSections.push({ 
               id: subject.id + '_' + doc.id, 
@@ -1585,7 +1593,7 @@
     function editClass(id) {
             const classData = classesList.find(c => c.id === id);
             if (!classData) return;
-            document.getElementById('classId').value = classData.id;
+            document.getElementById('classId').value = classData.realId || classData.id;
             document.getElementById('classCode').value = classData.code || '';
             document.getElementById('classSubject').value = classData.subject || '';
             openModal('classModal');
@@ -1624,23 +1632,25 @@
     }
 
     function deleteClass(id) {
-      Swal.fire({
-        title: 'คุณแน่ใจหรือไม่?',
-        text: 'คุณต้องการลบกลุ่มเรียนนี้ใช่หรือไม่?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'ใช่, ลบเลย!',
-        cancelButtonText: 'ยกเลิก'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          await dbService.deleteDoc('classes', id);
+    const classData = classesList.find(c => c.id === id);
+    if (!classData) return;
+    Swal.fire({
+    title: 'คุณแน่ใจหรือไม่?',
+    text: 'คุณต้องการลบกลุ่มเรียนนี้ใช่หรือไม่?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'ใช่, ลบเลย!',
+    cancelButtonText: 'ยกเลิก'
+    }).then(async (result) => {
+    if (result.isConfirmed) {
+    await dbService.deleteDoc(`subjects/${classData.subject}/sections`, classData.realId || classData.id);
           
       let allSections = [];
       if (subjectsList && subjectsList.length > 0) {
         for (const subject of subjectsList) {
-          const sectionsSnap = await db.collection('users').doc(currentUser.uid).collection('subjects').doc(subject.id).collection('sections').get();
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
           sectionsSnap.forEach(doc => {
             allSections.push({ 
               id: subject.id + '_' + doc.id, 

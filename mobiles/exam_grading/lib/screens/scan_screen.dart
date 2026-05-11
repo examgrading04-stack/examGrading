@@ -45,7 +45,7 @@ class _ScanScreenState extends State<ScanScreen> {
     });
 
     try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final uid = FirebaseAuth.instance.currentUser!.email;
       final fileName = DateTime.now().millisecondsSinceEpoch.toString();
       final storageRef = FirebaseStorage.instance.ref().child(
         'users/$uid/scans/$fileName.jpg',

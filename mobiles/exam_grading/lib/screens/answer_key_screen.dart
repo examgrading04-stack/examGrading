@@ -16,7 +16,7 @@ class AnswerKeyScreen extends StatefulWidget {
 }
 
 class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   // Map<SetIndex, Map<QuestionNumber, AnswerLetter>>
   // e.g. { '0': { '1': 'A', '2': 'C' } }
   Map<String, Map<String, String>> _answerKeys = {};

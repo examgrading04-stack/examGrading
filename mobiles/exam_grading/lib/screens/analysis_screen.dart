@@ -13,7 +13,7 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   bool _isLoading = true;

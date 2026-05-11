@@ -26,7 +26,7 @@ class StudentsScreen extends StatefulWidget {
 }
 
 class _StudentsScreenState extends State<StudentsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<SectionOption> _sections = [];
   String? _filterSectionId;
 

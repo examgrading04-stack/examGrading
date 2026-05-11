@@ -16,7 +16,7 @@ class ExamsScreen extends StatefulWidget {
 }
 
 class _ExamsScreenState extends State<ExamsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<SubjectModel> _subjects = [];
 
   @override
@@ -214,7 +214,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 .collection('users')
                                 .doc(_uid)
                                 .collection('exams')
-                                .add(data);
+                                .doc('${selectedSubject!.id}_${nameController.text.trim()}').set(data);
                           }
 
                           if (!mounted) return;

@@ -9,7 +9,7 @@ class ResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.email ?? '';
 
     return Scaffold(
       backgroundColor: Colors.white,
