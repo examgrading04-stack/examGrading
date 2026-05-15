@@ -1,9 +1,13 @@
 ﻿import 'dart:convert';
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
 
@@ -117,19 +121,29 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           );
 
       if (response.statusCode == 200) {
-        // Save temp PDF and open
+        final file = await _savePdf(response.bodyBytes);
+        final openResult = await OpenFilex.open(
+          file.path,
+          type: 'application/pdf',
+        );
+
         if (!mounted) return;
         QuickAlert.show(
           context: context,
-          type: QuickAlertType.success,
-          title: 'สร้าง PDF สำเร็จ',
-          text: 'กระดาษคำตอบสำหรับ ${_students.length} คนพร้อมแล้ว',
+          type: openResult.type == ResultType.done
+              ? QuickAlertType.success
+              : QuickAlertType.warning,
+          title: openResult.type == ResultType.done
+              ? 'เปิด PDF แล้ว'
+              : 'บันทึก PDF แล้ว',
+          text: openResult.type == ResultType.done
+              ? 'กระดาษคำตอบสำหรับ ${_students.length} คนพร้อมใช้งาน'
+              : 'ไฟล์ถูกบันทึกไว้ที่ ${file.path}\n${openResult.message}',
           confirmBtnText: 'ตกลง',
           confirmBtnColor: const Color(0xFF2563EB),
         );
       } else {
-        final body = json.decode(response.body);
-        throw Exception(body['detail'] ?? 'เกิดข้อผิดพลาด');
+        throw Exception(_errorMessage(response));
       }
     } catch (e) {
       if (!mounted) return;
@@ -142,6 +156,45 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
+  }
+
+  Future<File> _savePdf(List<int> bytes) async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final outputDir = Directory('${documentsDir.path}/answer_sheets');
+    if (!await outputDir.exists()) {
+      await outputDir.create(recursive: true);
+    }
+
+    final examName = _safeFileName(
+      widget.exam.name.isNotEmpty ? widget.exam.name : widget.exam.id,
+    );
+    final subjectCode = _safeFileName(widget.subject.code);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final file = File(
+      '${outputDir.path}/${examName}_${subjectCode}_answer_sheets_$timestamp.pdf',
+    );
+
+    return file.writeAsBytes(bytes, flush: true);
+  }
+
+  String _safeFileName(String value) {
+    final cleaned = value
+        .trim()
+        .replaceAll(RegExp(r'[\\/:*?"<>|]+'), '_')
+        .replaceAll(RegExp(r'\s+'), '_');
+    return cleaned.isEmpty ? 'exam' : cleaned;
+  }
+
+  String _errorMessage(http.Response response) {
+    try {
+      final body = json.decode(utf8.decode(response.bodyBytes));
+      if (body is Map && body['detail'] != null) {
+        return body['detail'].toString();
+      }
+    } catch (_) {
+      // Fall back to the plain response body below.
+    }
+    return 'เกิดข้อผิดพลาด (${response.statusCode}): ${response.body}';
   }
 
   @override

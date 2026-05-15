@@ -24,6 +24,13 @@ class ApiConfig {
   }
 
   static String _normalize(String url) {
-    return url.trim().replaceFirst(RegExp(r'/+$'), '');
+    final trimmed = url.trim();
+    if (trimmed.startsWith('FASTAPI_URL=')) {
+      return trimmed
+          .replaceFirst('FASTAPI_URL=', '')
+          .trim()
+          .replaceFirst(RegExp(r'/+$'), '');
+    }
+    return trimmed.replaceFirst(RegExp(r'/+$'), '');
   }
 }

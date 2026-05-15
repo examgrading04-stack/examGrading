@@ -17,11 +17,18 @@ TEMPLATE_MAP = {
 }
 
 DEFAULT_TEXT_POSITIONS = {
-    "subject_code": (300, 260),
-    "subject_name": (300, 320),
-    "student_id": (300, 400),
+    "subject_code": (300, 248),
+    "subject_name": (300, 312),
+    "student_id": (300, 396),
     "student_name": (300, 470),
-    "exam_date": (300, 530),
+    "exam_date": (300, 536),
+}
+TEXT_MAX_WIDTHS = {
+    "subject_code": 520,
+    "subject_name": 760,
+    "student_id": 520,
+    "student_name": 760,
+    "exam_date": 520,
 }
 DEFAULT_QR_POSITION = (900, 250)
 
@@ -36,14 +43,48 @@ def _nearest_supported_question_count(total_questions: int) -> int:
 
 def _default_font_path() -> str:
     candidates = [
+        os.getenv("THAI_FONT_PATH", ""),
         "C:/Windows/Fonts/tahoma.ttf",
+        "C:/Windows/Fonts/tahomabd.ttf",
         "C:/Windows/Fonts/THSarabunNew.ttf",
+        "/usr/share/fonts/truetype/tlwg/Garuda.ttf",
+        "/usr/share/fonts/truetype/tlwg/Garuda-Bold.ttf",
+        "/usr/share/fonts/truetype/tlwg/Loma.ttf",
+        "/usr/share/fonts/truetype/tlwg/TlwgTypist.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for candidate in candidates:
         if os.path.exists(candidate):
             return candidate
     return ""
+
+
+def _load_font(size: int, font_path: str | None = None) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    try:
+        return ImageFont.truetype(font_path or _default_font_path(), size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def _draw_fitted_text(
+    draw: ImageDraw.ImageDraw,
+    position: tuple[int, int],
+    text: str,
+    font_path: str | None,
+    base_size: int,
+    max_width: int,
+) -> None:
+    font_size = base_size
+    font = _load_font(font_size, font_path)
+
+    while font_size > 28:
+        bbox = draw.textbbox(position, text, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            break
+        font_size -= 2
+        font = _load_font(font_size, font_path)
+
+    draw.text(position, text, font=font, fill=(0, 0, 0))
 
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
@@ -72,7 +113,7 @@ def create_single_sheet_image(
     qr_position: tuple[int, int] = DEFAULT_QR_POSITION,
     text_positions: dict = DEFAULT_TEXT_POSITIONS,
     font_path: str | None = None,
-    font_size: int = 30,
+    font_size: int = 46,
 ) -> Image.Image:
     """Create one answer-sheet image from normalized sheet payload."""
     total_questions = int(sheet_payload.get("total_questions") or 50)
@@ -99,15 +140,18 @@ def create_single_sheet_image(
     template_img.paste(qr_img, qr_position)
 
     draw = ImageDraw.Draw(template_img)
-    try:
-        font = ImageFont.truetype(font_path or _default_font_path(), font_size)
-    except OSError:
-        font = ImageFont.load_default()
 
     for key, (x, y) in text_positions.items():
         value = sheet_payload.get(key)
-        if value is not None:
-            draw.text((x, y), str(value), font=font, fill=(0, 0, 0))
+        if value:
+            _draw_fitted_text(
+                draw,
+                (x, y),
+                str(value),
+                font_path,
+                font_size,
+                TEXT_MAX_WIDTHS.get(key, 720),
+            )
 
     return template_img
 
