@@ -1,0 +1,165 @@
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --accent: #10b981;
+}
+
+body {
+  font-family: "Inter", "IBM Plex Sans Thai", sans-serif;
+  background-color: #f8fafc;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.page-enter {
+  animation: slideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sidebar-menu {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 4px solid transparent;
+}
+
+.sidebar-menu:hover {
+  background-color: rgba(37, 99, 235, 0.05);
+  color: var(--primary);
+}
+
+.sidebar-menu.active {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
+  border-left-color: var(--primary);
+  font-weight: 700;
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.28);
+}
+
+.omr-page {
+  font-family: "Sarabun", sans-serif;
+}
+
+.omr-columns-2 {
+  column-count: 2;
+  column-gap: 2rem;
+}
+
+.omr-columns-4 {
+  column-count: 4;
+  column-gap: 1.2rem;
+}
+
+.answer-sheet {
+  width: 210mm;
+  height: 297mm;
+  background: white;
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.mark-corner {
+  position: absolute;
+  width: 10mm;
+  height: 10mm;
+  background: black;
+  z-index: 10;
+}
+
+.mark-tl {
+  top: 6mm;
+  left: 6mm;
+}
+
+.mark-tr {
+  top: 6mm;
+  right: 6mm;
+}
+
+.mark-bl {
+  bottom: 6mm;
+  left: 6mm;
+}
+
+.mark-br {
+  bottom: 6mm;
+  right: 6mm;
+}
+
+.barcode-area {
+  position: absolute;
+  bottom: 6mm;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 10mm;
+  display: flex;
+  align-items: stretch;
+  gap: 2mm;
+  z-index: 10;
+}
+
+.sheet-content {
+  position: absolute;
+  top: 22mm;
+  bottom: 28mm;
+  left: 22mm;
+  right: 22mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-bubbles {
+  flex: 1;
+  min-height: 0;
+  border: 2px solid black;
+  padding: 4px 6px;
+  overflow: hidden;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  body {
+    background: white;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .sheet-preview-wrapper {
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .answer-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+  }
+}

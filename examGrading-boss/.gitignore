@@ -1,0 +1,65 @@
+# ── Node / npm ──────────────────────────────
+node_modules/
+package-lock.json
+
+# ── Frontend build output ────────────────────
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+
+# ── Python ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# ── Virtual environments ─────────────────────
+.venv/
+venv/
+env/
+.env/
+
+# ── Environment / secrets ────────────────────
+.env
+.env.local
+.env.*.local
+serviceAccountKey.json
+backend/serviceAccountKey.json
+
+# ── IDE / Editor ─────────────────────────────
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# ── OS ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ─────────────────────────────────────
+*.log
+npm-debug.log*
+pip-*.log
+tmp/
+
+# ── Test / Coverage ──────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Jupyter ──────────────────────────────────
+.ipynb_checkpoints/
+
+# ── OMR debug images (generated) ─────────────
+*_diag_*.jpg
+*_debug_*.jpg

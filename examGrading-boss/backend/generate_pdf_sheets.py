@@ -1,0 +1,165 @@
+import os
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+
+from generate_qr import build_qr_payload, generate_qr_with_border
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE_MAP = {
+    30: BASE_DIR / "templates" / "template_30q.png",
+    50: BASE_DIR / "templates" / "template_50q.png",
+    100: BASE_DIR / "templates" / "template_100q.png",
+}
+
+DEFAULT_TEXT_POSITIONS = {
+    "subject_code": (300, 260),
+    "subject_name": (300, 320),
+    "student_id": (300, 400),
+    "student_name": (300, 470),
+    "exam_date": (300, 530),
+}
+DEFAULT_QR_POSITION = (900, 250)
+
+
+def _nearest_supported_question_count(total_questions: int) -> int:
+    if total_questions <= 30:
+        return 30
+    if total_questions <= 50:
+        return 50
+    return 100
+
+
+def _default_font_path() -> str:
+    candidates = [
+        "C:/Windows/Fonts/tahoma.ttf",
+        "C:/Windows/Fonts/THSarabunNew.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return ""
+
+
+def build_sheet_payload(exam: dict, student: dict) -> dict:
+    """Normalize Firestore exam/student docs into the QR/text payload used by the OMR scanner."""
+    subject_code = exam.get("subject") or exam.get("subjectCode") or exam.get("code") or ""
+    student_doc_id = student.get("id") or student.get("docId") or ""
+    student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or ""
+    exam_id = exam.get("id") or exam.get("examId") or ""
+
+    return {
+        "subject_code": subject_code,
+        "subject_name": exam.get("subjectName") or exam.get("subject_name") or "",
+        "student_id": student_code,
+        "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
+        "exam_date": exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
+        "total_questions": int(exam.get("questions") or exam.get("total_questions") or 50),
+        "sheet_id": f"{exam_id}:{student_doc_id or student_code}",
+        "exam_id": exam_id,
+        "student_doc_id": student_doc_id,
+    }
+
+
+def create_single_sheet_image(
+    sheet_payload: dict,
+    template_path: str | Path | None = None,
+    qr_position: tuple[int, int] = DEFAULT_QR_POSITION,
+    text_positions: dict = DEFAULT_TEXT_POSITIONS,
+    font_path: str | None = None,
+    font_size: int = 30,
+) -> Image.Image:
+    """Create one answer-sheet image from normalized sheet payload."""
+    total_questions = int(sheet_payload.get("total_questions") or 50)
+    template_key = _nearest_supported_question_count(total_questions)
+    resolved_template = Path(template_path) if template_path else TEMPLATE_MAP[template_key]
+
+    if not resolved_template.exists():
+        raise FileNotFoundError(f"Template not found: {resolved_template}")
+
+    template_img = Image.open(resolved_template).convert("RGB")
+    payload_str = build_qr_payload(
+        subject_code=sheet_payload.get("subject_code", ""),
+        subject_name=sheet_payload.get("subject_name", ""),
+        student_id=sheet_payload.get("student_id", ""),
+        student_name=sheet_payload.get("student_name", ""),
+        exam_date=sheet_payload.get("exam_date", ""),
+        total_questions=total_questions,
+        sheet_id=sheet_payload.get("sheet_id", ""),
+    )
+
+    qr_np_array = generate_qr_with_border(payload_str, target_px=180, border=8)
+    qr_img = Image.fromarray(qr_np_array.astype(np.uint8)).convert("RGB")
+    qr_img = qr_img.resize((370, 370))
+    template_img.paste(qr_img, qr_position)
+
+    draw = ImageDraw.Draw(template_img)
+    try:
+        font = ImageFont.truetype(font_path or _default_font_path(), font_size)
+    except OSError:
+        font = ImageFont.load_default()
+
+    for key, (x, y) in text_positions.items():
+        value = sheet_payload.get(key)
+        if value is not None:
+            draw.text((x, y), str(value), font=font, fill=(0, 0, 0))
+
+    return template_img
+
+
+def generate_pdf_for_students(
+    exam: dict,
+    students: list[dict],
+    output_path: str | Path | None = None,
+) -> str:
+    """Generate a multi-page PDF for the selected exam and students. Returns the PDF path."""
+    if not students:
+        raise ValueError("students is required")
+
+    pages = []
+    for student in students:
+        payload = build_sheet_payload(exam, student)
+        pages.append(create_single_sheet_image(payload))
+
+    if output_path is None:
+        safe_exam_id = exam.get("id") or exam.get("examId") or "exam"
+        output_path = Path(tempfile.gettempdir()) / f"{safe_exam_id}_answer_sheets.pdf"
+    else:
+        output_path = Path(output_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pages[0].save(
+        output_path,
+        "PDF",
+        resolution=100.0,
+        save_all=True,
+        append_images=pages[1:],
+    )
+    return str(output_path)
+
+
+def generate_pdf_for_all_students():
+    """Demo runner for local testing only."""
+    exam = {
+        "id": "demo-exam",
+        "name": "Midterm",
+        "subject": "CS101",
+        "subjectName": "วิทยาการคอมพิวเตอร์",
+        "questions": 50,
+        "date": "2026-05-15",
+    }
+    students = [
+        {"id": "s1", "code": "66010001", "name": "สมชาย ใจดี"},
+        {"id": "s2", "code": "66010002", "name": "สมหญิง รักเรียน"},
+    ]
+    pdf_path = generate_pdf_for_students(exam, students, "all_students_exam_sheets.pdf")
+    print(f"สร้าง PDF สำเร็จ: {pdf_path}")
+
+
+if __name__ == "__main__":
+    generate_pdf_for_all_students()
