@@ -1,120 +1,356 @@
-import { useState } from "react";
-import { API_BASE_URL, DataTable, Field, GhostButton, Icon, Input, PrimaryButton, Select, Swal, formatThaiDate } from "../ui.jsx";
+import { useState, useEffect } from "react";
+import {
+  API_BASE_URL,
+  DataTable,
+  Field,
+  GhostButton,
+  Icon,
+  Input,
+  PrimaryButton,
+  Select,
+  Swal,
+  formatThaiDate,
+} from "../ui.jsx";
 import { AnswerSheet } from "./AnswerSheet.jsx";
 
 export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
-  const [form, setForm] = useState({ subject: "", name: "", questions: 50 });
+  const [form, setForm] = useState({ subject: "", section: "", name: "", questions: 50 });
   const [preview, setPreview] = useState(null);
+  const [sheetModal, setSheetModal] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (sheetModal || preview) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => { document.body.style.overflow = "unset"; };
+  }, [sheetModal, preview]);
+
+  // Template label logic
+  function getTemplateInfo(q) {
+    const num = Number(q) || 0;
+    if (num <= 30) return { label: "แบบ 30 ข้อ", color: "emerald", icon: "fa-file-lines" };
+    if (num <= 50) return { label: "แบบ 50 ข้อ", color: "blue", icon: "fa-file-medical" };
+    return { label: "แบบ 100 ข้อ", color: "amber", icon: "fa-file-signature" };
+  }
+
+  const badgeStyles = {
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    blue: "bg-blue-50 text-blue-600 border-blue-100",
+    amber: "bg-amber-50 text-amber-600 border-amber-100",
+  };
+
+  function openSheetModal(exam) {
+    const subject = data.subjects.find(s => s.id === exam.subject || s.code === exam.subject);
+    const subjectCode = subject?.code || exam.subject || "";
+    const examSection = String(exam.section || "");
+
+    const students = data.students.filter((s) => {
+      const studentClass = String(s.class || "");
+      const fullFormat = `${subjectCode}_${examSection}`;
+      
+      if (examSection) {
+        // Match "1201411_1" OR if student just has "1" but we know it's this subject context
+        return studentClass === fullFormat || studentClass === examSection;
+      }
+      // If no section, match anything related to this subject
+      return studentClass.startsWith(`${subjectCode}_`) || studentClass === subjectCode;
+    });
+
+    setSheetModal({ exam, subject, students: students.length ? students : [] });
+  }
 
   async function createExam(event) {
     event.preventDefault();
     const subject = data.subjects.find((item) => item.id === form.subject);
     const questions = Number(form.questions);
-    const sheetType = questions <= 20 ? 20 : questions <= 50 ? 50 : 100;
+    const sheetType = questions <= 30 ? 30 : questions <= 50 ? 50 : 100;
+    
     const payload = {
       name: form.name,
       subject: subject?.code || form.subject,
       subjectName: subject?.name || "",
+      section: form.section,
       date: formatThaiDate(),
       questions,
       sheetType,
       answerKey: {},
       createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     };
-    const id = `${payload.subject}_${payload.name}`.replace(/\s+/g, '_');
+    
+    // Format ID: SUBJECT_SECTION_NAME
+    const id = `${payload.subject}${payload.section ? "_" + payload.section : ""}_${payload.name}`.replace(/\s+/g, "_");
     await api.set(`exams/${id}`, payload);
     const exam = { id, ...payload };
-    setPreview(exam);
-    setForm({ subject: "", name: "", questions: 50 });
-    await refresh("สร้างข้อสอบแล้ว");
+    
+    setForm({ subject: "", section: "", name: "", questions: 50 });
+    await refresh("สร้างข้อสอบสำเร็จ");
+    openSheetModal(exam);
   }
 
-  async function deleteExam(row) {
-    const result = await Swal().fire({ title: "ลบข้อสอบ?", text: row.name, icon: "warning", showCancelButton: true, confirmButtonText: "ลบ", cancelButtonText: "ยกเลิก" });
-    if (!result.isConfirmed) return;
-    await api.remove("exams", row.id);
-    await refresh("ลบข้อสอบแล้ว");
-  }
-
-  async function downloadAnswerSheets(row) {
-    const response = await fetch(`${API_BASE_URL}/api/sheets/pdf/download`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_email: userEmail, exam_id: row.id, upload_to_storage: false }),
-    });
-    if (!response.ok) {
-      const detail = await response.text();
-      Swal().fire("สร้าง PDF ไม่สำเร็จ", detail, "error");
-      return;
+  async function downloadPdf(exam, subjectCode) {
+    setPdfLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sheets/pdf/by-subject/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_email: userEmail,
+          exam_id: exam.id,
+          subject_code: subjectCode || exam.subject,
+          section: exam.section || ""
+        }),
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        Swal().fire("สร้าง PDF ไม่สำเร็จ", detail, "error");
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${exam.name || exam.id}_answer_sheets.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      Swal().fire("เกิดข้อผิดพลาด", err.message, "error");
+    } finally {
+      setPdfLoading(false);
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${row.name || row.id}_answer_sheets.pdf`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
+
+  const currentSections = data.sections.filter(s => s.subject === form.subject);
 
   return (
-    <div className="page-enter space-y-6">
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-        <section className="space-y-4">
-          <h3 className="text-xl font-extrabold">จัดการข้อสอบ</h3>
-          <DataTable
-            columns={[
-              { key: "name", label: "ชื่อข้อสอบ" },
-              { key: "subject", label: "รายวิชา" },
-              { key: "questions", label: "จำนวนข้อ" },
-              { key: "date", label: "วันที่" },
-              {
-                key: "actions",
-                label: "",
-                render: (row) => (
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <GhostButton className="py-2 px-3" onClick={() => setPreview(row)}><Icon name="fa-print" /> พิมพ์</GhostButton>
-                    <GhostButton className="py-2 px-3" onClick={() => downloadAnswerSheets(row)}><Icon name="fa-file-pdf" /> PDF</GhostButton>
-                    <GhostButton variant="primary" className="py-2 px-3" onClick={() => navigate("answer-key", { examId: row.id })}><Icon name="fa-key" /> เฉลย</GhostButton>
-                    <GhostButton variant="danger" className="py-2 px-3" onClick={() => deleteExam(row)}><Icon name="fa-trash" /></GhostButton>
-                  </div>
-                ),
-              },
-            ]}
-            rows={data.exams}
-            emptyText="ยังไม่มีข้อสอบ"
-          />
-        </section>
-        <form onSubmit={createExam} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 h-fit">
-          <h4 className="font-extrabold">สร้างข้อสอบใหม่</h4>
-          <Field label="รายวิชา">
-            <Select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} required>
-              <option value="">เลือกรายวิชา</option>
-              {data.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} - {subject.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="ชื่อข้อสอบ"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น สอบกลางภาค" required /></Field>
-          <div className="grid grid-cols-1 gap-3">
-            <Field label="จำนวนข้อ"><Input type="number" min="1" max="100" value={form.questions} onChange={(e) => setForm({ ...form, questions: e.target.value })} placeholder="50" required /></Field>
-          </div>
-          <PrimaryButton className="w-full"><Icon name="fa-plus" /> สร้างข้อสอบ</PrimaryButton>
-        </form>
-      </div>
-      {preview && (
-        <div className="fixed inset-0 z-50 bg-slate-950/50 p-4 overflow-auto">
-          <div className="max-w-6xl mx-auto bg-white rounded-2xl overflow-hidden shadow-xl">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <h4 className="font-extrabold">ตัวอย่างกระดาษคำตอบ</h4>
-              <div className="flex gap-2">
-                <GhostButton className="py-2 px-3" onClick={() => window.print()}><Icon name="fa-print" /> พิมพ์</GhostButton>
-                <GhostButton className="py-2 px-3" onClick={() => setPreview(null)}><Icon name="fa-xmark" /></GhostButton>
+    <>
+      <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8 items-start">
+          <section className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800">คลังข้อสอบทั้งหมด</h3>
+                <p className="text-sm text-slate-500">จัดการข้อสอบ แยกตามรหัสวิชาและกลุ่มเรียน</p>
               </div>
             </div>
-            <AnswerSheet config={{ subject: preview.subject, examName: preview.name, questions: preview.questions, options: 4, sets: 1, sheetType: preview.sheetType }} hideToolbar />
+
+            <DataTable
+              columns={[
+                {
+                  key: "name",
+                  label: "ชื่อข้อสอบ / รายวิชา",
+                  render: (row) => {
+                    const subj = data.subjects.find((s) => s.code === row.subject || s.id === row.subject);
+                    return (
+                      <div className="flex flex-col py-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800">{row.name}</span>
+                          {row.section && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-black">
+                              {row.subject}_{row.section}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-500">
+                          {subj ? `${subj.code} · ${subj.name}` : row.subject}
+                        </span>
+                      </div>
+                    );
+                  }
+                },
+                {
+                  key: "questions",
+                  label: "รูปแบบ",
+                  render: (row) => {
+                    const { label, color, icon } = getTemplateInfo(row.questions);
+                    return (
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[11px] font-bold ${badgeStyles[color]}`}>
+                        <Icon name={icon} /> {label} ({row.questions} ข้อ)
+                      </div>
+                    );
+                  }
+                },
+                {
+                  key: "date",
+                  label: "วันที่สร้าง",
+                  render: (row) => <span className="text-slate-600 text-sm">{row.date}</span>
+                },
+                {
+                  key: "actions",
+                  label: "",
+                  render: (row) => (
+                    <div className="flex justify-end gap-2 pr-2">
+                      <GhostButton className="p-2 rounded-xl text-blue-600 hover:bg-blue-50" onClick={() => navigate("results", { examId: row.id })} title="ดูผลการสอบ">
+                        <Icon name="fa-chart-column" />
+                      </GhostButton>
+                      <GhostButton className="p-2 rounded-xl" onClick={() => openSheetModal(row)} title="เตรียมกระดาษคำตอบ">
+                        <Icon name="fa-users-viewfinder" />
+                      </GhostButton>
+                      <GhostButton className="p-2 rounded-xl" onClick={() => navigate("answer-key", { examId: row.id })} title="แก้ไขเฉลย">
+                        <Icon name="fa-key" />
+                      </GhostButton>
+                      <GhostButton variant="danger" className="p-2 rounded-xl" onClick={() => {
+                        Swal().fire({
+                          title: "ลบข้อสอบ?",
+                          text: "ข้อมูลผลการสอบจะถูกลบออกด้วย",
+                          icon: "warning",
+                          showCancelButton: true,
+                          confirmButtonColor: "#e11d48",
+                        }).then((res) => {
+                          if (res.isConfirmed) {
+                            api.remove("exams", row.id);
+                            refresh("ลบสำเร็จ");
+                          }
+                        });
+                      }}>
+                        <Icon name="fa-trash-can" />
+                      </GhostButton>
+                    </div>
+                  )
+                }
+              ]}
+              rows={data.exams}
+              emptyText="ไม่มีข้อสอบในคลัง"
+            />
+          </section>
+
+          <form onSubmit={createExam} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 h-fit sticky top-8">
+            <h4 className="font-extrabold text-slate-800">สร้างข้อสอบใหม่</h4>
+            <Field label="รายวิชาที่สอบ">
+              <Select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, section: "" })} required>
+                <option value="">เลือกรายวิชา</option>
+                {data.subjects.map((s) => (
+                  <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="กลุ่มเรียน (Section)">
+              <Select value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} disabled={!form.subject}>
+                <option value="">ทุกกลุ่มเรียน</option>
+                {currentSections.map((s) => (
+                  <option key={s.id} value={s.sec}>{s.sec}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="ชื่อข้อสอบ">
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น สอบกลางภาค" required />
+            </Field>
+            <Field label="จำนวนข้อ">
+              <Input type="number" min="1" max="100" value={form.questions} onChange={(e) => setForm({ ...form, questions: e.target.value })} placeholder="50" required />
+            </Field>
+            {form.questions && (
+              <div className={`p-3 rounded-xl border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.questions).color]}`}>
+                <Icon name={getTemplateInfo(form.questions).icon} />
+                <span className="text-xs font-bold">{getTemplateInfo(form.questions).label}</span>
+              </div>
+            )}
+            <PrimaryButton className="w-full h-12">
+              <Icon name="fa-plus" /> บันทึกข้อสอบ
+            </PrimaryButton>
+          </form>
+        </div>
+      </div>
+
+      {sheetModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-hidden">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setSheetModal(null)} />
+          <div className="relative bg-white/90 backdrop-blur-md rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20">
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200">
+                  <Icon name="fa-users-rectangle" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-slate-800 tracking-tight">เตรียมกระดาษคำตอบ</h4>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-wider">{sheetModal.subject?.code}</span>
+                    {sheetModal.exam.section && (
+                       <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-black">
+                         {sheetModal.subject?.code}_{sheetModal.exam.section}
+                       </span>
+                    )}
+                    <p className="text-xs text-slate-500 font-medium">{sheetModal.exam.name}</p>
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setSheetModal(null)} className="w-10 h-10 rounded-full hover:bg-rose-500 hover:text-white text-slate-300 transition-all flex items-center justify-center shadow-sm">
+                <Icon name="fa-xmark" className="text-xl" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-blue-600/5 p-4 rounded-3xl border border-blue-50 flex flex-col items-center justify-center text-center">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">นักเรียน</p>
+                  <p className="text-2xl font-black text-slate-800">{sheetModal.students.length} <span className="text-xs font-normal text-slate-400 italic">คน</span></p>
+                </div>
+                <div className="bg-amber-600/5 p-4 rounded-3xl border border-amber-50 flex flex-col items-center justify-center text-center">
+                  <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">รูปแบบ</p>
+                  <p className="text-sm font-black text-slate-800">{getTemplateInfo(sheetModal.exam.questions).label}</p>
+                </div>
+                <div className="bg-indigo-600/5 p-4 rounded-3xl border border-indigo-50 flex flex-col items-center justify-center text-center">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">จำนวนข้อ</p>
+                  <p className="text-2xl font-black text-slate-800">{sheetModal.exam.questions} <span className="text-xs font-normal text-slate-400 italic">ข้อ</span></p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <h5 className="font-black text-slate-800 text-[11px] flex items-center gap-2 uppercase tracking-widest opacity-40 px-1">
+                  <Icon name="fa-list-ul" /> ตรวจสอบรายชื่อในกลุ่มเรียน
+                </h5>
+                {sheetModal.students.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
+                    <p className="text-slate-400 text-sm font-bold">ไม่พบรายชื่อนักเรียนในกลุ่มเรียนนี้</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {sheetModal.students.map((st, i) => (
+                      <div key={st.id} className="p-4 rounded-2xl bg-white border border-slate-100 flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[11px] font-black text-slate-300">{i + 1}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-700 text-sm leading-tight">{st.name}</p>
+                          <p className="text-[11px] font-bold text-slate-400 mt-0.5 tracking-tight">ID: {st.code}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100">
+              <PrimaryButton disabled={pdfLoading || sheetModal.students.length === 0} onClick={() => downloadPdf(sheetModal.exam, sheetModal.subject?.code)} className="w-full h-14 text-sm">
+                {pdfLoading ? <><Icon name="fa-spinner fa-spin" /> กำลังเตรียม PDF...</> : <><Icon name="fa-file-pdf" /> ดาวน์โหลดกระดาษคำตอบสำหรับทุกคน ({sheetModal.students.length} ชุด)</>}
+              </PrimaryButton>
+            </div>
           </div>
         </div>
       )}
-    </div>
+
+      {preview && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setPreview(null)} />
+          <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+            <div className="px-8 py-5 border-b flex justify-between items-center bg-white">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white text-lg shadow-lg shadow-amber-200">
+                  <Icon name="fa-magnifying-glass" />
+                </div>
+                <h4 className="text-lg font-black text-slate-800">ตรวจสอบความถูกต้องก่อนพิมพ์</h4>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => window.print()} className="px-6 py-2.5 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-black transition-all flex items-center gap-2"><Icon name="fa-print" /> พิมพ์</button>
+                <button onClick={() => setPreview(null)} className="w-10 h-10 rounded-full border border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-center text-slate-400"><Icon name="fa-xmark" className="text-xl" /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-100 p-8 flex justify-center">
+              <div className="shadow-xl">
+                <AnswerSheet config={{ ...preview, sheetType: preview.questions <= 30 ? 30 : preview.questions <= 50 ? 50 : 100 }} hideToolbar />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
-
-

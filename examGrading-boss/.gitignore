@@ -1,14 +1,13 @@
-# ── Node / npm ──────────────────────────────
-node_modules/
-package-lock.json
+# Node / npm
+**/node_modules/
 
-# ── Frontend build output ────────────────────
+# Frontend build output
 frontend/dist/
 frontend/dist-ssr/
 frontend/.vite/
 
-# ── Python ──────────────────────────────────
-__pycache__/
+# Python
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -18,20 +17,26 @@ dist/
 build/
 *.egg
 
-# ── Virtual environments ─────────────────────
+# Flutter / Dart
+mobiles/**/.dart_tool/
+mobiles/**/.flutter-plugins
+mobiles/**/.flutter-plugins-dependencies
+mobiles/**/build/
+mobiles/**/.pub-cache/
+
+# Virtual environments
 .venv/
 venv/
 env/
-.env/
 
-# ── Environment / secrets ────────────────────
+# Environment / secrets
 .env
 .env.local
 .env.*.local
-serviceAccountKey.json
-backend/serviceAccountKey.json
+**/serviceAccountKey.json
+mobiles/**/.env
 
-# ── IDE / Editor ─────────────────────────────
+# IDE / Editor
 .vscode/settings.json
 .idea/
 *.suo
@@ -41,25 +46,25 @@ backend/serviceAccountKey.json
 *.swp
 *.swo
 
-# ── OS ───────────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# ── Logs ─────────────────────────────────────
+# Logs and generated temp files
 *.log
 npm-debug.log*
 pip-*.log
 tmp/
 
-# ── Test / Coverage ──────────────────────────
+# Test / Coverage
 .pytest_cache/
 .coverage
 htmlcov/
 
-# ── Jupyter ──────────────────────────────────
+# Jupyter
 .ipynb_checkpoints/
 
-# ── OMR debug images (generated) ─────────────
+# OMR debug images (generated)
 *_diag_*.jpg
 *_debug_*.jpg

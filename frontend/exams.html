@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Grading and Analysis System</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect x=%2220%22 y=%2210%22 width=%2260%22 height=%2280%22 rx=%228%22 fill=%22white%22 stroke=%22%231E293B%22 stroke-width=%222%22/><rect x=%2235%22 y=%225%22 width=%2230%22 height=%2210%22 rx=%223%22 fill=%22%23475569%22/><circle cx=%2235%22 cy=%2230%22 r=%224%22 fill=%22%233B82F6%22/><circle cx=%2235%22 cy=%2250%22 r=%224%22 fill=%22%233B82F6%22/><circle cx=%2235%22 cy=%2270%22 r=%224%22 fill=%22%233B82F6%22/><g transform=%22translate(65, 10) rotate(45)%22><rect x=%220%22 y=%220%22 width=%226%22 height=%2220%22 fill=%22%23FBBF24%22/><rect x=%220%22 y=%220%22 width=%226%22 height=%224%22 fill=%22%23EF4444%22/><path d=%22M0 20 L3 26 L6 20 Z%22 fill=%22%23D1D5DB%22/><circle cx=%223%22 cy=%2226%22 r=%221.5%22 fill=%22%231E293B%22/></g><circle cx=%2280%22 cy=%2280%22 r=%2215%22 fill=%22%2310B981%22 stroke=%22white%22 stroke-width=%222%22/><path d=%22M73 80 L78 85 L87 75%22 fill=%22none%22 stroke=%22white%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
+  <script>
+    // Suppress Tailwind production warning
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+      originalWarn(...args);
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Firebase SDKs (Compat version for script tags) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+  <!-- SweetAlert2 & SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-200 selection:text-blue-900">
+
+  <div id="mainApp" class="flex h-screen overflow-hidden bg-slate-50 relative">
+    <!-- Sidebar Backdrop (Mobile) -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 lg:hidden hidden transition-opacity duration-300">
+    </div>
+
+    <aside id="mainSidebar"
+      class="fixed inset-y-0 left-0 w-72 bg-white/90 backdrop-blur-xl border-r border-slate-200/60 shadow-xl flex flex-col z-40 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:static lg:shadow-sm lg:z-20">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div
+            class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-md border border-slate-100 overflow-hidden">
+            <svg viewBox="0 0 100 100" class="w-10 h-10">
+              <!-- Board -->
+              <rect x="25" y="15" width="50" height="70" rx="6" fill="white" stroke="#1E293B" stroke-width="2" />
+              <rect x="38" y="10" width="24" height="8" rx="2" fill="#475569" />
+
+              <!-- Checkboxes -->
+              <circle cx="38" cy="35" r="3" fill="#3B82F6" />
+              <rect x="46" y="34" width="20" height="2" rx="1" fill="#E2E8F0" />
+
+              <circle cx="38" cy="50" r="3" fill="#3B82F6" />
+              <rect x="46" y="49" width="20" height="2" rx="1" fill="#E2E8F0" />
+
+              <circle cx="38" cy="65" r="3" fill="#3B82F6" />
+              <rect x="46" y="64" width="20" height="2" rx="1" fill="#E2E8F0" />
+
+              <!-- Pencil -->
+              <g transform="translate(68, 15) rotate(45)">
+                <rect x="0" y="0" width="5" height="18" fill="#FBBF24" />
+                <rect x="0" y="0" width="5" height="3.5" fill="#EF4444" /> <!-- Eraser -->
+                <path d="M0 18 L2.5 24 L5 18 Z" fill="#D1D5DB" /> <!-- Tip -->
+              </g>
+
+              <!-- Success Circle -->
+              <circle cx="82" cy="82" r="14" fill="#10B981" stroke="white" stroke-width="1.5" />
+              <path d="M76 82 L80 86 L88 78" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <span class="text-xl font-extrabold tracking-tight text-slate-800">Exam Grading</span>
+        </div>
+        <!-- Close Button (Mobile) -->
+        <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-2xl"></i>
+        </button>
+      </div>
+      <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        <button onclick="navigateToPage('dashboardPage')" data-page="dashboardPage"
+          class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-chart-pie w-5"></i> <span class="font-medium">แดชบอร์ด</span>
+        </button>
+        <button onclick="navigateToPage('subjectPage')" data-page="subjectPage"
+                    class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+                    <i class="fa-solid fa-book-open w-5"></i> <span class="font-medium">รายวิชาและกลุ่มเรียน</span>
+                </button>
+        <button onclick="navigateToPage('studentPage')" data-page="studentPage"
+          class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-user-graduate w-5"></i> <span class="font-medium">จัดการผู้เรียน</span>
+        </button>
+        <button onclick="navigateToPage('examPage')" data-page="examPage"
+          class="sidebar-menu active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-file-pen w-5"></i> <span class="font-medium">จัดการข้อสอบ</span>
+        </button>
+        <button onclick="navigateToPage('resultPage')" data-page="resultPage"
+          class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-square-poll-vertical w-5"></i> <span class="font-medium">ผลการสอบ</span>
+        </button>
+        <button onclick="navigateToPage('analysisPage')" data-page="analysisPage"
+          class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-chart-line w-5"></i> <span class="font-medium">วิเคราะห์ผลการสอบ</span>
+        </button>
+        <button onclick="navigateToPage('reportPage')" data-page="reportPage"
+          class="sidebar-menu w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 transition">
+          <i class="fa-solid fa-file-invoice w-5"></i> <span class="font-medium">รายงานผล</span>
+        </button>
+      </nav>
+      <div class="p-4 border-t border-slate-100">
+        <button onclick="doLogout()"
+          class="w-full flex items-center justify-center gap-2 text-rose-500 hover:bg-rose-50 hover:text-rose-600 py-3 rounded-xl transition-all font-medium border border-transparent hover:border-rose-100">
+          <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
+        </button>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto relative">
+      <header
+        class="bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm p-4 px-6 lg:px-8 flex justify-between items-center sticky top-0 z-10">
+        <div class="flex items-center gap-4">
+          <!-- Hamburger Menu -->
+          <button onclick="toggleSidebar()"
+            class="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+            <i class="fa-solid fa-bars text-xl"></i>
+          </button>
+          <h2 id="pageTitle" class="text-xl lg:text-2xl font-extrabold text-slate-800 tracking-tight">แดชบอร์ด
+          </h2>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex flex-col items-end mr-2 cursor-pointer group" onclick="openProfileModal()">
+            <span class="text-sm font-semibold text-slate-800 leading-none group-hover:text-blue-600 transition-colors"
+              id="headerUserName">อาจารย์ผู้สอน</span>
+            <span class="text-xs text-slate-500 mt-1">ตั้งค่าโปรไฟล์</span>
+          </div>
+          <div onclick="openProfileModal()"
+            class="w-11 h-11 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center text-blue-700 font-bold cursor-pointer hover:ring-4 hover:ring-blue-100 transition-all overflow-hidden shadow-sm border border-white"
+            id="headerUserAvatar">
+          </div>
+        </div>
+      </header>
+
+      <div id="mainPageContainer" class="p-4 lg:p-8 max-w-7xl mx-auto w-full">
+
+        <div id="examPage" class="page active">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <h3 class="text-lg font-bold">คลังข้อสอบ</h3>
+            <button onclick="openCreateExamModal()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"><i
+                class="fa-solid fa-plus mr-2"></i>สร้างข้อสอบใหม่</button>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/80 text-slate-600 border-b border-slate-200">
+                  <th class="p-4 border-b">ลำดับ</th>
+                  <th class="p-4 border-b">ชื่อข้อสอบ</th>
+                  <th class="p-4 border-b">รายวิชา</th>
+                  <th class="p-4 border-b">วันที่สอบ</th>
+                  <th class="p-4 border-b">โครงสร้างข้อสอบ</th>
+                  <th class="p-4 border-b">คะแนนเต็ม</th>
+                  <th class="p-4 border-b min-w-[150px]">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="examTableBody">
+                <!-- Exams will be loaded here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div> <!-- End mainPageContainer -->
+    </main>
+  </div> <!-- End mainApp -->
+
+  <!-- Global Modals (Persistent across page navigation) -->
+  <div id="createExamModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div
+            class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden transform scale-100 transition-transform border border-slate-100">
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-semibold text-lg"><i class="fa-solid fa-file-pen mr-2"></i> สร้างข้อสอบใหม่ (Create
+                Exam)
+              </h3>
+              <button type="button" onclick="closeCreateExamModal()"
+                class="text-white hover:text-gray-200 focus:outline-none">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+
+            <form id="createExamForm" onsubmit="submitCreateExam(event)" class="p-6">
+
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-semibold mb-2">รายวิชา (Subject)</label>
+                <select id="examSubjectInput"
+                  class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  required>
+                  <option value="" disabled selected>-- เลือกรายวิชา --</option>
+                  <option value="INT101">INT101 - วิทยาการคอมพิวเตอร์เบื้องต้น</option>
+                  <option value="INT102">INT102 - การเขียนโปรแกรม</option>
+                </select>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-semibold mb-2">ชื่อข้อสอบ (Exam Name)</label>
+                <input type="text" id="examNameInput"
+                  class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="เช่น สอบกลางภาค (Midterm)" required>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2">จำนวนข้อ (Questions)</label>
+                  <input type="number" id="examNumQuestions"
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="เช่น 50" min="1" max="100" required>
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2">รูปแบบตัวเลือก (Options)</label>
+                  <select id="examOptionsCount"
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    required>
+                    <option value="4">4 ตัวเลือก (A,B,C,D)</option>
+                    <option value="5">5 ตัวเลือก (A,B,C,D,E)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">น้ำหนักคะแนน (Score Weighting)</label>
+                <div class="flex gap-4 items-center mt-2">
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input type="radio" name="scoreWeight" class="form-radio text-blue-600 w-4 h-4" value="equal"
+                      checked>
+                    <span class="ml-2 text-sm text-gray-700">เท่ากันทุกข้อ</span>
+                  </label>
+                  <label class="inline-flex items-center cursor-pointer">
+                    <input type="radio" name="scoreWeight" class="form-radio text-blue-600 w-4 h-4" value="custom">
+                    <span class="ml-2 text-sm text-gray-700">กำหนดเองรายข้อ</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- ซ่อนจำนวนชุดข้อสอบ (บังคับเป็น 1 ชุด) -->
+              <div class="hidden">
+                <label class="block text-gray-700 text-sm font-bold mb-2">จำนวนชุดข้อสอบ (Exam Sets)</label>
+                <input type="number" id="examSetsInput" value="1" min="1" max="10" required>
+              </div>
+
+              <div class="flex justify-end gap-3 mt-6 border-t pt-4">
+                <button type="button" onclick="closeCreateExamModal()"
+                  class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition">
+                  ยกเลิก
+                </button>
+                <button type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition">
+                  บันทึกข้อมูลและสร้างกระดาษคำตอบ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="previewSheetModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
+          <div class="bg-white rounded-xl shadow-lg w-full max-w-5xl mx-4 overflow-hidden flex flex-col max-h-[95vh]">
+            <div class="bg-blue-600 px-6 py-4 flex justify-between items-center text-white z-20">
+              <h3 class="font-bold text-lg"><i class="fa-solid fa-file-pdf mr-2"></i> ตัวอย่างกระดาษคำตอบ</h3>
+              <button type="button" onclick="closePreviewSheetModal()"
+                class="text-white hover:text-gray-200 focus:outline-none">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+
+            <!-- iframe โหลด answer_sheet.html และรับค่าผ่าน postMessage -->
+            <div class="flex-1 overflow-hidden bg-gray-300">
+              <iframe id="answerSheetFrame" src="answer_sheet.html" class="w-full h-full border-0"
+                style="min-height: 600px;" onload="onFrameReady()">
+              </iframe>
+            </div>
+
+            <div class="flex justify-end items-center gap-3 p-4 border-t bg-white z-20">
+              <span class="text-sm text-gray-500 mr-auto">
+                <i class="fa-solid fa-circle-info text-blue-500"></i>
+                กระดาษคำตอบปรับขนาดอัตโนมัติให้พอดีกับการพิมพ์บน A4
+              </span>
+              <button type="button" onclick="closePreviewSheetModal()"
+                class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition">
+                ปิดหน้าต่าง
+              </button>
+              <button type="button" onclick="printAnswerSheet()"
+                class="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-md">
+                <i class="fa-solid fa-print mr-2"></i> พิมพ์กระดาษคำตอบ
+              </button>
+              <button type="button" onclick="goToAnswerKeyPage()"
+                class="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition shadow-md">
+                <i class="fa-solid fa-key mr-2"></i> กำหนดเฉลยคำตอบ
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subject Modal -->
+        <div id="subjectModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div
+            class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform scale-100 transition-transform border border-slate-100">
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-bold text-lg" id="subjectModalTitle"><i class="fa-solid fa-book mr-2"></i>
+                เพิ่มรายวิชา</h3>
+              <button type="button" onclick="closeModal('subjectModal')" class="text-white hover:text-gray-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <form id="subjectForm" onsubmit="saveSubject(event)" class="p-6">
+              <input type="hidden" id="subjectId">
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">รหัสวิชา</label>
+                <input type="text" id="subjectCode"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">ชื่อวิชา</label>
+                <input type="text" id="subjectName"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2">ภาคการศึกษา</label>
+                  <input type="number" id="subjectTerm"
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required min="1"
+                    max="3">
+                </div>
+                <div>
+                  <label class="block text-gray-700 text-sm font-bold mb-2">ปีการศึกษา</label>
+                  <input type="number" id="subjectYear"
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required min="2500">
+                </div>
+              </div>
+              <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">ผู้สอน</label>
+                <input type="text" id="subjectTeacher"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onclick="closeModal('subjectModal')"
+                  class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                <button type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Class Modal -->
+        <div id="classModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div
+            class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform scale-100 transition-transform border border-slate-100">
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-bold text-lg" id="classModalTitle"><i class="fa-solid fa-users-rectangle mr-2"></i>
+                เพิ่มกลุ่มเรียน</h3>
+              <button type="button" onclick="closeModal('classModal')" class="text-white hover:text-gray-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <form id="classForm" onsubmit="saveClass(event)" class="p-6">
+              <input type="hidden" id="classId">
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">รหัสกลุ่มเรียน (Sec)</label>
+                <input type="text" id="classCode"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">รายวิชา</label>
+                <select id="classSubject"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white" required>
+                  <!-- Options generated dynamically -->
+                </select>
+              </div>
+              
+              <div class="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onclick="closeModal('classModal')"
+                  class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                <button type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Student Modal -->
+        <div id="studentModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div
+            class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform scale-100 transition-transform border border-slate-100">
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-bold text-lg" id="studentModalTitle"><i class="fa-solid fa-user-graduate mr-2"></i>
+                เพิ่มผู้เรียน</h3>
+              <button type="button" onclick="closeModal('studentModal')" class="text-white hover:text-gray-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <form id="studentForm" onsubmit="saveStudent(event)" class="p-6">
+              <input type="hidden" id="studentId">
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">เลขประจำตัวนักเรียน (Student ID)</label>
+                <input type="text" id="studentCode"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">ชื่อผู้เรียน (Full Name)</label>
+                <input type="text" id="studentName"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+              </div>
+              <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">กลุ่มเรียน (Class/Section)</label>
+                <select id="studentClass"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white" required>
+                  <!-- Options generated dynamically -->
+                </select>
+              </div>
+              <div class="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onclick="closeModal('studentModal')"
+                  class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                <button type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+
+
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
+            <div class="bg-blue-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-bold text-lg"><i class="fa-solid fa-key mr-2"></i> ลืมรหัสผ่าน</h3>
+              <button type="button" onclick="closeModal('forgotPasswordModal')" class="text-white hover:text-blue-100">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <form onsubmit="handleForgotPassword(event)" class="p-6" id="forgotForm">
+              <p class="text-gray-500 text-sm mb-4">ระบบจะส่งลิงก์สำหรับรีเซ็ตรหัสผ่านไปยังอีเมลของคุณ</p>
+              <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">อีเมล (Email)</label>
+                <input type="email" id="forgotEmail"
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  placeholder="example@email.com" required>
+              </div>
+              <div class="flex flex-col gap-2">
+                <button type="submit"
+                  class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-md">
+                  ส่งคำขอรีเซ็ตรหัสผ่าน
+                </button>
+                <button type="button" onclick="closeModal('forgotPasswordModal')"
+                  class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition duration-200">
+                  ยกเลิก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profileModal"
+          class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div
+            class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden transform scale-100 transition-transform border border-slate-100">
+            <div
+              class="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white">
+              <h3 class="font-bold text-lg"><i class="fa-solid fa-user-gear mr-2"></i> ตั้งค่าโปรไฟล์</h3>
+              <button type="button" onclick="closeModal('profileModal')" class="text-white hover:text-gray-200">
+                <i class="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <form id="profileForm" onsubmit="saveProfile(event)" class="p-6">
+              <div class="flex flex-col items-center mb-6">
+                <div id="profilePreview"
+                  class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-3xl font-bold mb-3 overflow-hidden border-2 border-blue-200">
+                  A
+                </div>
+                <p class="text-xs text-gray-500">ตัวอย่างรูปภาพ</p>
+              </div>
+              <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">ชื่อที่แสดง (Display Name)</label>
+                <input type="text" id="profileDisplayName"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required
+                  placeholder="กรอกชื่อของคุณ">
+              </div>
+              <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">ลิงก์รูปโปรไฟล์ (Photo URL)</label>
+                <input type="url" id="profilePhotoURL" oninput="updateProfilePreview()"
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/photo.jpg">
+                <p class="text-[10px] text-gray-400 mt-1">* ใช้ลิงก์รูปภาพจากอินเทอร์เน็ต</p>
+              </div>
+              <div class="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onclick="closeModal('profileModal')"
+                  class="px-4 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                <button type="submit"
+                  class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">บันทึกการเปลี่ยนแปลง</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <script>
+          // --------------------------------------------------------
+          // Firebase Configuration & DB Abstraction
+          // --------------------------------------------------------
+          const firebaseConfig = {
+            apiKey: "AIzaSyAMSxC9K4kZlNkZV3UyO4ZH206lancWW6g",
+            authDomain: "examgradings.firebaseapp.com",
+            projectId: "examgradings",
+            storageBucket: "examgradings.firebasestorage.app",
+            messagingSenderId: "185283559084",
+            appId: "1:185283559084:web:1807f6434c8ca1efdfa909"
+          };
+
+          // Initialize Firebase
+          firebase.initializeApp(firebaseConfig);
+          const db = firebase.firestore();
+          let currentUser = null;
+          let isAppInitialized = false;
+          const useFirebase = true; // Use Firebase for authentication and data storage
+
+          // Auth State Listener
+          firebase.auth().onAuthStateChanged(async user => {
+            if (user) {
+              currentUser = user;
+              updateUserUI(user);
+
+              // Sync user profile to Firestore
+              try {
+                await db.collection('users').doc(user.uid).set({
+                  email: user.email,
+                  displayName: user.displayName,
+                  photoURL: user.photoURL,
+                  lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                  createdAt: user.metadata.creationTime || firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+              } catch (e) {
+                console.warn("User profile sync failed:", e);
+              }
+
+              if (!isAppInitialized) {
+                isAppInitialized = true;
+                doLoginApp();
+              }
+            } else {
+              currentUser = null;
+              isAppInitialized = false;
+              doLogoutApp();
+            }
+          });
+
+          function updateUserUI(user) {
+            const nameEl = document.getElementById('headerUserName');
+            const avatarEl = document.getElementById('headerUserAvatar');
+
+            if (nameEl) nameEl.innerText = user.displayName || user.email || 'อาจารย์ผู้สอน';
+            if (avatarEl) {
+              if (user.photoURL) {
+                avatarEl.innerHTML = `<img src="${user.photoURL}" class="w-full h-full rounded-full object-cover">`;
+              } else {
+                avatarEl.innerText = (user.displayName || user.email || 'A')[0].toUpperCase();
+              }
+            }
+          }
+
+          // Handle Redirect Result
+          firebase.auth().getRedirectResult().catch(err => {
+            if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+            console.error("Auth Redirect Error:", err);
+          });
+
+          function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth().signInWithPopup(provider).catch(err => {
+              if (err.code === 'auth/popup-blocked') {
+                // Fallback to redirect if popup is blocked
+                return firebase.auth().signInWithRedirect(provider);
+              }
+              if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+              console.error("Auth Error:", err);
+              Swal.fire('Login Error', err.message, 'error');
+            });
+          }
+
+                    async function handleForgotPassword(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('forgotEmail').value;
+
+            Swal.fire({ title: 'กำลังส่งคำขอ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+              await firebase.auth().sendPasswordResetEmail(email);
+              closeModal('forgotPasswordModal');
+              Swal.fire('ส่งลิงก์สำเร็จ', 'กรุณาตรวจสอบอีเมลของคุณเพื่อรีเซ็ตรหัสผ่าน', 'success');
+            } catch (error) {
+              console.error("Forgot Password Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          function openProfileModal() {
+            if (!currentUser) return Swal.fire('Oops!', 'กรุณาเข้าสู่ระบบก่อน', 'warning');
+
+            document.getElementById('profileDisplayName').value = currentUser.displayName || '';
+            document.getElementById('profilePhotoURL').value = currentUser.photoURL || '';
+
+            const preview = document.getElementById('profilePreview');
+            if (currentUser.photoURL) {
+              preview.innerHTML = `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">`;
+            } else {
+              preview.innerText = (currentUser.displayName || currentUser.email || 'A')[0].toUpperCase();
+            }
+
+            document.getElementById('profileModal').classList.remove('hidden');
+          }
+
+          async function saveProfile(event) {
+            event.preventDefault();
+            const displayName = document.getElementById('profileDisplayName').value;
+            const photoURL = document.getElementById('profilePhotoURL').value;
+
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+              // Update Firebase Auth Profile
+              await currentUser.updateProfile({ displayName, photoURL });
+
+              // Update Firestore User Document
+              if (useFirebase) {
+                await db.collection('users').doc(currentUser.email).set({
+                  displayName,
+                  photoURL,
+                  lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+              }
+
+              // Update Local UI
+              updateUserUI(currentUser);
+
+              closeModal('profileModal');
+              Swal.fire('สำเร็จ', 'อัปเดตโปรไฟล์เรียบร้อยแล้ว', 'success');
+            } catch (error) {
+              console.error("Save Profile Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          function updateProfilePreview() {
+            const url = document.getElementById('profilePhotoURL').value;
+            const name = document.getElementById('profileDisplayName').value;
+            const preview = document.getElementById('profilePreview');
+
+            if (url) {
+              preview.innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+            } else {
+              preview.innerText = (name || currentUser.email || 'A')[0].toUpperCase();
+            }
+          }
+
+
+          const pageFileMap = {
+            dashboardPage: "dashboard.html",
+            subjectPage: "subjects.html",
+            studentPage: "students.html",
+            examPage: "exams.html",
+            resultPage: "results.html",
+            analysisPage: "analysis.html",
+            reportPage: "reports.html",
+            answerKeyPage: "answer-key.html"
+          };
+
+          const filePageMap = Object.fromEntries(Object.entries(pageFileMap).map(([k, v]) => [v, k]));
+
+          function getCurrentPageId() {
+            const params = new URLSearchParams(window.location.search);
+            const fromQuery = params.get('page');
+            if (fromQuery && pageFileMap[fromQuery]) return fromQuery;
+
+            const currentFile = (window.location.pathname.split('/').pop() || 'dashboard.html').toLowerCase();
+            return filePageMap[currentFile] || 'dashboardPage';
+          }
+
+          function refreshPageData(pageId) {
+            updateSelectOptions();
+            updateDashboardStats();
+
+            if (pageId === 'subjectPage') renderSubjects();
+            if (pageId === 'classPage') renderClasses();
+            if (pageId === 'studentPage') renderStudents();
+            if (pageId === 'examPage' || pageId === 'answerKeyPage') renderExams();
+            if (pageId === 'reportPage') renderReport();
+
+            if (pageId === 'dashboardPage' || pageId === 'analysisPage') {
+              chartsRendered = false;
+              initCharts();
+            }
+
+            if (pageId === 'analysisPage') {
+              updateAnalysisPage();
+            }
+          }
+
+          function navigateToPage(pageId, options = {}) {
+            const { updateHistory = true } = options;
+            const targetFile = pageFileMap[pageId] || 'dashboard.html';
+            const container = document.getElementById('mainPageContainer');
+
+            const applyPageState = (activePageId) => {
+              document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+              const activePage = document.getElementById(activePageId);
+              if (activePage) activePage.classList.add('active');
+
+              document.querySelectorAll('.sidebar-menu').forEach(menu => menu.classList.remove('active'));
+              const menu = document.querySelector(`.sidebar-menu[data-page="${activePageId}"]`);
+              if (menu) {
+                menu.classList.add('active');
+                document.getElementById('pageTitle').innerText = menu.innerText.trim();
+              } else if (activePageId === 'answerKeyPage') {
+                document.getElementById('pageTitle').innerText = 'กำหนดเฉลยคำตอบ';
+              }
+
+              refreshPageData(activePageId);
+
+              if (window.innerWidth < 1024) {
+                const sidebar = document.getElementById('mainSidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+              }
+            };
+
+            if (window.location.pathname.toLowerCase().endsWith(targetFile.toLowerCase())) {
+              applyPageState(pageId);
+              if (updateHistory) {
+                history.pushState({}, '', `${targetFile}?page=${pageId}`);
+              }
+              return Promise.resolve();
+            }
+
+            return fetch(targetFile, { cache: 'no-store' })
+              .then(res => {
+                if (!res.ok) throw new Error(`Failed to load ${targetFile}`);
+                return res.text();
+              })
+              .then(html => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const incomingPage = doc.getElementById(pageId);
+                if (!incomingPage || !container) {
+                  window.location.href = `${targetFile}?page=${pageId}`;
+                  return;
+                }
+
+                container.innerHTML = incomingPage.outerHTML;
+                applyPageState(pageId);
+
+                if (updateHistory) {
+                  history.pushState({}, '', `${targetFile}?page=${pageId}`);
+                }
+              })
+              .catch(err => {
+                console.warn('Soft navigation failed, fallback to full reload:', err);
+                window.location.href = `${targetFile}?page=${pageId}`;
+              });
+          }
+
+          window.addEventListener('popstate', () => {
+            const pageId = getCurrentPageId();
+            navigateToPage(pageId, { updateHistory: false });
+          });
+
+          function toggleSidebar() {
+            const sidebar = document.getElementById('mainSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+          }
+
+          async function doLogin() {
+            signInWithGoogle();
+          }
+
+          async function doLoginApp() {
+            const initialPageId = getCurrentPageId();
+            await navigateToPage(initialPageId, { updateHistory: false });
+
+            Swal.fire({
+              title: 'กำลังโหลดข้อมูล...',
+              text: 'กรุณารอสักครู่',
+              allowOutsideClick: false,
+              didOpen: () => { Swal.showLoading() }
+            });
+
+            try {
+              await initData();
+              Swal.close();
+              initCharts();
+            } catch (error) {
+              console.error("Init Data Error:", error);
+              Swal.fire({
+                icon: 'error',
+                title: 'โหลดข้อมูลไม่สำเร็จ',
+                text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล: ' + error.message,
+                confirmButtonText: 'ลองอีกครั้ง'
+              });
+            }
+          }
+
+          function doLogout() {
+            firebase.auth().signOut();
+          }
+
+          function doLogoutApp() {
+            window.location.href = 'login.html';
+          }
+
+          // --------------------------------------------------------
+          // Database Service (Cloud Firestore)
+          // --------------------------------------------------------
+                    const dbService = {
+          async getDocs(collectionName) {
+          if (currentUser && currentUser.email) {
+          const snapshot = await db.collection('users').doc(currentUser.email).collection(collectionName).get();
+          return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+          return [];
+          },
+          async addDoc(collectionName, data) {
+          if (currentUser && currentUser.email) {
+          const docRef = await db.collection('users').doc(currentUser.email).collection(collectionName).add(data);
+          return docRef.id;
+          }
+          throw new Error("Authentication required to save data.");
+          },
+          async setDocWithId(collectionName, customId, data) {
+          if (currentUser && currentUser.email) {
+          await db.collection('users').doc(currentUser.email).collection(collectionName).doc(customId).set(data);
+          return customId;
+          }
+          throw new Error("Authentication required to save data.");
+          },
+          async updateDoc(collectionName, id, data) {
+          if (currentUser && currentUser.email) {
+          await db.collection('users').doc(currentUser.email).collection(collectionName).doc(id).update(data);
+          } else {
+          throw new Error("Authentication required to update data.");
+          }
+          },
+          async deleteDoc(collectionName, id) {
+          if (currentUser && currentUser.email) {
+          await db.collection('users').doc(currentUser.email).collection(collectionName).doc(id).delete();
+          } else {
+          throw new Error("Authentication required to delete data.");
+          }
+          }
+          };
+
+          // Global State variables based on new dbService
+          let subjectsList = [];
+          let classesList = [];
+          let studentsList = [];
+          let exams = []; // Kept as exams to avoid breaking existing code immediately
+          let resultsList = [];
+          let currentExamConfig = {};
+          let currentSetIndex = 0;
+          let answerKeys = {}; // Stores answer keys { examId: { setIndex: { qIndex: answer } } }
+
+          // --------------------------------------------------------
+          // Excel Import & Export Functions
+          // --------------------------------------------------------
+          function exportToExcel(type) {
+            let data = [];
+            let filename = '';
+            if (type === 'subjects') {
+              data = subjectsList.map(s => ({ 'รหัสวิชา': s.code, 'ชื่อวิชา': s.name, 'ภาคการศึกษา': s.term, 'ปีการศึกษา': s.year, 'ผู้สอน': s.teacher }));
+              filename = 'Subjects_Export.xlsx';
+            } else if (type === 'classes') {
+              data = classesList.map(c => ({ 'รหัสกลุ่มเรียน': c.code, 'วิชา': c.subject, 'ชื่อกลุ่มเรียน': c.name, 'เวลา': c.time, 'ห้องเรียน': c.room }));
+              filename = 'Classes_Export.xlsx';
+            } else if (type === 'students') {
+              data = studentsList.map(s => ({ 'รหัสนักเรียน': s.code, 'ชื่อ-นามสกุล': s.name, 'กลุ่มเรียน': s.class }));
+              filename = 'Students_Export.xlsx';
+            }
+
+            if (data.length === 0) return Swal.fire('ไม่มีข้อมูล', 'ไม่มีข้อมูลสำหรับส่งออก', 'info');
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Data");
+            XLSX.writeFile(wb, filename);
+          }
+
+          function importStudentsFromExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+              const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+              if (jsonData.length === 0) return Swal.fire('ข้อผิดพลาด', 'ไม่พบข้อมูลในไฟล์ Excel', 'error');
+
+              let importedCount = 0;
+              Swal.fire({ title: 'กำลังนำเข้าข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+              for (let row of jsonData) {
+                const code = row['รหัสนักเรียน'] || row['ID'] || row['code'] || row['เลขประจำตัว'];
+                const name = row['ชื่อ-นามสกุล'] || row['ชื่อ'] || row['Name'] || row['name'];
+                const className = row['รหัสกลุ่มเรียน'] || row['กลุ่มเรียน'] || row['Class'] || row['class'];
+
+                if (code && name) {
+                  await dbService.addDoc('students', { code: String(code), name: String(name), class: String(className || '') });
+                  importedCount++;
+                }
+              }
+
+              studentsList = await dbService.getDocs('students');
+              renderStudents();
+              updateDashboardStats();
+              document.getElementById('importExcelInput').value = ""; // reset
+
+              Swal.fire('สำเร็จ', `นำเข้าข้อมูลนักเรียนจำนวน ${importedCount} คน เรียบร้อยแล้ว`, 'success');
+            };
+            reader.readAsArrayBuffer(file);
+          }
+
+          async function initData() {
+            subjectsList = await dbService.getDocs('subjects');
+            
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
+            studentsList = await dbService.getDocs('students');
+            exams = await dbService.getDocs('exams');
+            resultsList = await dbService.getDocs('results');
+
+            // Answer keys live inside each exam document: exams/{examId}.answerKey
+            const cachedAnswerKeys = JSON.parse(localStorage.getItem('answerKeys') || '{}');
+            answerKeys = {};
+            exams.forEach(exam => {
+              answerKeys[exam.id] = exam.answerKey || exam.answerKeys || cachedAnswerKeys[exam.id] || {};
+            });
+
+            // Legacy fallback: migrate old users/{uid}/answerKeys docs into exams/{examId}.answerKey.
+            if (currentUser) {
+              try {
+                const akSnapshot = await db.collection('users').doc(currentUser.email).collection('answerKeys').get();
+                for (const doc of akSnapshot.docs) {
+                  const legacyKey = doc.data().data || {};
+                  if (!answerKeys[doc.id] || Object.keys(answerKeys[doc.id]).length === 0) {
+                    answerKeys[doc.id] = legacyKey;
+                    const exam = exams.find(e => e.id === doc.id);
+                    if (exam) {
+                      await dbService.updateDoc('exams', doc.id, { answerKey: legacyKey });
+                      exam.answerKey = legacyKey;
+                    }
+                  }
+                }
+                localStorage.setItem('answerKeys', JSON.stringify(answerKeys));
+              } catch (e) {
+                console.warn("Failed to migrate legacy answerKeys from Firebase:", e);
+              }
+            }
+
+            renderSubjects();
+            renderClasses();
+            renderStudents();
+            renderExams();
+            updateDashboardStats();
+            updateSelectOptions();
+          }
+
+          // Duplicates removed
+
+          function toggleSidebar() {
+            const sidebar = document.getElementById('mainSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+              sidebar.classList.remove('-translate-x-full');
+              overlay.classList.remove('hidden');
+            } else {
+              sidebar.classList.add('-translate-x-full');
+              overlay.classList.add('hidden');
+            }
+          }
+
+          function showPage(pageId, element) {
+            document.querySelectorAll('.page').forEach(page => {
+              page.classList.remove('active');
+            });
+            document.querySelectorAll('.sidebar-menu').forEach(menu => {
+              menu.classList.remove('active');
+            });
+
+            document.getElementById(pageId).classList.add('active');
+
+            if (pageId === 'analysisPage') {
+              updateAnalysisPage();
+            }
+            if (pageId === 'reportPage') {
+              renderReport();
+            }
+
+            if (element) {
+              element.classList.add('active');
+              document.getElementById('pageTitle').innerText = element.innerText.trim();
+              // Close sidebar on mobile after clicking
+              if (window.innerWidth < 1024) toggleSidebar();
+            } else {
+              // If navigation is programmatical, find the menu item
+              const menu = document.querySelector(`.sidebar-menu[data-page="${pageId}"]`);
+              if (menu) {
+                menu.classList.add('active');
+                document.getElementById('pageTitle').innerText = menu.innerText.trim();
+              } else if (pageId === 'answerKeyPage') {
+                document.getElementById('pageTitle').innerText = "กำหนดเฉลยคำตอบ";
+              }
+            }
+          }
+
+          // --------------------------------------------------------
+          // ระบบจัดการข้อมูลการสอบ
+          // --------------------------------------------------------
+
+          function renderExams() {
+            const tbody = document.getElementById('examTableBody');
+            if (!tbody) return;
+            if (exams.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-500 italic">ยังไม่มีข้อมูลข้อสอบในระบบ</td></tr>`;
+              return;
+            }
+
+            tbody.innerHTML = exams.map((exam, index) => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 border-b font-medium text-sm text-center">${index + 1}</td>
+                    <td class="p-4 border-b font-medium">${exam.name}</td>
+                    <td class="p-4 border-b">${exam.subject}</td>
+                    <td class="p-4 border-b text-sm">${exam.date}</td>
+                    <td class="p-4 border-b text-sm">
+                        <div class="font-bold text-gray-700">${exam.questions} ข้อ (${exam.options} ตัวเลือก)</div>
+                        <div class="text-blue-600 mt-1"><i class="fa-solid fa-layer-group mr-1"></i> มี ${exam.sets} ชุด</div>
+                    </td>
+                    <td class="p-4 border-b font-bold text-lg">${exam.questions}</td>
+                    <td class="p-4 border-b">
+                        <div class="flex gap-2">
+                            <button onclick="printExam('${exam.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-green-500 hover:bg-green-50 transition" title="พิมพ์กระดาษคำตอบ">
+                                <i class="fa-solid fa-print"></i>
+                            </button>
+                            <button onclick="editAnswerKey('${exam.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-indigo-500 hover:bg-indigo-50 transition" title="กำหนดเฉลย">
+                                <i class="fa-solid fa-key"></i>
+                            </button>
+                            <button onclick="deleteExam('${exam.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 transition" title="ลบ">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+          }
+
+          async function deleteExam(id) {
+            Swal.fire({
+              title: 'คุณแน่ใจหรือไม่?',
+              text: 'คุณต้องการลบข้อสอบนี้ใช่หรือไม่? การลบข้อสอบจะลบข้อมูลที่เกี่ยวข้องทั้งหมด',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#d33',
+              cancelButtonColor: '#3085d6',
+              confirmButtonText: 'ใช่, ลบเลย!',
+              cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+              if (result.isConfirmed) {
+                await dbService.deleteDoc('exams', id);
+                exams = await dbService.getDocs('exams');
+                renderExams();
+                updateDashboardStats();
+                Swal.fire('ลบแล้ว!', 'ข้อสอบถูกลบเรียบร้อยแล้ว', 'success');
+              }
+            });
+          }
+
+          function printExam(id) {
+            const exam = exams.find(e => e.id === id);
+            if (!exam) return;
+
+            currentExamConfig = exam;
+            const config = {
+              subject: exam.subject,
+              examName: exam.name,
+              questions: exam.questions,
+              options: exam.options,
+              sets: exam.sets,
+              sheetType: exam.sheetType,
+              hideToolbar: true
+            };
+
+            document.getElementById('previewSheetModal').classList.remove('hidden');
+
+            if (isFrameReady) {
+              sendToFrame(config);
+              setTimeout(() => {
+                const frame = document.getElementById('answerSheetFrame');
+                frame.contentWindow.print();
+              }, 500); // Give it a moment to render DOM
+            } else {
+              pendingSheetConfig = config;
+              // Note: We can't easily auto-print here without a second message type like RENDER_AND_PRINT, 
+              // but the user can press the print button manually if it was pending.
+            }
+          }
+
+          function editAnswerKey(id) {
+            const exam = exams.find(e => e.id === id);
+            if (!exam) return;
+            currentExamConfig = exam;
+            goToAnswerKeyPage();
+          }
+
+          // --------------------------------------------------------
+          // ระบบสร้างข้อสอบ -> แสดง Preview -> ไปหน้ากำหนดเฉลย
+          // --------------------------------------------------------
+
+          function openCreateExamModal() {
+            document.getElementById('createExamForm').reset();
+            document.getElementById('createExamModal').classList.remove('hidden');
+          }
+
+          function closeCreateExamModal() {
+            document.getElementById('createExamModal').classList.add('hidden');
+          }
+
+          let pendingSheetConfig = null;
+          let isFrameReady = false;
+
+          function onFrameReady() {
+            isFrameReady = true;
+            if (pendingSheetConfig) {
+              sendToFrame(pendingSheetConfig);
+              pendingSheetConfig = null;
+            }
+          }
+
+          window.addEventListener('message', function (e) {
+            if (e.data && e.data.type === 'FRAME_READY') {
+              onFrameReady();
+            }
+          });
+
+          function sendToFrame(config) {
+            const frame = document.getElementById('answerSheetFrame');
+            frame.contentWindow.postMessage({ type: 'RENDER_SHEET', config }, '*');
+          }
+
+          async function submitCreateExam(event) {
+            event.preventDefault();
+
+            const subjectSelect = document.getElementById('examSubjectInput');
+            const subjectText = subjectSelect.options[subjectSelect.selectedIndex].text.split(' - ')[0] || "";
+            const examName = document.getElementById('examNameInput').value;
+            const numQuestions = parseInt(document.getElementById('examNumQuestions').value);
+            const optionsCount = parseInt(document.getElementById('examOptionsCount').value);
+            const numSets = parseInt(document.getElementById('examSetsInput').value);
+
+            let sheetType = 100;
+            if (numQuestions <= 20) sheetType = 20;
+            else if (numQuestions <= 50) sheetType = 50;
+
+            const examData = {
+              name: examName,
+              subject: subjectText,
+              date: new Date().toLocaleDateString('th-TH'),
+              questions: numQuestions,
+              options: optionsCount,
+              sets: numSets,
+              sheetType: sheetType,
+              answerKey: {},
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            Swal.fire({ title: 'กำลังสร้างข้อสอบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+              const newId = await dbService.addDoc('exams', examData);
+              const newExam = { id: newId, ...examData };
+
+              exams = await dbService.getDocs('exams');
+              renderExams();
+              updateDashboardStats();
+
+              closeCreateExamModal();
+              Swal.close();
+
+              currentExamConfig = newExam;
+
+              const config = {
+                subject: subjectText,
+                examName: examName,
+                questions: numQuestions,
+                options: optionsCount,
+                sets: numSets,
+                sheetType: sheetType,
+                hideToolbar: true
+              };
+
+              document.getElementById('previewSheetModal').classList.remove('hidden');
+
+              if (isFrameReady) {
+                sendToFrame(config);
+              } else {
+                pendingSheetConfig = config;
+              }
+            } catch (error) {
+              console.error("Create Exam Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          function closePreviewSheetModal() {
+            document.getElementById('previewSheetModal').classList.add('hidden');
+          }
+
+          // --------------------------------------------------------
+          // ระบบกำหนดเฉลยคำตอบ (Answer Key)
+          // --------------------------------------------------------
+
+          async function goToAnswerKeyPage() {
+            closePreviewSheetModal();
+            await navigateToPage('answerKeyPage');
+            if (document.getElementById('akExamName')) {
+              document.getElementById('akExamName').innerText = currentExamConfig.name;
+            }
+            currentSetIndex = 0;
+            renderAnswerKeyTabs();
+            renderAnswerKeyGrid();
+          }
+
+          function renderAnswerKeyTabs() {
+            const container = document.getElementById('setTabsContainer');
+            if (currentExamConfig.sets > 1) {
+              container.classList.remove('hidden');
+              let html = '';
+              for (let i = 0; i < currentExamConfig.sets; i++) {
+                const label = String.fromCharCode(65 + i);
+                const activeClass = i === currentSetIndex ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+                html += `<button onclick="switchSet(${i})" class="px-6 py-2 rounded-xl font-bold transition-all ${activeClass}">ชุด ${label}</button>`;
+              }
+              container.innerHTML = html;
+            } else {
+              container.classList.add('hidden');
+            }
+          }
+
+          function switchSet(index) {
+            // Save current set values before switching if needed (optional since radios are bound to state or DOM)
+            currentSetIndex = index;
+            document.getElementById('akCurrentSetLabel').innerText = 'ชุด ' + String.fromCharCode(65 + index);
+            renderAnswerKeyTabs();
+            renderAnswerKeyGrid();
+          }
+
+          function renderAnswerKeyGrid() {
+            const totalQuestions = currentExamConfig.questions;
+            const optionsCount = currentExamConfig.options;
+            const numCols = 3;
+            const itemsPerCol = Math.ceil(totalQuestions / numCols);
+
+            let akHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-10">';
+            let qIndex = 1;
+
+            for (let c = 0; c < numCols; c++) {
+              akHTML += `<div class="flex flex-col gap-3">`;
+              for (let i = 0; i < itemsPerCol; i++) {
+                if (qIndex > totalQuestions) break;
+
+                // Generate unique name per set and question
+                const radioName = `ak_s${currentSetIndex}_q${qIndex}`;
+
+                akHTML += `
+                <div class="group border border-gray-100 p-3 rounded-2xl flex items-center justify-between bg-white hover:border-blue-200 hover:shadow-sm transition-all">
+                    <span class="font-bold text-lg text-gray-400 group-hover:text-blue-500 w-10 shrink-0 select-none">${qIndex}.</span> 
+                    <div class="flex gap-1.5 flex-wrap justify-end">`;
+
+                for (let j = 0; j < optionsCount; j++) {
+                  let letter = String.fromCharCode(65 + j);
+                  let isChecked = answerKeys[currentExamConfig.id] && answerKeys[currentExamConfig.id][currentSetIndex] && answerKeys[currentExamConfig.id][currentSetIndex][qIndex] === letter;
+                  let checkedAttr = isChecked ? 'checked' : '';
+                  akHTML += `
+                    <label class="cursor-pointer">
+                        <input type="radio" name="${radioName}" value="${letter}" class="peer sr-only" ${checkedAttr}>
+                        <div class="w-8 h-8 rounded-full border-2 border-gray-100 flex items-center justify-center font-bold text-gray-400 peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-checked:text-white transition-all">
+                            ${letter}
+                        </div>
+                    </label>`;
+                }
+                akHTML += `</div></div>`;
+                qIndex++;
+              }
+              akHTML += `</div>`;
+            }
+            akHTML += `</div>`;
+            document.getElementById('answerKeyGrid').innerHTML = akHTML;
+          }
+
+          async function saveAnswerKey() {
+            const totalQuestions = currentExamConfig.questions;
+
+            if (!answerKeys[currentExamConfig.id]) {
+              answerKeys[currentExamConfig.id] = {};
+            }
+            if (!answerKeys[currentExamConfig.id][currentSetIndex]) {
+              answerKeys[currentExamConfig.id][currentSetIndex] = {};
+            }
+
+            for (let q = 1; q <= totalQuestions; q++) {
+              const radioName = `ak_s${currentSetIndex}_q${q}`;
+              const checked = document.querySelector(`input[name="${radioName}"]:checked`);
+              if (checked) {
+                answerKeys[currentExamConfig.id][currentSetIndex][q] = checked.value;
+              }
+            }
+
+            localStorage.setItem('answerKeys', JSON.stringify(answerKeys));
+
+            currentExamConfig.answerKey = answerKeys[currentExamConfig.id];
+            const exam = exams.find(e => e.id === currentExamConfig.id);
+            if (exam) exam.answerKey = answerKeys[currentExamConfig.id];
+
+            // Store the answer key on the related exam document.
+            if (currentUser) {
+              await dbService.updateDoc('exams', currentExamConfig.id, {
+                answerKey: answerKeys[currentExamConfig.id],
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+            }
+
+            Swal.fire('สำเร็จ!', `บันทึกเฉลยข้อสอบ "${currentExamConfig.name}" (ชุด ${String.fromCharCode(65 + currentSetIndex)}) เรียบร้อยแล้ว!`, 'success');
+          }
+
+          // --------------------------------------------------------
+          // CRUD Operations & Rendering
+          // --------------------------------------------------------
+          function openModal(id) {
+            if (id === 'subjectModal') document.getElementById('subjectModalTitle').innerHTML = '<i class="fa-solid fa-book mr-2"></i> เพิ่มรายวิชา';
+            if (id === 'classModal') document.getElementById('classModalTitle').innerHTML = '<i class="fa-solid fa-users-rectangle mr-2"></i> เพิ่มกลุ่มเรียน';
+            if (id === 'studentModal') document.getElementById('studentModalTitle').innerHTML = '<i class="fa-solid fa-user-graduate mr-2"></i> เพิ่มผู้เรียน';
+            document.getElementById(id).classList.remove('hidden');
+          }
+
+          function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            const formMap = {
+              'subjectModal': 'subjectForm',
+              'classModal': 'classForm',
+              'studentModal': 'studentForm',
+              'registerModal': 'registerForm',
+              'forgotPasswordModal': 'forgotForm',
+              'profileModal': 'profileForm'
+            };
+            if (formMap[id]) {
+              const form = document.getElementById(formMap[id]);
+              if (form) form.reset();
+            }
+          }
+
+          async function saveSubject(e) {
+            e.preventDefault();
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+              const id = document.getElementById('subjectId').value;
+              const data = {
+                code: document.getElementById('subjectCode').value,
+                name: document.getElementById('subjectName').value,
+                term: document.getElementById('subjectTerm').value,
+                year: document.getElementById('subjectYear').value,
+                teacher: document.getElementById('subjectTeacher').value
+              };
+              if (id) await dbService.updateDoc('subjects', id, data);
+              else await dbService.setDocWithId('subjects', data.code, data);
+              closeModal('subjectModal');
+              subjectsList = await dbService.getDocs('subjects');
+              renderSubjects();
+              updateDashboardStats();
+              updateSelectOptions();
+              Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+              console.error("Save Subject Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          async function saveClass(e) {
+          e.preventDefault();
+          Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+          try {
+          const id = document.getElementById('classId').value;
+          const subjectId = document.getElementById('classSubject').value;
+          const data = {
+          subject: subjectId,
+          sec: document.getElementById('classCode').value
+          };
+          if (id) await dbService.updateDoc(`subjects/${subjectId}/sections`, id, data);
+          else await dbService.setDocWithId(`subjects/${subjectId}/sections`, data.sec, data);
+          closeModal('classModal');
+              
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
+              renderClasses();
+              updateDashboardStats();
+              updateSelectOptions();
+              Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+              console.error("Save Class Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          async function saveStudent(e) {
+            e.preventDefault();
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+              const id = document.getElementById('studentId').value;
+              const data = {
+                code: document.getElementById('studentCode').value,
+                name: document.getElementById('studentName').value,
+                class: document.getElementById('studentClass').value
+              };
+              if (id) await dbService.updateDoc('students', id, data);
+              else await dbService.addDoc('students', data);
+              closeModal('studentModal');
+              studentsList = await dbService.getDocs('students');
+              renderStudents();
+              updateDashboardStats();
+              Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+              console.error("Save Student Error:", error);
+              Swal.fire('เกิดข้อผิดพลาด', error.message, 'error');
+            }
+          }
+
+          function renderSubjects() {
+            const tbody = document.getElementById('subjectTableBody');
+            if (!tbody) return;
+            if (subjectsList.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500 italic">ยังไม่มีข้อมูลรายวิชา</td></tr>`;
+              return;
+            }
+            tbody.innerHTML = subjectsList.map((s, index) => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 border-b font-medium">${s.code}</td>
+                    <td class="p-4 border-b">${s.name}</td>
+                    <td class="p-4 border-b text-center">${s.term}/${s.year}</td>
+                    <td class="p-4 border-b text-center">
+                        <button onclick="editSubject('${s.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-2 py-1 rounded-md mr-1 text-xs"><i class="fa-solid fa-pen"></i> แก้ไข</button>
+                        <button onclick="deleteSubject('${s.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-2 py-1 rounded-md text-xs"><i class="fa-solid fa-trash"></i> ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+          }
+
+          function renderClasses() {
+            const tbody = document.getElementById('classTableBody');
+            if (!tbody) return;
+            if (classesList.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500 italic">ยังไม่มีข้อมูลกลุ่มเรียน</td></tr>`;
+              return;
+            }
+            tbody.innerHTML = classesList.map((c, index) => {
+              const subject = subjectsList.find(s => s.code === c.subject) || { name: c.subject };
+              return `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 border-b font-medium text-sm text-center">${index + 1}</td>
+                    <td class="p-4 border-b text-blue-600">${c.subject} - ${subject.name} (กลุ่ม ${c.code || '-'})</td>
+                    <td class="p-4 border-b text-center">
+                        <button onclick="editClass('${c.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-3 py-1 rounded-lg mr-2"><i class="fa-solid fa-pen"></i> แก้ไข</button>
+                        <button onclick="deleteClass('${c.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-3 py-1 rounded-lg"><i class="fa-solid fa-trash"></i> ลบ</button>
+                    </td>
+                </tr>
+            `}).join('');
+          }
+
+          function renderStudents() {
+            const tbody = document.getElementById('studentTableBody');
+            if (!tbody) return;
+            if (studentsList.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500 italic">ยังไม่มีข้อมูลผู้เรียน</td></tr>`;
+              return;
+            }
+            tbody.innerHTML = studentsList.map((s, index) => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 border-b font-medium text-sm text-center">${index + 1}</td>
+                    <td class="p-4 border-b font-medium">${s.code}</td>
+                    <td class="p-4 border-b">${s.name}</td>
+                    <td class="p-4 border-b">
+                        <span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">${s.class}</span>
+                    </td>
+                    <td class="p-4 border-b">
+                        <button onclick="editStudent('${s.id}')" class="text-blue-500 hover:text-blue-600 bg-blue-50 px-3 py-1 rounded-lg mr-2"><i class="fa-solid fa-pen"></i> แก้ไข</button>
+                        <button onclick="deleteStudent('${s.id}')" class="text-red-500 hover:text-red-600 bg-red-50 px-3 py-1 rounded-lg"><i class="fa-solid fa-trash"></i> ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+          }
+
+          function editSubject(id) {
+            const subject = subjectsList.find(s => s.id === id);
+            if (!subject) return;
+            document.getElementById('subjectModalTitle').innerHTML = '<i class="fa-solid fa-pen mr-2"></i> แก้ไขรายวิชา';
+            document.getElementById('subjectId').value = subject.id;
+            document.getElementById('subjectCode').value = subject.code;
+            document.getElementById('subjectName').value = subject.name;
+            document.getElementById('subjectTerm').value = subject.term;
+            document.getElementById('subjectYear').value = subject.year;
+            document.getElementById('subjectTeacher').value = subject.teacher;
+            openModal('subjectModal');
+          }
+
+          function editClass(id) {
+            const classData = classesList.find(c => c.id === id);
+            if (!classData) return;
+            document.getElementById('classId').value = classData.realId || classData.id;
+            document.getElementById('classCode').value = classData.code || '';
+            document.getElementById('classSubject').value = classData.subject || '';
+            openModal('classModal');
+          }
+
+          function editStudent(id) {
+            const student = studentsList.find(s => s.id === id);
+            if (!student) return;
+            document.getElementById('studentId').value = student.id;
+            document.getElementById('studentCode').value = student.code;
+            document.getElementById('studentName').value = student.name;
+            document.getElementById('studentClass').value = student.class;
+            openModal('studentModal');
+          }
+
+          function deleteSubject(id) {
+            Swal.fire({
+              title: 'คุณแน่ใจหรือไม่?',
+              text: 'คุณต้องการลบรายวิชานี้ใช่หรือไม่?',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#d33',
+              cancelButtonColor: '#3085d6',
+              confirmButtonText: 'ใช่, ลบเลย!',
+              cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+              if (result.isConfirmed) {
+                await dbService.deleteDoc('subjects', id);
+                subjectsList = await dbService.getDocs('subjects');
+                renderSubjects();
+                updateDashboardStats();
+                updateSelectOptions();
+                Swal.fire('ลบแล้ว!', 'รายวิชาถูกลบเรียบร้อยแล้ว', 'success');
+              }
+            });
+          }
+
+          function deleteClass(id) {
+          const classData = classesList.find(c => c.id === id);
+          if (!classData) return;
+          Swal.fire({
+          title: 'คุณแน่ใจหรือไม่?',
+          text: 'คุณต้องการลบกลุ่มเรียนนี้ใช่หรือไม่?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          cancelButtonColor: '#3085d6',
+          confirmButtonText: 'ใช่, ลบเลย!',
+          cancelButtonText: 'ยกเลิก'
+          }).then(async (result) => {
+          if (result.isConfirmed) {
+          await dbService.deleteDoc(`subjects/${classData.subject}/sections`, classData.realId || classData.id);
+                
+      let allSections = [];
+      if (subjectsList && subjectsList.length > 0) {
+        for (const subject of subjectsList) {
+          const sectionsSnap = await db.collection('users').doc(currentUser.email).collection('subjects').doc(subject.id).collection('sections').get();
+          sectionsSnap.forEach(doc => {
+            allSections.push({ 
+              id: subject.id + '_' + doc.id, 
+              sec: doc.data().sec, 
+              subject: subject.id, 
+              realId: doc.id 
+            });
+          });
+        }
+      }
+      classesList = allSections;
+
+                renderClasses();
+                updateDashboardStats();
+                updateSelectOptions();
+                Swal.fire('ลบแล้ว!', 'กลุ่มเรียนถูกลบเรียบร้อยแล้ว', 'success');
+              }
+            });
+          }
+
+          function deleteStudent(id) {
+            Swal.fire({
+              title: 'คุณแน่ใจหรือไม่?',
+              text: 'คุณต้องการลบผู้เรียนคนนี้ใช่หรือไม่?',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#d33',
+              cancelButtonColor: '#3085d6',
+              confirmButtonText: 'ใช่, ลบเลย!',
+              cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+              if (result.isConfirmed) {
+                await dbService.deleteDoc('students', id);
+                studentsList = await dbService.getDocs('students');
+                renderStudents();
+                updateDashboardStats();
+                Swal.fire('ลบแล้ว!', 'ข้อมูลผู้เรียนถูกลบเรียบร้อยแล้ว', 'success');
+              }
+            });
+          }
+
+
+          function printAnswerSheet() {
+            const iframe = document.getElementById('answerSheetFrame');
+            iframe.contentWindow.print();
+          }
+
+          function updateSelectOptions() {
+            const subjectSelects = [document.getElementById('examSubjectInput'), document.getElementById('classSubject')];
+            subjectSelects.forEach(select => {
+              if (!select) return;
+              const prevVal = select.value;
+              select.innerHTML = '<option value="" disabled selected>-- เลือกรายวิชา --</option>' +
+                subjectsList.map(s => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+              if (prevVal && subjectsList.some(s => s.code === prevVal)) select.value = prevVal;
+            });
+
+            const classSelect = document.getElementById('studentClass');
+            if (classSelect) {
+              const prevVal = classSelect.value;
+              classSelect.innerHTML = '<option value="" disabled selected>-- เลือกกลุ่มเรียน --</option>' +
+                classesList.map(c => `<option value="${c.code}">${c.code} (${c.subject})</option>`).join('');
+              if (prevVal && classesList.some(c => c.code === prevVal)) classSelect.value = prevVal;
+            }
+
+            const analysisSelect = document.getElementById('analysisExamSelect');
+            if (analysisSelect) {
+              const prevVal = analysisSelect.value;
+              analysisSelect.innerHTML = '<option value="">-- เลือกข้อสอบเพื่อวิเคราะห์ --</option>' +
+                exams.map(e => `<option value="${e.id}">${e.name} (${e.subject})</option>`).join('');
+              if (prevVal && exams.some(e => e.id === prevVal)) analysisSelect.value = prevVal;
+            }
+          }
+
+          function updateDashboardStats() {
+            const statBlocks = document.querySelectorAll('#dashboardPage h3.text-3xl');
+            if (statBlocks.length >= 4) {
+              statBlocks[0].innerText = subjectsList.length;
+              statBlocks[1].innerText = studentsList.length;
+              statBlocks[2].innerText = exams.length;
+              statBlocks[3].innerText = resultsList.length;
+            }
+          }
+
+          // --------------------------------------------------------
+          // ระบบกราฟและเริ่มต้น
+          // --------------------------------------------------------
+          let chartsRendered = false;
+          function initCharts() {
+            if (chartsRendered) return;
+
+            // 1. Dashboard Chart: Average score per subject
+            const subjectAverages = {};
+            subjectsList.forEach(s => subjectAverages[s.code] = { total: 0, count: 0, name: s.name });
+
+            resultsList.forEach(res => {
+              const exam = exams.find(e => e.id === res.examId);
+              if (exam && subjectAverages[exam.subject]) {
+                subjectAverages[exam.subject].total += (res.score || 0);
+                subjectAverages[exam.subject].count += 1;
+              }
+            });
+
+            const labels = [];
+            const data = [];
+            Object.keys(subjectAverages).forEach(code => {
+              if (subjectAverages[code].count > 0) {
+                labels.push(`วิชา ${code}`);
+                data.push((subjectAverages[code].total / subjectAverages[code].count).toFixed(2));
+              }
+            });
+
+            // Fallback to dummy if no data yet (for UI preview)
+            if (labels.length === 0) {
+              labels.push('ยังไม่มีข้อมูล');
+              data.push(0);
+            }
+
+            const dashboardCanvas = document.getElementById('dashboardChart');
+            const ctxDash = dashboardCanvas ? dashboardCanvas.getContext('2d') : null;
+            if (ctxDash) new Chart(ctxDash, {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'คะแนนเฉลี่ย',
+                  data: data,
+                  backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                  borderColor: 'rgb(59, 130, 246)',
+                  borderWidth: 1,
+                  borderRadius: 8
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+              }
+            });
+
+            // 2. Analysis Chart: Score Distribution (Overall or Current)
+            const distribution = [0, 0, 0, 0, 0]; // 0-20, 21-40, 41-60, 61-80, 81-100 (percentage)
+            resultsList.forEach(res => {
+              const exam = exams.find(e => e.id === res.examId);
+              if (exam) {
+                const percent = (res.score / exam.questions) * 100;
+                if (percent <= 20) distribution[0]++;
+                else if (percent <= 40) distribution[1]++;
+                else if (percent <= 60) distribution[2]++;
+                else if (percent <= 80) distribution[3]++;
+                else distribution[4]++;
+              }
+            });
+
+            const analysisCanvas = document.getElementById('analysisChart');
+            const ctxAnalysis = analysisCanvas ? analysisCanvas.getContext('2d') : null;
+            if (ctxAnalysis) new Chart(ctxAnalysis, {
+              type: 'line',
+              data: {
+                labels: ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'],
+                datasets: [{
+                  label: 'จำนวนนักเรียน',
+                  data: distribution,
+                  backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                  borderColor: 'rgb(37, 99, 235)',
+                  borderWidth: 3,
+                  pointBackgroundColor: '#fff',
+                  pointBorderWidth: 2,
+                  fill: true,
+                  tension: 0.4
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+              }
+            });
+
+            // Update Statistics
+            updateAnalysisStats();
+
+            chartsRendered = true;
+          }
+
+          function updateAnalysisPage() {
+            const examId = document.getElementById('analysisExamSelect').value;
+            let filteredResults = resultsList;
+
+            if (examId) {
+              filteredResults = resultsList.filter(r => r.examId === examId);
+            } else if (exams.length > 0) {
+              // If no exam selected, default to the latest one that has results
+              const latestExamWithResults = [...exams].reverse().find(e => resultsList.some(r => r.examId === e.id));
+              if (latestExamWithResults) {
+                document.getElementById('analysisExamSelect').value = latestExamWithResults.id;
+                filteredResults = resultsList.filter(r => r.examId === latestExamWithResults.id);
+              }
+            }
+
+            updateAnalysisStats(filteredResults);
+            renderItemAnalysis(document.getElementById('analysisExamSelect').value, filteredResults);
+          }
+
+          function updateAnalysisStats(results) {
+            if (!results || results.length === 0) {
+              const statsList = document.querySelectorAll('#analysisPage ul li span.font-bold');
+              statsList.forEach(s => s.innerText = '-');
+              return;
+            }
+
+            const scores = results.map(r => r.score).sort((a, b) => a - b);
+            const sum = scores.reduce((a, b) => a + b, 0);
+            const mean = sum / scores.length;
+            const max = Math.max(...scores);
+            const min = Math.min(...scores);
+
+            // Median
+            let median = 0;
+            const mid = Math.floor(scores.length / 2);
+            if (scores.length % 2 === 0) median = (scores[mid - 1] + scores[mid]) / 2;
+            else median = scores[mid];
+
+            // Update UI
+            const statsList = document.querySelectorAll('#analysisPage ul li span.font-bold');
+            if (statsList.length >= 6) {
+              statsList[0].innerText = mean.toFixed(2);
+              statsList[1].innerText = median.toFixed(2);
+
+              // Mode
+              const counts = {};
+              scores.forEach(s => counts[s] = (counts[s] || 0) + 1);
+              const maxCount = Math.max(...Object.values(counts));
+              const modes = Object.keys(counts).filter(k => counts[k] === maxCount);
+              statsList[2].innerText = modes.join(', ');
+
+              // SD
+              const squareDiffs = scores.map(s => Math.pow(s - mean, 2));
+              const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / scores.length;
+              const sd = Math.sqrt(avgSquareDiff);
+              statsList[3].innerText = sd.toFixed(2);
+
+              statsList[4].innerText = max;
+              statsList[5].innerText = min;
+            }
+          }
+
+          function renderItemAnalysis(examId, results) {
+            const tbody = document.getElementById('itemAnalysisBody');
+            if (!tbody) return;
+
+            const exam = exams.find(e => e.id === examId);
+            if (!exam || results.length === 0 || !answerKeys[examId]) {
+              tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-500 italic">เลือกข้อสอบและต้องมีเฉลย/ผลสอบเพื่อวิเคราะห์รายข้อ</td></tr>`;
+              return;
+            }
+
+            const key = answerKeys[examId][0]; // Single set assumption
+            if (!key) {
+              tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-500 italic">กรุณากำหนดเฉลยสำหรับข้อสอบนี้ก่อน</td></tr>`;
+              return;
+            }
+
+            // High/Low Groups for Discrimination (27% split)
+            const sortedResults = [...results].sort((a, b) => b.score - a.score);
+            const groupSize = Math.max(1, Math.floor(sortedResults.length * 0.27));
+            const highGroup = sortedResults.slice(0, groupSize);
+            const lowGroup = sortedResults.slice(-groupSize);
+
+            let html = '';
+            for (let q = 1; q <= exam.questions; q++) {
+              const correctAns = key[q];
+              if (!correctAns) continue;
+
+              // Difficulty (P)
+              const correctCount = results.filter(r => r.answers && r.answers[q] === correctAns).length;
+              const p = correctCount / results.length;
+
+              // Discrimination (r)
+              const highCorrect = highGroup.filter(r => r.answers && r.answers[q] === correctAns).length;
+              const lowCorrect = lowGroup.filter(r => r.answers && r.answers[q] === correctAns).length;
+              const r = (highCorrect - lowCorrect) / groupSize;
+
+              // Interpretations
+              let pText = '', pClass = '';
+              if (p > 0.8) { pText = 'ง่ายมาก'; pClass = 'text-blue-500'; }
+              else if (p > 0.6) { pText = 'ค่อนข้างง่าย'; pClass = 'text-blue-600'; }
+              else if (p > 0.4) { pText = 'ยากง่ายพอเหมาะ'; pClass = 'text-green-600'; }
+              else if (p > 0.2) { pText = 'ค่อนข้างยาก'; pClass = 'text-orange-600'; }
+              else { pText = 'ยากมาก'; pClass = 'text-red-600'; }
+
+              let rText = '', rClass = '';
+              if (r >= 0.4) { rText = 'ดีมาก'; rClass = 'text-green-600'; }
+              else if (r >= 0.3) { rText = 'ดี'; rClass = 'text-green-500'; }
+              else if (r >= 0.2) { rText = 'พอใช้ (ควรปรับปรุง)'; rClass = 'text-orange-500'; }
+              else { rText = 'จำแนกไม่ได้ (ตัดทิ้ง/แก้ไข)'; rClass = 'text-red-500'; }
+
+              html += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-3 border-b text-center font-bold">${q}</td>
+                        <td class="p-3 border-b text-center font-mono">${p.toFixed(2)}</td>
+                        <td class="p-3 border-b text-center ${pClass} font-bold">${pText}</td>
+                        <td class="p-3 border-b text-center font-mono">${r.toFixed(2)}</td>
+                        <td class="p-3 border-b text-center ${rClass} font-bold">${rText}</td>
+                    </tr>
+                `;
+            }
+            tbody.innerHTML = html;
+          }
+
+          function renderReport() {
+            const tbody = document.getElementById('reportTableBody');
+            if (!tbody) return;
+
+            if (exams.length === 0) {
+              tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 italic">ยังไม่มีข้อมูลข้อสอบในระบบ</td></tr>`;
+              return;
+            }
+
+            tbody.innerHTML = exams.map((exam, index) => {
+              const results = resultsList.filter(r => r.examId === exam.id);
+              const participantCount = results.length;
+
+              let average = 0;
+              let passCount = 0;
+
+              if (participantCount > 0) {
+                const totalScore = results.reduce((sum, r) => sum + (r.score || 0), 0);
+                average = totalScore / participantCount;
+
+                // Passing criteria: >= 50%
+                passCount = results.filter(r => (r.score / exam.questions) >= 0.5).length;
+              }
+
+              return `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-3 border text-center font-bold">${index + 1}</td>
+                        <td class="p-3 border font-mono text-xs">${exam.subject}</td>
+                        <td class="p-3 border font-medium">${exam.name}</td>
+                        <td class="p-3 border text-center font-bold">${participantCount}</td>
+                        <td class="p-3 border text-center text-blue-600 font-bold">${average.toFixed(2)}</td>
+                        <td class="p-3 border text-center">
+                            <span class="text-green-600 font-bold">${passCount}</span>
+                            <span class="text-gray-400 text-xs"> / ${participantCount}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+          }
+
+          async function exportReport(format) {
+            if (exams.length === 0) return Swal.fire('ไม่มีข้อมูล', 'ยังไม่มีข้อมูลข้อสอบในระบบ', 'warning');
+
+            const reportData = exams.map((exam, index) => {
+              const results = resultsList.filter(r => r.examId === exam.id);
+              const participantCount = results.length;
+              let average = 0;
+              let passCount = 0;
+              if (participantCount > 0) {
+                average = results.reduce((sum, r) => sum + (r.score || 0), 0) / participantCount;
+                passCount = results.filter(r => (r.score / exam.questions) >= 0.5).length;
+              }
+              return {
+                'ลำดับ': index + 1,
+                'รหัสวิชา': exam.subject,
+                'ชื่อการสอบ': exam.name,
+                'จำนวนผู้เข้าสอบ': participantCount,
+                'คะแนนเฉลี่ย': average.toFixed(2),
+                'จำนวนผู้สอบผ่าน': passCount
+              };
+            });
+
+            if (format === 'excel' || format === 'csv') {
+              const ws = XLSX.utils.json_to_sheet(reportData);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Report");
+              const filename = `Exam_Report_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+              XLSX.writeFile(wb, filename, { bookType: format === 'excel' ? 'xlsx' : 'csv' });
+              Swal.fire('สำเร็จ', `ส่งออกไฟล์ ${format.toUpperCase()} เรียบร้อยแล้ว`, 'success');
+            } else if (format === 'pdf') {
+              Swal.fire({ title: 'กำลังเตรียมไฟล์ PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+              try {
+                const element = document.querySelector('#reportPage table');
+                const canvas = await html2canvas(element, { scale: 2 });
+                const imgData = canvas.toDataURL('image/png');
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                pdf.setFontSize(18);
+                pdf.text("รายงานสรุปผลการสอบ", 10, 15);
+                pdf.addImage(imgData, 'PNG', 10, 25, pdfWidth, pdfHeight);
+                pdf.save(`Exam_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
+                Swal.close();
+                Swal.fire('สำเร็จ', 'ส่งออกไฟล์ PDF เรียบร้อยแล้ว', 'success');
+              } catch (e) {
+                console.error("PDF Export Error:", e);
+                Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถส่งออก PDF ได้: ' + e.message, 'error');
+              }
+            }
+          }
+
+          // Initializations on load
+          window.addEventListener('DOMContentLoaded', () => {
+            // App state is handled by onAuthStateChanged
+          });
+        </script>
+</body>
+
+</html>

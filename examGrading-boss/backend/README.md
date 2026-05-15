@@ -1,24 +1,29 @@
 # Exam Grading Backend
 
-FastAPI service for generating answer-sheet PDFs, scanning OMR sheets, grading answers, and writing results to Firebase.
+FastAPI service for answer-sheet PDF generation, OMR scanning, grading, diagnostics, and Firebase persistence.
+
+## Structure
+
+- `app/main.py` - FastAPI application and endpoints.
+- `app/models/` - Pydantic request models.
+- `app/services/` - OMR scanning, diagnostics, QR, and PDF generation logic.
+- `assets/templates/` - Answer-sheet templates for 30, 50, and 100 questions.
+- `main.py`, `omr_scanner.py`, `diagnose_sheet.py` - compatibility wrappers for older commands/imports.
 
 ## Setup
 
-1. Put Firebase Admin SDK credentials at repo root:
-
-   `serviceAccountKey.json`
-
-   Or set:
-
-   `FIREBASE_SERVICE_ACCOUNT=C:\path\to\serviceAccountKey.json`
-
+1. Put Firebase Admin SDK credentials at `backend/serviceAccountKey.json`, repo root `serviceAccountKey.json`, or set `FIREBASE_SERVICE_ACCOUNT`.
 2. Install dependencies:
 
-   `pip install -r backend/requirements.txt`
+   ```powershell
+   pip install -r backend/requirements.txt
+   ```
 
-3. Run:
+3. Run from the project root:
 
-   `uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000`
+   ```powershell
+   uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+   ```
 
 ## Firestore Paths
 
@@ -31,9 +36,21 @@ FastAPI service for generating answer-sheet PDFs, scanning OMR sheets, grading a
 - `GET /api/health`
 - `POST /api/sheets/pdf`
 - `POST /api/sheets/pdf/download`
+- `POST /api/sheets/pdf/by-subject/download`
 - `POST /api/scan`
+- `POST /api/scan-cloudinary`
 - `POST /api/diagnose`
 
-For local testing, pass `user_email`. For production, send a Firebase ID token:
+For local testing, pass `user_email`. For production, send a Firebase ID token with `Authorization: Bearer <firebase-id-token>`.
 
-`Authorization: Bearer <firebase-id-token>`
+## LAN Access
+
+Run FastAPI with `--host 0.0.0.0` so phones and other computers on the same network can reach it.
+
+Find this computer's IPv4 address:
+
+```powershell
+ipconfig
+```
+
+Then use `http://<IPv4>:8000` as the backend URL in web/mobile config. Windows Firewall must allow inbound TCP port `8000`.
