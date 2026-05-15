@@ -54,3 +54,12 @@ ipconfig
 ```
 
 Then use `http://<IPv4>:8000` as the backend URL in web/mobile config. Windows Firewall must allow inbound TCP port `8000`.
+
+## Render Deploy
+
+This backend includes a Dockerfile for Render. Use `backend` as the Root Directory, Docker as the runtime, and `/api/health` as the health check path.
+
+Set these environment variables in Render:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON` - the full Firebase Admin SDK JSON content.
+- `FIREBASE_STORAGE_BUCKET` - `examgradings.firebasestorage.app`.
