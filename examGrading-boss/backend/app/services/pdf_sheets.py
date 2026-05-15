@@ -16,19 +16,12 @@ TEMPLATE_MAP = {
     100: BACKEND_DIR / "assets" / "templates" / "template_100q.png",
 }
 
-DEFAULT_TEXT_POSITIONS = {
-    "subject_code": (300, 248),
-    "subject_name": (300, 312),
-    "student_id": (300, 396),
-    "student_name": (300, 470),
-    "exam_date": (300, 536),
-}
-TEXT_MAX_WIDTHS = {
-    "subject_code": 520,
-    "subject_name": 760,
-    "student_id": 520,
-    "student_name": 760,
-    "exam_date": 520,
+TEXT_BOXES = {
+    "subject_code": (300, 240, 520, 44),
+    "subject_name": (300, 306, 520, 44),
+    "student_id": (300, 374, 520, 44),
+    "student_name": (300, 444, 520, 44),
+    "exam_date": (300, 512, 520, 44),
 }
 DEFAULT_QR_POSITION = (900, 250)
 
@@ -68,23 +61,28 @@ def _load_font(size: int, font_path: str | None = None) -> ImageFont.FreeTypeFon
 
 def _draw_fitted_text(
     draw: ImageDraw.ImageDraw,
-    position: tuple[int, int],
+    box: tuple[int, int, int, int],
     text: str,
     font_path: str | None,
     base_size: int,
-    max_width: int,
 ) -> None:
+    x, y, max_width, max_height = box
     font_size = base_size
     font = _load_font(font_size, font_path)
 
-    while font_size > 28:
-        bbox = draw.textbbox(position, text, font=font)
-        if bbox[2] - bbox[0] <= max_width:
+    while font_size > 22:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        if text_width <= max_width and text_height <= max_height:
             break
         font_size -= 2
         font = _load_font(font_size, font_path)
 
-    draw.text(position, text, font=font, fill=(0, 0, 0))
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_height = bbox[3] - bbox[1]
+    text_y = y + ((max_height - text_height) / 2) - bbox[1]
+    draw.text((x, text_y), text, font=font, fill=(0, 0, 0))
 
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
@@ -111,9 +109,9 @@ def create_single_sheet_image(
     sheet_payload: dict,
     template_path: str | Path | None = None,
     qr_position: tuple[int, int] = DEFAULT_QR_POSITION,
-    text_positions: dict = DEFAULT_TEXT_POSITIONS,
+    text_positions: dict | None = None,
     font_path: str | None = None,
-    font_size: int = 46,
+    font_size: int = 32,
 ) -> Image.Image:
     """Create one answer-sheet image from normalized sheet payload."""
     total_questions = int(sheet_payload.get("total_questions") or 50)
@@ -141,16 +139,16 @@ def create_single_sheet_image(
 
     draw = ImageDraw.Draw(template_img)
 
-    for key, (x, y) in text_positions.items():
+    boxes = text_positions or TEXT_BOXES
+    for key, box in boxes.items():
         value = sheet_payload.get(key)
         if value:
             _draw_fitted_text(
                 draw,
-                (x, y),
+                box,
                 str(value),
                 font_path,
                 font_size,
-                TEXT_MAX_WIDTHS.get(key, 720),
             )
 
     return template_img
