@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnswerKeyPage } from "./pages/AnswerKeyPage.jsx";
 import { AnswerSheet } from "./pages/AnswerSheet.jsx";
 import { AnalysisPage } from "./pages/AnalysisPage.jsx";
+import { AdminPage } from "./pages/AdminPage.jsx";
 import { Dashboard } from "./pages/Dashboard.jsx";
 import { ExamsPage } from "./pages/ExamsPage.jsx";
 import { ReportsPage } from "./pages/ReportsPage.jsx";
@@ -34,7 +35,8 @@ function bootFirebase() {
 }
 
 function currentRouteId() {
-  const pathname = window.location.pathname.split("/").pop();
+  const pathname = window.location.pathname.split("/").filter(Boolean).pop() || "";
+  if (pathname === "admin.html" || pathname === "admin") return "admin";
   if (pathname === "login.html" || pathname === "login") return "login";
   if (pathname === "register.html" || pathname === "register")
     return "register";
@@ -336,6 +338,11 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
     return <Dashboard {...props} />;
   }
 
+  async function signOut() {
+    await api?.log("User signed out");
+    await auth.signOut();
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 relative">
       {sidebarOpen && (
@@ -381,7 +388,7 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
         <div className="p-4 border-t border-slate-100">
           <GhostButton
             variant="danger"
-            onClick={() => auth.signOut()}
+            onClick={signOut}
             className="w-full"
           >
             <Icon name="fa-right-from-bracket" /> ออกจากระบบ
@@ -530,9 +537,33 @@ export default function App() {
   const api = useMemo(() => {
     if (!firebase || !user) return null;
     const root = firebase.db.collection("users").doc(user.email);
+    async function log(activity, metadata = {}) {
+      try {
+        const docRef = firebase.db.collection("systemLogs").doc();
+        await docRef.set({
+          logid: docRef.id,
+          activity,
+          datetime: window.firebase.firestore.FieldValue.serverTimestamp(),
+          user: user.email,
+          userEmail: user.email,
+          displayName: user.displayName || "",
+          role: "Teacher",
+          ...metadata,
+        });
+      } catch (error) {
+        console.warn("Could not write system log", error);
+      }
+    }
+
     return {
+      log,
       async add(collectionPath, payload) {
         const docRef = await root.collection(collectionPath).add(payload);
+        await log(`User added ${collectionPath}`, {
+          action: "add",
+          collectionPath,
+          targetId: docRef.id,
+        });
         return docRef.id;
       },
       async set(path, payload) {
@@ -540,12 +571,27 @@ export default function App() {
           .collection(path.split("/").slice(0, -1).join("/"))
           .doc(path.split("/").at(-1))
           .set(payload, { merge: true });
+        await log(`User saved ${path}`, {
+          action: "set",
+          collectionPath: path.split("/").slice(0, -1).join("/"),
+          targetId: path.split("/").at(-1),
+        });
       },
       async update(collectionPath, id, payload) {
         await root.collection(collectionPath).doc(id).update(payload);
+        await log(`User updated ${collectionPath}/${id}`, {
+          action: "update",
+          collectionPath,
+          targetId: id,
+        });
       },
       async remove(collectionPath, id) {
         await root.collection(collectionPath).doc(id).delete();
+        await log(`User deleted ${collectionPath}/${id}`, {
+          action: "remove",
+          collectionPath,
+          targetId: id,
+        });
       },
     };
   }, [firebase, user]);
@@ -579,9 +625,16 @@ export default function App() {
   }
 
   if (!user) {
+    if (routeId === "admin") {
+      return <AdminPage firebase={firebase} />;
+    }
     return (
       <AuthCard mode={authMode} setMode={setAuthMode} auth={firebase.auth} />
     );
+  }
+
+  if (routeId === "admin") {
+    return <AdminPage firebase={firebase} />;
   }
 
   return (
