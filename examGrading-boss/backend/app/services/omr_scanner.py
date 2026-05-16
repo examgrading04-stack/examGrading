@@ -31,7 +31,7 @@ class SheetMetadata:
     subject_code: str=""; subject_name: str=""
     student_id: str=""; student_name: str=""
     exam_date: str=""; total_questions: int=0
-    sheet_id: str=""
+    sheet_id: str=""; exam_id: str=""
 
 @dataclass
 class OMRResult:
@@ -132,6 +132,9 @@ def _parse_qr_data(data, meta):
         meta.exam_date     = d.get("dt", d.get("exam_date", ""))
         meta.total_questions = int(d.get("tq", d.get("total_questions", 0)))
         meta.sheet_id = d.get("sid", d.get("sheet_id", ""))
+        meta.exam_id = d.get("eid", d.get("exam_id", ""))
+        if not meta.exam_id and ":" in meta.sheet_id:
+            meta.exam_id = meta.sheet_id.split(":", 1)[0]
     except:
         meta.subject_code = data.strip()
     return meta

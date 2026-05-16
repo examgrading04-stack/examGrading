@@ -15,7 +15,7 @@ class SheetPdfBySubjectRequest(BaseModel):
 
 
 class ScanCloudinaryRequest(BaseModel):
-    exam_id: str
+    exam_id: str | None = None
     image_url: str
     user_email: str | None = None
     answer_set: str = "0"

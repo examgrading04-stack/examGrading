@@ -25,6 +25,23 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ScanScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF8B5CF6),
+        foregroundColor: Colors.white,
+        elevation: 8,
+        icon: const Icon(FontAwesomeIcons.cameraRetro, size: 18),
+        label: const Text(
+          'สแกนตรวจ',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: Stack(
         children: [
           // Top Background Pattern
@@ -191,7 +208,7 @@ class DashboardScreen extends StatelessWidget {
                 // Flexible Grid Area (Fits to screen without scroll)
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -235,37 +252,13 @@ class DashboardScreen extends StatelessWidget {
                             Expanded(
                               child: _buildGridItem(
                                 context,
-                                FontAwesomeIcons.cameraRetro,
-                                'สแกนตรวจ',
-                                const Color(0xFF8B5CF6),
-                                const ScanScreen(),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGridItem(
-                                context,
-                                FontAwesomeIcons.images,
-                                'อัลบั้มภาพ',
-                                const Color(0xFFEC4899),
-                                const ScanScreen(),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGridItem(
-                                context,
                                 FontAwesomeIcons.clockRotateLeft,
                                 'ประวัติ',
                                 const Color(0xFF06B6D4),
                                 const ResultsScreen(),
                               ),
                             ),
-                          ],
-                        ),
-                        // Row 3: History & Logout (now empty)
-                        Row(
-                          children: [
+                            const SizedBox(width: 16),
                             Expanded(
                               child: _buildGridItem(
                                 context,
@@ -275,8 +268,6 @@ class DashboardScreen extends StatelessWidget {
                                 const AnalysisScreen(),
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            const Expanded(child: SizedBox()),
                             const SizedBox(width: 16),
                             const Expanded(child: SizedBox()),
                           ],

@@ -1,4 +1,7 @@
 ﻿import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,7 +23,6 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   File? _image;
   final picker = ImagePicker();
-  final _examIdController = TextEditingController();
   bool _isUploading = false;
 
   Future<void> _pickImage(ImageSource source) async {
@@ -28,6 +30,19 @@ class _ScanScreenState extends State<ScanScreen> {
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _openAutoScanner() async {
+    final scannedImage = await Navigator.push<File?>(
+      context,
+      MaterialPageRoute(builder: (context) => const AnswerSheetCameraScreen()),
+    );
+
+    if (scannedImage != null && mounted) {
+      setState(() {
+        _image = scannedImage;
       });
     }
   }
@@ -64,11 +79,11 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _uploadAndProcess() async {
-    if (_image == null || _examIdController.text.isEmpty) {
+    if (_image == null) {
       QuickAlert.show(
         context: context,
         type: QuickAlertType.warning,
-        text: 'กรุณาเลือกรูปภาพและระบุรหัสข้อสอบ',
+        text: 'กรุณาเลือกรูปภาพกระดาษคำตอบ',
       );
       return;
     }
@@ -92,7 +107,6 @@ class _ScanScreenState extends State<ScanScreen> {
             ApiConfig.endpoint('/api/scan-cloudinary'),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
-              'exam_id': _examIdController.text.trim(),
               'image_url': cloudUrl,
               'user_email': uid,
             }),
@@ -166,7 +180,7 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'เลือกวิธีอัปโหลด',
+              'เพิ่มกระดาษคำตอบ',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -179,16 +193,16 @@ class _ScanScreenState extends State<ScanScreen> {
               children: [
                 _buildPickerOption(
                   icon: FontAwesomeIcons.camera,
-                  label: 'ถ่ายรูป',
+                  label: 'สแกนอัตโนมัติ',
                   color: const Color(0xFF2563EB),
                   onTap: () {
                     Navigator.pop(context);
-                    _pickImage(ImageSource.camera);
+                    _openAutoScanner();
                   },
                 ),
                 _buildPickerOption(
                   icon: FontAwesomeIcons.solidImage,
-                  label: 'แกลเลอรี',
+                  label: 'อัลบั้มภาพ',
                   color: const Color(0xFFEC4899),
                   onTap: () {
                     Navigator.pop(context);
@@ -289,73 +303,57 @@ class _ScanScreenState extends State<ScanScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Form Card
                   Container(
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFF1F5F9)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 15,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        const Text(
-                          'ข้อมูลการสอบ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF64748B),
-                            letterSpacing: 0.5,
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDE9FE),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.fact_check_rounded,
+                            color: Color(0xFF8B5CF6),
+                            size: 22,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: TextField(
-                            controller: _examIdController,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF1E293B),
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'กรอกรหัสข้อสอบ',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 13,
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ตรวจจาก QR บนกระดาษคำตอบ',
+                                style: TextStyle(
+                                  color: Color(0xFF1E293B),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              labelText: 'รหัสข้อสอบ (Exam ID)',
-                              labelStyle: TextStyle(color: Color(0xFF94A3B8)),
-                              prefixIcon: Icon(
-                                FontAwesomeIcons.hashtag,
-                                size: 16,
-                                color: Color(0xFF94A3B8),
+                              SizedBox(height: 4),
+                              Text(
+                                'สแกนหรือเลือกภาพก่อน แล้วกดอัปโหลดเมื่อพร้อม',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                ),
                               ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 14,
-                                horizontal: 12,
-                              ),
-                            ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
 
-                  // Image Picker Box
                   GestureDetector(
                     onTap: _showPickerBottomSheet,
                     child: Container(
@@ -465,7 +463,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                 ),
                                 const SizedBox(height: 24),
                                 const Text(
-                                  'แตะเพื่อเลือกรูปภาพ',
+                                  'แตะเพื่อสแกนหรือเลือกภาพ',
                                   style: TextStyle(
                                     color: Color(0xFF1E293B),
                                     fontSize: 16,
@@ -474,7 +472,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'กระดาษคำตอบต้องอยู่ในกรอบ ชัดเจน และสว่างเพียงพอ',
+                                  'ระบบจะอ่านรหัสข้อสอบจาก QR บนกระดาษคำตอบ',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Color(0xFF64748B),
@@ -493,21 +491,28 @@ class _ScanScreenState extends State<ScanScreen> {
                     height: 54,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEC4899), Color(0xFFBE185D)],
+                      gradient: LinearGradient(
+                        colors: _image == null
+                            ? const [Color(0xFFCBD5E1), Color(0xFF94A3B8)]
+                            : const [Color(0xFFEC4899), Color(0xFFBE185D)],
                       ),
                       boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFEC4899).withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
+                        if (_image != null)
+                          BoxShadow(
+                            color: const Color(0xFFEC4899).withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: _isUploading ? null : _uploadAndProcess,
+                      onPressed: _isUploading || _image == null
+                          ? null
+                          : _uploadAndProcess,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
+                        disabledBackgroundColor: Colors.transparent,
+                        disabledForegroundColor: Colors.white,
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -538,4 +543,423 @@ class _ScanScreenState extends State<ScanScreen> {
       ),
     );
   }
+}
+
+class AnswerSheetCameraScreen extends StatefulWidget {
+  const AnswerSheetCameraScreen({Key? key}) : super(key: key);
+
+  @override
+  State<AnswerSheetCameraScreen> createState() =>
+      _AnswerSheetCameraScreenState();
+}
+
+class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
+    with WidgetsBindingObserver {
+  CameraController? _controller;
+  Future<void>? _initializeFuture;
+  double? _lastLuma;
+  DateTime? _stableSince;
+  DateTime _lastFrameCheck = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _isCapturing = false;
+  bool _isStreaming = false;
+  bool _hasCameraError = false;
+  String _statusText = 'วางกระดาษคำตอบให้อยู่ในกรอบ';
+  Color _statusColor = Colors.white;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeCamera();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    if (state == AppLifecycleState.inactive) {
+      controller.dispose();
+      _controller = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw CameraException('no_camera', 'ไม่พบกล้องบนอุปกรณ์นี้');
+      }
+
+      final backCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
+      final controller = CameraController(
+        backCamera,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
+      _controller = controller;
+      _initializeFuture = controller.initialize();
+      await _initializeFuture;
+
+      if (!mounted) return;
+      setState(() {});
+      await _startAutoScan();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _hasCameraError = true;
+        _statusText = 'เปิดกล้องไม่ได้: $e';
+        _statusColor = const Color(0xFFFCA5A5);
+      });
+    }
+  }
+
+  Future<void> _startAutoScan() async {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        controller.value.isStreamingImages) {
+      return;
+    }
+
+    _isStreaming = true;
+    await controller.startImageStream(_handleCameraImage);
+  }
+
+  void _handleCameraImage(CameraImage image) {
+    if (_isCapturing || !mounted) return;
+
+    final now = DateTime.now();
+    if (now.difference(_lastFrameCheck).inMilliseconds < 240) return;
+    _lastFrameCheck = now;
+
+    final luma = _sampleLuma(image.planes.first.bytes);
+    final lastLuma = _lastLuma;
+    _lastLuma = luma;
+
+    if (luma < 55) {
+      _markUnstable('เพิ่มแสงอีกนิด');
+      return;
+    }
+
+    if (lastLuma == null || (luma - lastLuma).abs() > 7) {
+      _markUnstable('ถือให้นิ่งในกรอบ');
+      return;
+    }
+
+    _stableSince ??= now;
+    final stableMs = now.difference(_stableSince!).inMilliseconds;
+    if (stableMs > 1100) {
+      _captureAutomatically();
+      return;
+    }
+
+    _updateStatus('กำลังจับภาพอัตโนมัติ...', const Color(0xFF86EFAC));
+  }
+
+  double _sampleLuma(Uint8List bytes) {
+    if (bytes.isEmpty) return 0;
+    final step = math.max(1, bytes.length ~/ 900);
+    var total = 0;
+    var count = 0;
+
+    for (var i = 0; i < bytes.length; i += step) {
+      total += bytes[i];
+      count++;
+    }
+
+    return total / count;
+  }
+
+  void _markUnstable(String message) {
+    _stableSince = null;
+    _updateStatus(message, Colors.white);
+  }
+
+  void _updateStatus(String message, Color color) {
+    if (_statusText == message && _statusColor == color) return;
+    setState(() {
+      _statusText = message;
+      _statusColor = color;
+    });
+  }
+
+  Future<void> _captureAutomatically() async {
+    final controller = _controller;
+    if (controller == null || _isCapturing) return;
+
+    setState(() {
+      _isCapturing = true;
+      _statusText = 'กำลังสแกน...';
+      _statusColor = const Color(0xFF86EFAC);
+    });
+
+    try {
+      if (_isStreaming && controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+        _isStreaming = false;
+      }
+
+      final image = await controller.takePicture();
+      if (!mounted) return;
+      Navigator.pop(context, File(image.path));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCapturing = false;
+        _stableSince = null;
+        _statusText = 'สแกนไม่สำเร็จ ลองจัดกระดาษใหม่';
+        _statusColor = const Color(0xFFFCA5A5);
+      });
+      await _startAutoScan();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: FutureBuilder<void>(
+        future: _initializeFuture,
+        builder: (context, snapshot) {
+          if (_hasCameraError) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.no_photography_outlined,
+                      color: Colors.white,
+                      size: 54,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      _statusText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFFFCA5A5),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          if (controller == null ||
+              snapshot.connectionState != ConnectionState.done) {
+            return const Center(
+              child: SpinKitThreeBounce(color: Colors.white, size: 24),
+            );
+          }
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCameraPreview(controller),
+              CustomPaint(
+                painter: _AnswerSheetMaskPainter(),
+                size: Size.infinite,
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.45),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _isCapturing
+                                      ? Icons.document_scanner
+                                      : Icons.center_focus_strong,
+                                  color: _statusColor,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isCapturing ? 'Auto scan' : 'Auto',
+                                  style: TextStyle(
+                                    color: _statusColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.16),
+                          ),
+                        ),
+                        child: Text(
+                          _statusText,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _statusColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_isCapturing)
+                Container(
+                  color: Colors.black.withOpacity(0.18),
+                  child: const Center(
+                    child: SpinKitPulse(color: Colors.white, size: 80),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return Center(child: CameraPreview(controller));
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenRatio = constraints.maxWidth / constraints.maxHeight;
+        final previewRatio = previewSize.height / previewSize.width;
+        final scale = math.max(
+          screenRatio / previewRatio,
+          previewRatio / screenRatio,
+        );
+
+        return Transform.scale(
+          scale: scale,
+          child: Center(child: CameraPreview(controller)),
+        );
+      },
+    );
+  }
+}
+
+class _AnswerSheetMaskPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final frameWidth = size.width * 0.82;
+    final frameHeight = math.min(size.height * 0.66, frameWidth * 1.42);
+    final frame = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: frameWidth,
+      height: frameHeight,
+    );
+
+    final overlayPath = Path()
+      ..addRect(Offset.zero & size)
+      ..addRRect(RRect.fromRectAndRadius(frame, const Radius.circular(24)))
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(
+      overlayPath,
+      Paint()..color = Colors.black.withOpacity(0.54),
+    );
+
+    final borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(frame, const Radius.circular(24)),
+      borderPaint,
+    );
+
+    final cornerPaint = Paint()
+      ..color = const Color(0xFF86EFAC)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    const cornerLength = 44.0;
+    const inset = 2.0;
+
+    void drawCorner(Offset corner, double xSign, double ySign) {
+      final start = Offset(corner.dx + inset * xSign, corner.dy + inset * ySign);
+      canvas.drawLine(
+        start,
+        start + Offset(cornerLength * xSign, 0),
+        cornerPaint,
+      );
+      canvas.drawLine(
+        start,
+        start + Offset(0, cornerLength * ySign),
+        cornerPaint,
+      );
+    }
+
+    drawCorner(frame.topLeft, 1, 1);
+    drawCorner(frame.topRight, -1, 1);
+    drawCorner(frame.bottomLeft, 1, -1);
+    drawCorner(frame.bottomRight, -1, -1);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

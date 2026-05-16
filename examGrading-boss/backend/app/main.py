@@ -5,14 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import firebase_admin
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from firebase_admin import auth, credentials, firestore, storage
 import requests
 
 from .models.schemas import (
-    ScanCloudinaryRequest,
     SheetPdfBySubjectRequest,
     SheetPdfRequest,
 )
@@ -188,7 +187,27 @@ def metadata_to_dict(result) -> dict[str, Any]:
         "examDate": metadata.exam_date,
         "totalQuestions": metadata.total_questions,
         "sheetId": metadata.sheet_id,
+        "examId": getattr(metadata, "exam_id", ""),
     }
+
+
+def resolve_exam_id(payload_exam_id: str | None, metadata: dict[str, Any]) -> str:
+    exam_id = (payload_exam_id or "").strip()
+    if exam_id:
+        return exam_id
+
+    metadata_exam_id = str(metadata.get("examId") or "").strip()
+    if metadata_exam_id:
+        return metadata_exam_id
+
+    sheet_id = str(metadata.get("sheetId") or "").strip()
+    if ":" in sheet_id:
+        return sheet_id.split(":", 1)[0].strip()
+
+    raise HTTPException(
+        status_code=422,
+        detail="ไม่พบรหัสข้อสอบจาก QR บนกระดาษคำตอบ",
+    )
 
 
 def serialize_answers(answers: dict) -> dict[str, Any]:
@@ -427,35 +446,54 @@ def download_image(url: str) -> str:
 
 @app.post("/api/scan-cloudinary")
 async def scan_cloudinary(
-    payload: ScanCloudinaryRequest,
+    payload: dict[str, Any] = Body(...),
     authorization: str | None = Header(None),
     db=Depends(get_db),
 ):
-    user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
-    exam = get_exam(db, user_email, payload.exam_id)
-    
+    image_url = str(payload.get("image_url") or "").strip()
+    if not image_url:
+        raise HTTPException(status_code=422, detail="Missing image_url")
+
+    payload_user_email = payload.get("user_email")
+    user_email = get_user_email(
+        authorization=authorization,
+        user_email=str(payload_user_email).strip() if payload_user_email else None,
+    )
+    answer_set = str(payload.get("answer_set") or "0")
+    debug = bool(payload.get("debug", False))
+    save_result = bool(payload.get("save_result", True))
+
     # Download image from Cloudinary URL
-    local_path = download_image(payload.image_url)
-    
-    # Process image
+    local_path = download_image(image_url)
+
+    payload_exam_id = str(payload.get("exam_id") or "").strip()
+    exam = get_exam(db, user_email, payload_exam_id) if payload_exam_id else {}
+    force_questions = int(exam.get("questions") or 0) if exam else 0
+
+    # Process image. If exam_id was not sent, QR metadata supplies the exam id
+    # and total question count.
     result = scan_answer_sheet(
         local_path,
-        force_questions=int(exam.get("questions") or 0),
-        debug=payload.debug,
+        force_questions=force_questions,
+        debug=debug,
     )
 
     if not result.success:
         raise HTTPException(status_code=422, detail=result.error_msg or "Scan failed")
 
-    answer_key = normalize_answer_key(exam, payload.answer_set)
-    score = calculate_score(result.answers, answer_key)
     metadata = metadata_to_dict(result)
+    exam_id = resolve_exam_id(payload_exam_id, metadata)
+    if not exam:
+        exam = get_exam(db, user_email, exam_id)
+
+    answer_key = normalize_answer_key(exam, answer_set)
+    score = calculate_score(result.answers, answer_key)
     summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
 
     payload_to_save = {
-        "examId": payload.exam_id,
+        "examId": exam_id,
         "examName": exam.get("name", ""),
-        "answerSet": payload.answer_set,
+        "answerSet": answer_set,
         "studentCode": metadata.get("studentCode", ""),
         "studentName": metadata.get("studentName", ""),
         "sheetId": metadata.get("sheetId", ""),
@@ -468,12 +506,12 @@ async def scan_cloudinary(
         "skipped": score["skipped"],
         "summary": summary,
         "metadata": metadata,
-        "imageUrl": payload.image_url,
+        "imageUrl": image_url,
         "createdAt": firestore.SERVER_TIMESTAMP,
     }
 
     result_id = None
-    if payload.save_result:
+    if save_result:
         _, doc_ref = user_root(db, user_email).collection("results").add(payload_to_save)
         result_id = doc_ref.id
 
