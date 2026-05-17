@@ -193,6 +193,22 @@ def _parse_qr_data(data, meta):
         meta.subject_code = data.strip()
     return meta
 
+def _merge_metadata(primary, fallback):
+    for attr in [
+        "subject_code",
+        "subject_name",
+        "student_id",
+        "student_name",
+        "exam_date",
+        "sheet_id",
+        "exam_id",
+    ]:
+        if not getattr(primary, attr, "") and getattr(fallback, attr, ""):
+            setattr(primary, attr, getattr(fallback, attr))
+    if not primary.total_questions and fallback.total_questions:
+        primary.total_questions = fallback.total_questions
+    return primary
+
 def decode_qr(img):
     """Multi-strategy QR decode: ลอง 6 วิธี + pyzbar fallback"""
     meta = SheetMetadata()
@@ -201,15 +217,35 @@ def decode_qr(img):
     detector = cv2.QRCodeDetector()
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     # QR อยู่ที่ top-right ประมาณ 45-100% x, 0-35% y
-    qr_crop = gray[:int(H*0.38), int(W*0.42):]
-    _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    _, otsu_crop = cv2.threshold(qr_crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    candidates = [
-        gray, qr_crop,
-        clahe.apply(gray), clahe.apply(qr_crop),
-        otsu, otsu_crop,
-        cv2.resize(gray, (W*2, H*2), interpolation=cv2.INTER_CUBIC),
+    crops = [
+        gray,
+        gray[:int(H*0.45), int(W*0.35):],
+        gray[:int(H*0.50), int(W*0.25):],
+        gray[:int(H*0.55), int(W*0.15):],
+        gray[:int(H*0.45), :],
+        gray[:int(H*0.65), :],
     ]
+    candidates = []
+    for crop in crops:
+        if crop.size == 0:
+            continue
+        variants = [crop, clahe.apply(crop)]
+        _, otsu = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        variants.extend([otsu, 255 - otsu])
+        adaptive = cv2.adaptiveThreshold(
+            clahe.apply(crop),
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            31,
+            5,
+        )
+        variants.extend([adaptive, 255 - adaptive])
+        for variant in variants:
+            candidates.append(variant)
+            h, w = variant.shape[:2]
+            if min(h, w) < 900:
+                candidates.append(cv2.resize(variant, (w*2, h*2), interpolation=cv2.INTER_CUBIC))
     for cand in candidates:
         try:
             data, _, _ = detector.detectAndDecode(cand)
@@ -219,7 +255,7 @@ def decode_qr(img):
             pass
     # pyzbar fallback
     if PYZBAR_AVAILABLE:
-        for cand in [gray, clahe.apply(gray), otsu]:
+        for cand in candidates:
             try:
                 for r in _pyzbar.decode(cand):
                     data = r.data.decode('utf-8')
@@ -736,6 +772,8 @@ def scan_answer_sheet(image_input,force_questions=0,debug=False):
         warped_gray=cv2.cvtColor(warped,cv2.COLOR_BGR2GRAY)
         print(f"[3] Warp: {warped.shape[1]}x{warped.shape[0]}")
         meta=decode_qr(warped)
+        if not meta.exam_id and not meta.sheet_id:
+            meta=_merge_metadata(meta, decode_qr(img))
         total_q=meta.total_questions if meta.total_questions>0 else force_questions
         if total_q==0:
             # QR ไม่ได้ → detect จาก bubble grid

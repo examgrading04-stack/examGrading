@@ -133,6 +133,35 @@ def get_exam(db, user_email: str, exam_id: str) -> dict[str, Any]:
     return exam
 
 
+def find_exam_for_scan(db, user_email: str, metadata: dict[str, Any]) -> dict[str, Any]:
+    total_questions = int(metadata.get("totalQuestions") or 0)
+    subject_code = str(metadata.get("subjectCode") or "").strip()
+    exams = []
+
+    for doc in user_root(db, user_email).collection("exams").stream():
+        exam = doc.to_dict() or {}
+        exam["id"] = doc.id
+        exam_questions = int(exam.get("questions") or exam.get("total_questions") or 0)
+        if total_questions and exam_questions and exam_questions != total_questions:
+            continue
+        if subject_code:
+            exam_subject = str(
+                exam.get("subject") or exam.get("subjectCode") or exam.get("code") or ""
+            ).strip()
+            if exam_subject and exam_subject != subject_code:
+                continue
+        if normalize_answer_key(exam):
+            exams.append(exam)
+
+    if len(exams) == 1:
+        return exams[0]
+
+    detail = "ไม่พบรหัสข้อสอบจาก QR บนกระดาษคำตอบ"
+    if len(exams) > 1:
+        detail = "พบข้อสอบที่เข้าข่ายหลายชุด กรุณาถ่ายให้ QR ชัดขึ้น"
+    raise HTTPException(status_code=422, detail=detail)
+
+
 def get_students(db, user_email: str, student_ids: list[str] | None = None) -> list[dict[str, Any]]:
     students_ref = user_root(db, user_email).collection("students")
     if student_ids:
@@ -482,9 +511,15 @@ async def scan_cloudinary(
         raise HTTPException(status_code=422, detail=result.error_msg or "Scan failed")
 
     metadata = metadata_to_dict(result)
-    exam_id = resolve_exam_id(payload_exam_id, metadata)
-    if not exam:
-        exam = get_exam(db, user_email, exam_id)
+    if exam:
+        exam_id = exam["id"]
+    else:
+        try:
+            exam_id = resolve_exam_id(payload_exam_id, metadata)
+            exam = get_exam(db, user_email, exam_id)
+        except HTTPException:
+            exam = find_exam_for_scan(db, user_email, metadata)
+            exam_id = exam["id"]
 
     answer_key = normalize_answer_key(exam, answer_set)
     score = calculate_score(result.answers, answer_key)

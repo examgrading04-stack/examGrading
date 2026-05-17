@@ -130,6 +130,7 @@ def create_single_sheet_image(
         exam_date=sheet_payload.get("exam_date", ""),
         total_questions=total_questions,
         sheet_id=sheet_payload.get("sheet_id", ""),
+        exam_id=sheet_payload.get("exam_id", ""),
     )
 
     qr_np_array = generate_qr_with_border(payload_str, target_px=180, border=8)

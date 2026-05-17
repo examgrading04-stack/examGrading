@@ -30,7 +30,8 @@ def build_qr_payload(
     student_name:    str,
     exam_date:       str,
     total_questions: int,   # 30 / 50 / 100
-    sheet_id:        str = ""   # optional: unique ID ของกระดาษใบนี้
+    sheet_id:        str = "",  # optional: unique ID ของกระดาษใบนี้
+    exam_id:         str = "",
 ) -> str:
     """
     สร้าง JSON string สำหรับเข้ารหัสใน QR
@@ -44,6 +45,7 @@ def build_qr_payload(
         "dt": exam_date,          # exam date
         "tq": total_questions,    # total questions
         "sid": sheet_id,          # sheet ID (optional)
+        "eid": exam_id,           # exam ID
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -64,6 +66,7 @@ def parse_qr_payload(qr_string: str) -> dict:
             "exam_date":       "dt",
             "total_questions": "tq",
             "sheet_id":        "sid",
+            "exam_id":         "eid",
         }
         for long, short in key_map.items():
             if long in data and short not in data:
@@ -203,4 +206,5 @@ def extract_metadata_from_qr(qr_string: str):
     meta.exam_date       = data.get("dt", "")
     meta.total_questions = int(data.get("tq", 0))
     meta.sheet_id        = data.get("sid", "")
+    meta.exam_id         = data.get("eid", "")
     return meta
