@@ -84,20 +84,22 @@ def find_anchor_points(thresh_img):
 
         # ใช้สัดส่วนพื้นที่ภาพแทนค่า area คงที่ (รองรับหลายความละเอียด)
         area_frac = area / float(H * W)
-        if not (0.0004 < area_frac < 0.02):
+        if not (0.00002 < area_frac < 0.03):
             continue
 
         x,y,w,h=cv2.boundingRect(cnt)
         if w <= 0 or h <= 0:
             continue
+        if w < max(8, W * 0.004) or h < max(8, H * 0.004):
+            continue
 
         # anchor เป็นสี่เหลี่ยมเกือบจัตุรัส และค่อนข้างทึบ
         asp=w/h
-        if not (0.78 < asp < 1.28):
+        if not (0.62 < asp < 1.55):
             continue
         rect_area = float(w * h)
         fill = area / rect_area if rect_area > 0 else 0.0
-        if fill < 0.60:
+        if fill < 0.45:
             continue
 
         peri = cv2.arcLength(cnt, True)
@@ -107,14 +109,66 @@ def find_anchor_points(thresh_img):
 
         # score: ให้ความสำคัญกับพื้นที่ + ความทึบ
         score = area * (0.5 + fill)
-        cands.append((x + w//2, y + h//2, score))
-    zones={"TL":(0,W*.25,0,H*.25),"TR":(W*.75,W,0,H*.25),"BL":(0,W*.25,H*.75,H),"BR":(W*.75,W,H*.75,H)}
+        cands.append((x + w//2, y + h//2, score, w, h))
+    zones={"TL":(0,W*.45,0,H*.45),"TR":(W*.55,W,0,H*.45),"BL":(0,W*.45,H*.55,H),"BR":(W*.55,W,H*.55,H)}
     found={}
     for lbl,(x1,x2,y1,y2) in zones.items():
-        pts=[(cx,cy,a) for cx,cy,a in cands if x1<cx<x2 and y1<cy<y2]
+        pts=[p for p in cands if x1<p[0]<x2 and y1<p[1]<y2]
         if pts: found[lbl]=max(pts,key=lambda p:p[2])[:2]
-    if len(found)<4: return None
-    return [found["TL"],found["TR"],found["BL"],found["BR"]]
+    if len(found)==4:
+        return [found["TL"],found["TR"],found["BL"],found["BR"]]
+    return _select_anchor_points_from_candidates(cands, W, H)
+
+def _select_anchor_points_from_candidates(cands, W, H):
+    if len(cands) < 4:
+        return None
+
+    def distinct(points):
+        keys={(int(x), int(y)) for x,y in points}
+        return len(keys)==4
+
+    def geometry_ok(points):
+        tl,tr,bl,br=points
+        top_w=abs(tr[0]-tl[0]); bottom_w=abs(br[0]-bl[0])
+        left_h=abs(bl[1]-tl[1]); right_h=abs(br[1]-tr[1])
+        if min(top_w,bottom_w) < W*0.25 or min(left_h,right_h) < H*0.25:
+            return False
+        if max(top_w,bottom_w)/max(1,min(top_w,bottom_w)) > 2.8:
+            return False
+        if max(left_h,right_h)/max(1,min(left_h,right_h)) > 2.8:
+            return False
+        return True
+
+    candidates=sorted(cands,key=lambda p:p[2],reverse=True)[:80]
+    tl=min(candidates,key=lambda p:p[0]/W+p[1]/H)
+    tr=max(candidates,key=lambda p:p[0]/W-p[1]/H)
+    bl=max(candidates,key=lambda p:p[1]/H-p[0]/W)
+    br=max(candidates,key=lambda p:p[0]/W+p[1]/H)
+    points=[tl[:2],tr[:2],bl[:2],br[:2]]
+    if distinct(points) and geometry_ok(points):
+        return points
+
+    best=None; best_score=-1
+    for tl in candidates:
+        for tr in candidates:
+            if tr[0] <= tl[0] or abs(tr[1]-tl[1]) > H*0.30:
+                continue
+            for bl in candidates:
+                if bl[1] <= tl[1] or abs(bl[0]-tl[0]) > W*0.30:
+                    continue
+                for br in candidates:
+                    points=[tl[:2],tr[:2],bl[:2],br[:2]]
+                    if br[0] <= bl[0] or br[1] <= tr[1]:
+                        continue
+                    if not distinct(points) or not geometry_ok(points):
+                        continue
+                    area=cv2.contourArea(np.float32(points))
+                    if area <= W*H*0.15:
+                        continue
+                    score=area+sum(p[2] for p in [tl,tr,bl,br])
+                    if score > best_score:
+                        best_score=score; best=points
+    return best
 
 def warp_perspective(img,anchors):
     W,H=OMRConfig.WARP_W,OMRConfig.WARP_H
