@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -45,7 +45,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   Future<void> _fetchStudents() async {
     if (_uid.isEmpty) return;
     try {
-      // Fetch students registered under this subject
       final snap = await FirebaseFirestore.instance
           .collection('users')
           .doc(_uid)
@@ -56,7 +55,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           .map((d) => StudentModel.fromMap(d.id, d.data()))
           .toList();
 
-      // Filter students based on SUBJECT_SECTION format
       final filtered = all.where((s) {
         final classStr = s.className;
         final examSec = widget.exam.section?.toString() ?? '';
@@ -95,6 +93,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'ไม่พบรายชื่อผู้เรียน กรุณาเพิ่มผู้เรียนก่อน',
+        confirmBtnColor: const Color(0xFF4F46E5),
       );
       return;
     }
@@ -140,7 +139,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
               ? 'กระดาษคำตอบสำหรับ ${_students.length} คนพร้อมใช้งาน'
               : 'ไฟล์ถูกบันทึกไว้ที่ ${file.path}\n${openResult.message}',
           confirmBtnText: 'ตกลง',
-          confirmBtnColor: const Color(0xFF2563EB),
+          confirmBtnColor: const Color(0xFF4F46E5),
         );
       } else {
         throw Exception(_errorMessage(response));
@@ -192,7 +191,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         return body['detail'].toString();
       }
     } catch (_) {
-      // Fall back to the plain response body below.
+      // ignore
     }
     return 'เกิดข้อผิดพลาด (${response.statusCode}): ${response.body}';
   }
@@ -214,7 +213,15 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
             fontSize: 16,
           ),
         ),
-        backgroundColor: const Color(0xFF2563EB),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -225,16 +232,17 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
               // Exam Info Card
               SliverToBoxAdapter(
                 child: Container(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(24),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: const Color(0xFF0F172A).withOpacity(0.04),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
@@ -244,18 +252,32 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(10),
+                            width: 52,
+                            height: 52,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF7C3AED).withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            child: const Icon(
-                              FontAwesomeIcons.fileLines,
-                              color: Color(0xFF2563EB),
-                              size: 20,
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.solidFileLines,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,16 +285,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                                 Text(
                                   exam.name,
                                   style: const TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1E293B),
+                                    color: Color(0xFF0F172A),
                                   ),
                                 ),
+                                const SizedBox(height: 3),
                                 Text(
                                   subject.name,
                                   style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -280,40 +304,41 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _infoRow(
                         FontAwesomeIcons.barcode,
                         'รหัสวิชา',
                         subject.code,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _infoRow(
-                        FontAwesomeIcons.calendarDay,
+                        FontAwesomeIcons.solidCalendarDays,
                         'วันที่สอบ',
                         exam.date.isNotEmpty ? exam.date : '-',
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _infoRow(
                         FontAwesomeIcons.circleQuestion,
                         'จำนวนข้อ',
                         '${exam.questions} ข้อ',
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Icon(
-                            FontAwesomeIcons.fileImage,
-                            size: 14,
+                            FontAwesomeIcons.solidFileImage,
+                            size: 13,
                             color: templateColor,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
+                          const SizedBox(width: 10),
+                          const Text(
                             'Template: ',
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: 12,
                               color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           Container(
@@ -322,14 +347,14 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: templateColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(20),
+                              color: templateColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               _templateLabel(),
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                                 color: templateColor,
                               ),
                             ),
@@ -345,30 +370,31 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 24,
                     vertical: 4,
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         FontAwesomeIcons.users,
-                        size: 14,
+                        size: 13,
                         color: Color(0xFF64748B),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'รายชื่อผู้เรียน (${_students.length} คน)',
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
+                          color: Color(0xFF64748B),
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
               // Student List
               if (_isLoadingStudents)
@@ -376,32 +402,33 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   child: Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
-                      child: SpinKitCircle(color: Color(0xFF2563EB), size: 40),
+                      child: SpinKitThreeBounce(color: Color(0xFF4F46E5), size: 32),
                     ),
                   ),
                 )
               else if (_students.isEmpty)
                 SliverToBoxAdapter(
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: const Column(
                       children: [
                         Icon(
-                          FontAwesomeIcons.userXmark,
-                          size: 36,
-                          color: Color(0xFFCBD5E1),
+                          FontAwesomeIcons.userSlash,
+                          size: 32,
+                          color: Color(0xFF94A3B8),
                         ),
-                        SizedBox(height: 12),
+                        SizedBox(height: 16),
                         Text(
                           'ยังไม่มีรายชื่อผู้เรียน\nกรุณาเพิ่มผู้เรียนในวิชานี้ก่อน',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: Color(0xFF64748B),
                             fontSize: 13,
                           ),
                         ),
@@ -411,24 +438,22 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final student = _students[index];
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                              color: const Color(0xFF0F172A).withOpacity(0.02),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -437,22 +462,22 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                             Container(
                               width: 36,
                               height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withOpacity(0.1),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEEF2FF),
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
                                 child: Text(
                                   '${index + 1}',
                                   style: const TextStyle(
-                                    color: Color(0xFF2563EB),
+                                    color: Color(0xFF4F46E5),
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,16 +485,19 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                                   Text(
                                     student.name,
                                     style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1E293B),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
                                     ),
                                   ),
+                                  const SizedBox(height: 3),
                                   Text(
                                     'รหัส: ${student.code}',
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
+                                      fontFamily: 'monospace',
                                       color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
@@ -478,7 +506,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                             const Icon(
                               FontAwesomeIcons.qrcode,
                               size: 14,
-                              color: Color(0xFFCBD5E1),
+                              color: Color(0xFF94A3B8),
                             ),
                           ],
                         ),
@@ -487,7 +515,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   ),
                 ),
 
-              // Bottom Padding for FAB
+              // Bottom Padding
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
@@ -495,16 +523,20 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           // Loading Overlay
           if (_isGenerating)
             Container(
-              color: Colors.black.withOpacity(0.45),
+              color: const Color(0xFF0F172A).withOpacity(0.7),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SpinKitCircle(color: Colors.white, size: 60),
-                    SizedBox(height: 16),
+                    SpinKitThreeBounce(color: Colors.white, size: 36),
+                    SizedBox(height: 20),
                     Text(
                       'กำลังสร้างกระดาษคำตอบ...',
-                      style: TextStyle(color: Colors.white, fontSize: 15),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -515,43 +547,63 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
 
       // Download PDF Button
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
         decoration: BoxDecoration(
           color: Colors.white,
+          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -4),
+              color: const Color(0xFF0F172A).withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, -8),
             ),
           ],
         ),
-        child: SizedBox(
+        child: Container(
           width: double.infinity,
           height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: _students.isEmpty
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                  ),
+            color: _students.isEmpty ? const Color(0xFFE2E8F0) : null,
+            boxShadow: _students.isEmpty
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFF7C3AED).withOpacity(0.35),
+                      blurRadius: 15,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+          ),
           child: ElevatedButton.icon(
             onPressed: _isGenerating || _students.isEmpty ? null : _downloadPdf,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              disabledBackgroundColor: const Color(0xFFCBD5E1),
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              disabledBackgroundColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
               ),
-              elevation: 0,
             ),
             icon: const Icon(
-              FontAwesomeIcons.filePdf,
+              FontAwesomeIcons.solidFilePdf,
               color: Colors.white,
-              size: 18,
+              size: 16,
             ),
             label: Text(
               _students.isEmpty
                   ? 'ไม่มีผู้เรียน'
                   : 'สร้างกระดาษคำตอบ (${_students.length} ชุด)',
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
+                letterSpacing: 0.5,
               ),
             ),
           ),
@@ -563,18 +615,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   Widget _infoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF64748B)),
+        Icon(icon, size: 12, color: const Color(0xFF64748B)),
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
         ),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1E293B),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
           ),
         ),
       ],

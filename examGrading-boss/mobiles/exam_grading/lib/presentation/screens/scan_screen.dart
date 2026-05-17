@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:camera/camera.dart';
@@ -125,7 +125,7 @@ class _ScanScreenState extends State<ScanScreen> {
           context: context,
           type: QuickAlertType.success,
           text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
-          confirmBtnColor: const Color(0xFFEC4899),
+          confirmBtnColor: const Color(0xFF4F46E5),
           onConfirmBtnTap: () {
             Navigator.pop(context); // close alert
             Navigator.pop(context); // close screen
@@ -194,7 +194,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 _buildPickerOption(
                   icon: FontAwesomeIcons.camera,
                   label: 'สแกนอัตโนมัติ',
-                  color: const Color(0xFF2563EB),
+                  color: const Color(0xFF4F46E5),
                   onTap: () {
                     Navigator.pop(context);
                     _openAutoScanner();
@@ -203,7 +203,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 _buildPickerOption(
                   icon: FontAwesomeIcons.solidImage,
                   label: 'อัลบั้มภาพ',
-                  color: const Color(0xFFEC4899),
+                  color: const Color(0xFF7C3AED),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
@@ -260,7 +260,7 @@ class _ScanScreenState extends State<ScanScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFFEC4899),
+            backgroundColor: const Color(0xFF0F172A),
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(
                 'สแกนกระดาษคำตอบ',
@@ -273,7 +273,7 @@ class _ScanScreenState extends State<ScanScreen> {
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFEC4899), Color(0xFFBE185D)],
+                    colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -287,7 +287,19 @@ class _ScanScreenState extends State<ScanScreen> {
                         width: 150,
                         height: 150,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withOpacity(0.06),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -40,
+                      left: -30,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -316,13 +328,15 @@ class _ScanScreenState extends State<ScanScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEDE9FE),
+                            color: const Color(0xFFEEF2FF),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
-                            Icons.fact_check_rounded,
-                            color: Color(0xFF8B5CF6),
-                            size: 22,
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.qrcode,
+                              color: Color(0xFF4F46E5),
+                              size: 18,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -372,9 +386,9 @@ class _ScanScreenState extends State<ScanScreen> {
                         boxShadow: [
                           if (_image != null)
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
                         ],
                       ),
@@ -390,7 +404,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                       gradient: LinearGradient(
                                         colors: [
                                           Colors.transparent,
-                                          Colors.black.withOpacity(0.5),
+                                          Colors.black.withOpacity(0.55),
                                         ],
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -400,34 +414,39 @@ class _ScanScreenState extends State<ScanScreen> {
                                   Positioned(
                                     bottom: 20,
                                     right: 20,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.5),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
                                         ),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Icon(
-                                            Icons.edit,
-                                            color: Colors.white,
-                                            size: 16,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.45),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.25),
+                                            width: 1,
                                           ),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'เปลี่ยนรูป',
-                                            style: TextStyle(
+                                        ),
+                                        child: const Row(
+                                          children: [
+                                            Icon(
+                                              FontAwesomeIcons.penToSquare,
                                               color: Colors.white,
-                                              fontWeight: FontWeight.bold,
+                                              size: 14,
                                             ),
-                                          ),
-                                        ],
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'เปลี่ยนรูป',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -438,26 +457,24 @@ class _ScanScreenState extends State<ScanScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  width: 80,
-                                  height: 80,
+                                  width: 84,
+                                  height: 84,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFDF2F8),
+                                    color: const Color(0xFFEEF2FF),
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(
-                                          0xFFEC4899,
-                                        ).withOpacity(0.1),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                                        color: const Color(0xFF4F46E5).withOpacity(0.12),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 6),
                                       ),
                                     ],
                                   ),
                                   child: const Center(
                                     child: Icon(
                                       FontAwesomeIcons.camera,
-                                      size: 30,
-                                      color: Color(0xFFEC4899),
+                                      size: 28,
+                                      color: Color(0xFF4F46E5),
                                     ),
                                   ),
                                 ),
@@ -490,16 +507,16 @@ class _ScanScreenState extends State<ScanScreen> {
                     width: double.infinity,
                     height: 54,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       gradient: LinearGradient(
                         colors: _image == null
-                            ? const [Color(0xFFCBD5E1), Color(0xFF94A3B8)]
-                            : const [Color(0xFFEC4899), Color(0xFFBE185D)],
+                            ? const [Color(0xFFE2E8F0), Color(0xFFCBD5E1)]
+                            : const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
                       ),
                       boxShadow: [
                         if (_image != null)
                           BoxShadow(
-                            color: const Color(0xFFEC4899).withOpacity(0.3),
+                            color: const Color(0xFF7C3AED).withOpacity(0.35),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -512,10 +529,10 @@ class _ScanScreenState extends State<ScanScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         disabledBackgroundColor: Colors.transparent,
-                        disabledForegroundColor: Colors.white,
+                        disabledForegroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                       child: _isUploading
@@ -523,11 +540,11 @@ class _ScanScreenState extends State<ScanScreen> {
                               color: Colors.white,
                               size: 24,
                             )
-                          : const Text(
+                          : Text(
                               'อัปโหลดและประมวลผล',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.white,
+                                color: _image == null ? const Color(0xFF94A3B8) : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                               ),

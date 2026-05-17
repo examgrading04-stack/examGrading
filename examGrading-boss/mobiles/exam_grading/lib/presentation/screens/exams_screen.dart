@@ -56,6 +56,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'กรุณาเพิ่มรายวิชาก่อนสร้างข้อสอบ',
+        confirmBtnColor: const Color(0xFFD97706),
       );
       return;
     }
@@ -73,10 +74,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 20,
-                right: 20,
-                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+                left: 24,
+                right: 24,
+                top: 24,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -93,61 +94,56 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     Text(
                       isEdit ? 'แก้ไขข้อมูลข้อสอบ' : 'สร้างข้อสอบใหม่',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                        color: Color(0xFFC2410C),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'กรุณากรอกข้อมูลการสอบให้ครบถ้วน',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 24),
                     _buildPopupField(
                       'ชื่อการสอบ',
                       nameController,
-                      Icons.edit_note,
+                      FontAwesomeIcons.solidFileLines,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _buildDropdownField(
                       'รายวิชา',
                       selectedSubjectCode,
                       _subjects,
                       (val) => setModalState(() => selectedSubjectCode = val),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _buildDateField(
                       context,
                       'วันที่สอบ',
                       dateController,
                       (val) => setModalState(() => dateController.text = val),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _buildPopupField(
                       'จำนวนข้อ',
                       questionsController,
-                      Icons.quiz_outlined,
+                      FontAwesomeIcons.circleQuestion,
                       keyboardType: TextInputType.number,
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 36),
                     Container(
                       width: double.infinity,
                       height: 52,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(18),
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFFF59E0B).withOpacity(0.3),
                             blurRadius: 15,
-                            offset: const Offset(0, 8),
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
@@ -159,12 +155,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               context: context,
                               type: QuickAlertType.warning,
                               text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                              confirmBtnColor: const Color(0xFFD97706),
                             );
                             return;
                           }
 
                           final data = {
-                            'name': nameController.text,
+                            'name': nameController.text.trim(),
                             'subject': selectedSubjectCode,
                             'date': dateController.text,
                             'questions':
@@ -198,7 +195,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           Navigator.pop(context);
 
                           if (!isEdit) {
-                            // หลังสร้างใหม่ → นำทางไปหน้ากระดาษคำตอบทันที
                             final subjectObj = _subjects.firstWhere(
                               (s) => s.code == selectedSubjectCode,
                               orElse: () => _subjects.first,
@@ -229,8 +225,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             QuickAlert.show(
                               context: context,
                               type: QuickAlertType.success,
-                              text: 'แก้ไขข้อสอบสำเร็จ',
-                              confirmBtnColor: const Color(0xFFF59E0B),
+                              text: 'แก้ไขข้อมูลข้อสอบสำเร็จ',
+                              confirmBtnColor: const Color(0xFFD97706),
                             );
                           }
                         },
@@ -238,20 +234,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(18),
                           ),
                         ),
                         child: const Text(
-                          'บันทึกข้อมูล',
+                          'บันทึกข้อสอบ',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -268,45 +264,40 @@ class _ExamsScreenState extends State<ExamsScreen> {
     IconData icon, {
     TextInputType? keyboardType,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF334155),
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF94A3B8),
+          fontWeight: FontWeight.w600,
         ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-            decoration: InputDecoration(
-              prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 18),
-              hintText: 'กรอก$label',
-              hintStyle: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 13,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 14,
-                horizontal: 12,
-              ),
-            ),
-          ),
+        hintText: 'กรอก$label',
+        hintStyle: const TextStyle(
+          color: Color(0xFFCBD5E1),
+          fontWeight: FontWeight.normal,
         ),
-      ],
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Icon(icon, color: const Color(0xFF64748B), size: 13),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        ),
+      ),
     );
   }
 
@@ -316,50 +307,46 @@ class _ExamsScreenState extends State<ExamsScreen> {
     List<SubjectModel> subjects,
     ValueChanged<String?> onChanged,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
+    return DropdownButtonFormField<String>(
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF94A3B8),
+          fontWeight: FontWeight.w600,
         ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: DropdownButtonFormField<String>(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(
-                Icons.book_outlined,
-                color: Color(0xFF94A3B8),
-                size: 18,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        prefixIcon: const Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: Icon(FontAwesomeIcons.bookOpen, color: Color(0xFF64748B), size: 13),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        ),
+      ),
+      value: subjects.any((s) => s.code == value) ? value : null,
+      items: subjects
+          .map(
+            (s) => DropdownMenuItem(
+              value: s.code,
+              child: Text(
+                '${s.code} ${s.name}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF334155),
+                ),
               ),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 12),
             ),
-            value: subjects.any((s) => s.code == value) ? value : null,
-            items: subjects
-                .map(
-                  (s) => DropdownMenuItem(
-                    value: s.code,
-                    child: Text('${s.code} ${s.name}'),
-                  ),
-                )
-                .toList(),
-            onChanged: onChanged,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-            icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF94A3B8)),
-          ),
-        ),
-      ],
+          )
+          .toList(),
+      onChanged: onChanged,
+      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
     );
   }
 
@@ -369,57 +356,58 @@ class _ExamsScreenState extends State<ExamsScreen> {
     TextEditingController controller,
     ValueChanged<String> onSelected,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: TextField(
-            controller: controller,
-            readOnly: true,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: DateTime.now(),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
-              );
-              if (date != null) {
-                onSelected(date.toString().split(' ')[0]);
-              }
-            },
-            decoration: const InputDecoration(
-              hintText: 'เลือกวันที่สอบ',
-              hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-              prefixIcon: Icon(
-                Icons.calendar_today_outlined,
-                color: Color(0xFF94A3B8),
-                size: 18,
+    return TextField(
+      controller: controller,
+      readOnly: true,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF334155),
+      ),
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFFD97706),
+                  onPrimary: Colors.white,
+                  onSurface: Color(0xFF0F172A),
+                ),
               ),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                vertical: 14,
-                horizontal: 12,
-              ),
-            ),
-          ),
+              child: child!,
+            );
+          },
+        );
+        if (date != null) {
+          onSelected(date.toString().split(' ')[0]);
+        }
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF94A3B8),
+          fontWeight: FontWeight.w600,
         ),
-      ],
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        prefixIcon: const Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: Icon(FontAwesomeIcons.solidCalendarDays, color: Color(0xFF64748B), size: 13),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        ),
+      ),
     );
   }
 
@@ -434,7 +422,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       showCancelBtn: true,
       confirmBtnColor: Colors.red,
       onConfirmBtnTap: () async {
-        Navigator.pop(context); // ปิด QuickAlert
+        Navigator.pop(context);
         await FirebaseFirestore.instance
             .collection('users')
             .doc(_uid)
@@ -447,7 +435,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
           context: context,
           type: QuickAlertType.success,
           text: 'ลบข้อสอบเรียบร้อยแล้ว',
-          confirmBtnColor: const Color(0xFFF59E0B),
+          confirmBtnColor: const Color(0xFFD97706),
         );
       },
     );
@@ -483,11 +471,30 @@ class _ExamsScreenState extends State<ExamsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFF59E0B),
-        onPressed: () => _showExamDialog(),
-        child: const Icon(Icons.add, color: Colors.white),
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF59E0B).withOpacity(0.35),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          hoverElevation: 0,
+          focusElevation: 0,
+          highlightElevation: 0,
+          onPressed: () => _showExamDialog(),
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -495,7 +502,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFFF59E0B),
+            backgroundColor: const Color(0xFFC2410C),
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(
                 'จัดการข้อสอบ',
@@ -508,7 +515,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    colors: [Color(0xFFC2410C), Color(0xFFF59E0B)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -522,7 +529,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         width: 150,
                         height: 150,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withOpacity(0.06),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -40,
+                      left: -30,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -547,25 +566,47 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.fileLines,
-                          size: 60,
-                          color: Colors.grey.withOpacity(0.2),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'ยังไม่มีข้อมูลข้อสอบ',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.fileLines,
+                                size: 24,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 20),
+                          const Text(
+                            'ยังไม่มีข้อมูลข้อสอบ',
+                            style: TextStyle(
+                              color: Color(0xFFC2410C),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างข้อสอบชุดแรก',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -573,7 +614,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
               final docs = snapshot.data!.docs;
               return SliverPadding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final exam = ExamModel.fromMap(
@@ -597,12 +638,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            color: const Color(0xFFC2410C).withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -618,7 +659,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   height: 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                      colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -633,9 +674,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   ),
                   child: const Center(
                     child: Icon(
-                      FontAwesomeIcons.filePen,
+                      FontAwesomeIcons.solidFileLines,
                       color: Colors.white,
-                      size: 20,
+                      size: 18,
                     ),
                   ),
                 ),
@@ -648,26 +689,40 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         exam.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Color(0xFF1E293B),
+                          fontSize: 15,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'วิชา: ${exam.subject}',
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'วิชา: ${exam.subject}',
+                          style: const TextStyle(
+                            color: Color(0xFFD97706),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'วันที่: ${exam.date}',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 12,
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(FontAwesomeIcons.solidCalendarDays, size: 10, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'วันที่: ${exam.date}',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -680,50 +735,56 @@ class _ExamsScreenState extends State<ExamsScreen> {
             decoration: const BoxDecoration(
               color: Color(0xFFF8FAFC),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      _buildSmallInfo(
-                        FontAwesomeIcons.solidCircleQuestion,
-                        '${exam.questions} ข้อ',
-                      ),
-                      const SizedBox(width: 10),
-                      _buildSmallInfo(
-                        FontAwesomeIcons.layerGroup,
-                        '${exam.sets} ชุด',
-                      ),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    _buildSmallInfo(
+                      FontAwesomeIcons.circleQuestion,
+                      '${exam.questions} ข้อ',
+                    ),
+                    const SizedBox(width: 12),
+                    _buildSmallInfo(
+                      FontAwesomeIcons.layerGroup,
+                      '${exam.sets} ชุด',
+                    ),
+                  ],
                 ),
-                // Action Buttons with tighter spacing and no extra padding
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildCompactAction(
                       icon: FontAwesomeIcons.key,
+                      iconSize: 10,
                       color: const Color(0xFF059669),
+                      bgColor: const Color(0xFFD1FAE5),
                       onTap: () => _openAnswerKey(exam),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 10),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.filePdf,
+                      iconSize: 11,
                       color: const Color(0xFF2563EB),
+                      bgColor: const Color(0xFFDBEAFE),
                       onTap: () => _openAnswerSheets(exam),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 10),
                     _buildCompactAction(
-                      icon: FontAwesomeIcons.penToSquare,
-                      color: const Color(0xFF64748B),
+                      icon: FontAwesomeIcons.solidPenToSquare,
+                      iconSize: 11,
+                      color: const Color(0xFFD97706),
+                      bgColor: const Color(0xFFFFFBEB),
                       onTap: () => _showExamDialog(exam),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 10),
                     _buildCompactAction(
-                      icon: FontAwesomeIcons.trashCan,
+                      icon: FontAwesomeIcons.trash,
+                      iconSize: 10,
                       color: const Color(0xFFEF4444),
+                      bgColor: const Color(0xFFFEF2F2),
                       onTap: () => _deleteExam(exam.id),
                     ),
                   ],
@@ -738,15 +799,23 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
   Widget _buildCompactAction({
     required IconData icon,
+    required double iconSize,
     required Color color,
+    required Color bgColor,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, color: color, size: 15),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: bgColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(icon, color: color, size: iconSize),
+        ),
       ),
     );
   }
@@ -754,14 +823,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
   Widget _buildSmallInfo(IconData icon, String label) {
     return Row(
       children: [
-        Icon(icon, size: 12, color: const Color(0xFF64748B)),
-        const SizedBox(width: 4),
+        Icon(icon, size: 11, color: const Color(0xFF64748B)),
+        const SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(
             color: Color(0xFF64748B),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],

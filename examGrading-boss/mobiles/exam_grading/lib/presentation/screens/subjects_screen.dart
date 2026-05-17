@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -43,42 +43,41 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _SheetFrame(
-          title: isEdit ? 'แก้ไขรายวิชา' : 'เพิ่มรายวิชา',
+          title: isEdit ? 'แก้ไขข้อมูลรายวิชา' : 'เพิ่มรายวิชาใหม่',
           children: [
-            _buildField('รหัสวิชา', codeController, Icons.code),
-            const SizedBox(height: 16),
-            _buildField('ชื่อวิชา', nameController, Icons.book_outlined),
-            const SizedBox(height: 16),
+            _buildField('รหัสวิชา', codeController, FontAwesomeIcons.barcode),
+            const SizedBox(height: 20),
+            _buildField('ชื่อวิชา', nameController, FontAwesomeIcons.bookOpen),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: _buildField(
                     'ภาคเรียน',
                     termController,
-                    Icons.calendar_view_day,
+                    FontAwesomeIcons.layerGroup,
                     keyboardType: TextInputType.number,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 20),
                 Expanded(
                   child: _buildField(
                     'ปีการศึกษา',
                     yearController,
-                    Icons.calendar_today,
+                    FontAwesomeIcons.solidCalendarDays,
                     keyboardType: TextInputType.number,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _buildField(
               'อาจารย์ผู้สอน',
               teacherController,
-              Icons.person_outline,
+              FontAwesomeIcons.userTie,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 36),
             _buildSubmitButton(
-              color: const Color(0xFF2563EB),
               onPressed: () async {
                 if (codeController.text.isEmpty ||
                     nameController.text.isEmpty) {
@@ -123,63 +122,76 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     IconData icon, {
     TextInputType? keyboardType,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF64748B),
-            letterSpacing: 0.5,
-          ),
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF334155),
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF94A3B8),
+          fontWeight: FontWeight.w600,
         ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: const Color(0xFF94A3B8), size: 18),
-            hintText: 'กรอก$label',
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-          ),
+        hintText: 'กรอก$label',
+        hintStyle: const TextStyle(
+          color: Color(0xFFCBD5E1),
+          fontWeight: FontWeight.normal,
         ),
-      ],
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: Icon(icon, color: const Color(0xFF64748B), size: 13),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5),
+        ),
+      ),
     );
   }
 
-  Widget _buildSubmitButton({
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return SizedBox(
+  Widget _buildSubmitButton({required VoidCallback onPressed}) {
+    return Container(
       width: double.infinity,
       height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3B82F6).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
         child: const Text(
-          'บันทึกข้อมูล',
+          'บันทึกข้อมูลรายวิชา',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: Colors.white,
+            letterSpacing: 0.5,
           ),
         ),
       ),
@@ -225,11 +237,30 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF2563EB),
-        onPressed: () => _showSubjectDialog(),
-        child: const Icon(Icons.add, color: Colors.white),
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3B82F6).withOpacity(0.35),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          hoverElevation: 0,
+          focusElevation: 0,
+          highlightElevation: 0,
+          onPressed: () => _showSubjectDialog(),
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -237,7 +268,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: const Color(0xFF1E3A8A),
             flexibleSpace: FlexibleSpaceBar(
               title: const Text(
                 'รายวิชาทั้งหมด',
@@ -250,23 +281,52 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF2563EB), Color(0xFF1E3A8A)],
+                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: -20,
+                      right: -20,
+                      child: Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -40,
+                      left: -30,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.04),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
               child: Text(
-                'รายวิชา',
+                'ข้อมูลรายวิชาของคุณ',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+                  color: Color(0xFF1E3A8A),
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -288,13 +348,53 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          return const SliverToBoxAdapter(
+          return SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Center(
-                child: Text(
-                  'ยังไม่มีข้อมูลรายวิชา',
-                  style: TextStyle(color: Color(0xFF64748B)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 48,
+                  horizontal: 24,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          FontAwesomeIcons.folderOpen,
+                          color: Color(0xFF94A3B8),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'ยังไม่มีข้อมูลรายวิชา',
+                      style: TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเพิ่มวิชาแรกของคุณ',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -312,26 +412,26 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
   Widget _buildSubjectsTable(List<SubjectModel> subjects) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
+              color: const Color(0xFF1E3A8A).withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(24),
           child: Table(
             columnWidths: const {
               0: FlexColumnWidth(3),
-              1: FlexColumnWidth(1.5),
+              1: FlexColumnWidth(1.4),
               2: IntrinsicColumnWidth(),
             },
             defaultVerticalAlignment: TableCellVerticalAlignment.middle,
@@ -340,35 +440,38 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
                 children: const [
                   Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     child: Text(
                       'รายวิชา',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 17),
                     child: Text(
                       'ปี/เทอม',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.all(12),
+                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     child: Text(
                       'จัดการ',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
@@ -377,7 +480,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
               ...subjects.map((subject) {
                 return TableRow(
                   decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                   ),
                   children: [
                     InkWell(
@@ -391,7 +494,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                         );
                       },
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -400,17 +506,18 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: Color(0xFF1E293B),
+                                color: Color(0xFF2563EB),
                               ),
                             ),
+                            const SizedBox(height: 3),
                             Text(
                               subject.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(
-                                  0xFF2563EB,
-                                ), // Make it look clickable
-                                decoration: TextDecoration.underline,
+                                fontSize: 13,
+                                color: Color(0xFF334155),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -418,41 +525,66 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 15,
+                      ),
                       child: Text(
                         '${subject.year}/${subject.term}',
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF1E293B),
+                          color: Color(0xFF475569),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            FontAwesomeIcons.penToSquare,
-                            color: Color(0xFF2563EB),
-                            size: 16,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showSubjectDialog(subject),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFDBEAFE),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.solidPenToSquare,
+                                  color: Color(0xFF2563EB),
+                                  size: 12,
+                                ),
+                              ),
+                            ),
                           ),
-                          onPressed: () => _showSubjectDialog(subject),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          icon: const Icon(
-                            FontAwesomeIcons.trashCan,
-                            color: Color(0xFFEF4444),
-                            size: 16,
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () => _deleteSubject(subject.id),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFEF2F2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.trash,
+                                  color: Color(0xFFEF4444),
+                                  size: 11,
+                                ),
+                              ),
+                            ),
                           ),
-                          onPressed: () => _deleteSubject(subject.id),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 );
@@ -479,10 +611,10 @@ class _SheetFrame extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20,
-        right: 20,
-        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+        left: 24,
+        right: 24,
+        top: 24,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -499,18 +631,17 @@ class _SheetFrame extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(
               title,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: Color(0xFF1E3A8A),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             ...children,
-            const SizedBox(height: 20),
           ],
         ),
       ),
