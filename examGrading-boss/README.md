@@ -9,6 +9,8 @@ examGrading-boss/
   backend/
     app/                 FastAPI app, models, and services
     assets/templates/    OMR answer-sheet templates
+  docs/                 Deployment notes
+  render.yaml           Render Blueprint config for the backend
   frontend/
     src/config/          Firebase and route configuration
     src/pages/           Web app pages
@@ -51,4 +53,4 @@ For physical phones, set `FASTAPI_URL=http://<computer-ip>:8000` in `mobiles/exa
 flutter run --dart-define=FASTAPI_URL=http://<computer-ip>:8000
 ```
 
-FreeHost.run deployment notes are in `docs/freehost-run.md`.
+Deployment notes are in `docs/`; Render uses `render.yaml` and `backend/Dockerfile`.

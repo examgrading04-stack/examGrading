@@ -9,8 +9,9 @@ import { ReportsPage } from "./pages/ReportsPage.jsx";
 import { ResultsPage } from "./pages/ResultsPage.jsx";
 import { StudentsPage } from "./pages/StudentsPage.jsx";
 import { SubjectsPage } from "./pages/SubjectsPage.jsx";
-import { firebaseConfig } from "./config/firebase.js";
-import { legacyRouteMap, routeById, routes } from "./config/routes.js";
+import { routeById, routes } from "./config/routes.js";
+import { currentQuery, currentRouteId } from "./router/location.js";
+import { bootFirebase } from "./services/firebaseClient.js";
 import {
   AppLogo,
   Field,
@@ -20,40 +21,6 @@ import {
   PrimaryButton,
   Swal,
 } from "./ui.jsx";
-
-function bootFirebase() {
-  if (!window.firebase) {
-    throw new Error("Firebase SDK ยังโหลดไม่สำเร็จ");
-  }
-  if (!window.firebase.apps.length) {
-    window.firebase.initializeApp(firebaseConfig);
-  }
-  return {
-    auth: window.firebase.auth(),
-    db: window.firebase.firestore(),
-  };
-}
-
-function currentRouteId() {
-  const pathname = window.location.pathname.split("/").filter(Boolean).pop() || "";
-  if (pathname === "admin.html" || pathname === "admin") return "admin";
-  if (pathname === "login.html" || pathname === "login") return "login";
-  if (pathname === "register.html" || pathname === "register")
-    return "register";
-  if (!pathname || pathname === "index.html") return "dashboard";
-  if (legacyRouteMap[pathname]) return legacyRouteMap[pathname];
-  const clean = window.location.pathname.replace(/\/$/, "");
-  const found = routes.find(
-    (route) => route.path === clean || clean.endsWith(route.path),
-  );
-  return found?.id || "dashboard";
-}
-
-function currentQuery() {
-  return Object.fromEntries(
-    new URLSearchParams(window.location.search).entries(),
-  );
-}
 
 function AuthCard({ mode, setMode, auth }) {
   const [email, setEmail] = useState("");
@@ -386,11 +353,7 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
             ))}
         </nav>
         <div className="p-4 border-t border-slate-100">
-          <GhostButton
-            variant="danger"
-            onClick={signOut}
-            className="w-full"
-          >
+          <GhostButton variant="danger" onClick={signOut} className="w-full">
             <Icon name="fa-right-from-bracket" /> ออกจากระบบ
           </GhostButton>
         </div>

@@ -33,14 +33,14 @@ Recommended path:
 
 1. Push this repo to GitHub.
 2. Connect the GitHub repository in FreeHost.run.
-3. Select the `examGrading-boss` project root.
-4. Use the root `Dockerfile`.
+3. Select `examGrading-boss/backend` as the project root.
+4. Use the `backend/Dockerfile`.
 5. Deploy.
 
 If FreeHost.run asks for a start command, use:
 
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
 ## 4. Configure Environment Variables
