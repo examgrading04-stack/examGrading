@@ -684,54 +684,47 @@ class _ExamsScreenState extends State<ExamsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    _buildSmallInfo(
-                      FontAwesomeIcons.solidCircleQuestion,
-                      '${exam.questions} ข้อ',
-                    ),
-                    const SizedBox(width: 12),
-                    _buildSmallInfo(
-                      FontAwesomeIcons.layerGroup,
-                      '${exam.sets} ชุด',
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      _buildSmallInfo(
+                        FontAwesomeIcons.solidCircleQuestion,
+                        '${exam.questions} ข้อ',
+                      ),
+                      const SizedBox(width: 10),
+                      _buildSmallInfo(
+                        FontAwesomeIcons.layerGroup,
+                        '${exam.sets} ชุด',
+                      ),
+                    ],
+                  ),
                 ),
+                // Action Buttons with tighter spacing and no extra padding
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        FontAwesomeIcons.key,
-                        color: Color(0xFF059669),
-                        size: 16,
-                      ),
-                      onPressed: () => _openAnswerKey(exam),
-                      tooltip: 'กำหนดเฉลย',
+                    _buildCompactAction(
+                      icon: FontAwesomeIcons.key,
+                      color: const Color(0xFF059669),
+                      onTap: () => _openAnswerKey(exam),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        FontAwesomeIcons.filePdf,
-                        color: Color(0xFF2563EB),
-                        size: 16,
-                      ),
-                      onPressed: () => _openAnswerSheets(exam),
-                      tooltip: 'กระดาษคำตอบ',
+                    const SizedBox(width: 16),
+                    _buildCompactAction(
+                      icon: FontAwesomeIcons.filePdf,
+                      color: const Color(0xFF2563EB),
+                      onTap: () => _openAnswerSheets(exam),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        FontAwesomeIcons.penToSquare,
-                        color: Color(0xFF64748B),
-                        size: 16,
-                      ),
-                      onPressed: () => _showExamDialog(exam),
+                    const SizedBox(width: 16),
+                    _buildCompactAction(
+                      icon: FontAwesomeIcons.penToSquare,
+                      color: const Color(0xFF64748B),
+                      onTap: () => _showExamDialog(exam),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        FontAwesomeIcons.trashCan,
-                        color: Color(0xFFEF4444),
-                        size: 16,
-                      ),
-                      onPressed: () => _deleteExam(exam.id),
+                    const SizedBox(width: 16),
+                    _buildCompactAction(
+                      icon: FontAwesomeIcons.trashCan,
+                      color: const Color(0xFFEF4444),
+                      onTap: () => _deleteExam(exam.id),
                     ),
                   ],
                 ),
@@ -739,6 +732,21 @@ class _ExamsScreenState extends State<ExamsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactAction({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icon, color: color, size: 15),
       ),
     );
   }

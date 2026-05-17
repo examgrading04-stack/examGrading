@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -632,29 +632,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                 );
               }
 
-              return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final student = students[index];
-
-                    String subjectName = '-';
-                    String sectionName = 'ไม่ทราบ';
-                    try {
-                      final section = _sections.firstWhere(
-                        (s) => s.id == student.className,
-                      );
-                      sectionName = section.sec;
-                      subjectName = _subjects
-                          .firstWhere((s) => s.id == section.subjectId)
-                          .name;
-                    } catch (e) {
-                      // ignore
-                    }
-
-                    return _buildStudentCard(student, subjectName, sectionName);
-                  }, childCount: students.length),
-                ),
+              return SliverToBoxAdapter(
+                child: _buildStudentsTable(students),
               );
             },
           ),
@@ -664,111 +643,180 @@ class _StudentsScreenState extends State<StudentsScreen> {
     );
   }
 
-  Widget _buildStudentCard(
-    StudentModel student,
-    String subjectName,
-    String sectionName,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  Widget _buildStudentsTable(List<StudentModel> students) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
             ),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8B5CF6).withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Table(
+            columnWidths: const {
+              0: FlexColumnWidth(3),
+              1: FlexColumnWidth(2),
+              2: IntrinsicColumnWidth(),
+            },
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Text(
+                      'ผู้เรียน',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Text(
+                      'กลุ่ม/วิชา',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Text(
+                      'จัดการ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              ...students.map((student) {
+                String subjectName = '-';
+                String sectionName = 'ไม่ทราบ';
+                try {
+                  final section = _sections.firstWhere(
+                    (s) => s.id == student.className,
+                  );
+                  sectionName = section.sec;
+                  subjectName = _subjects
+                      .firstWhere((s) => s.id == section.subjectId)
+                      .name;
+                } catch (e) {
+                  // ignore
+                }
+
+                return TableRow(
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            student.code,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'กลุ่ม: $sectionName',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF8B5CF6),
+                            ),
+                          ),
+                          Text(
+                            subjectName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF64748B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: () => _showStudentDialog(student),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(
+                                FontAwesomeIcons.penToSquare,
+                                color: Color(0xFF8B5CF6),
+                                size: 13,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _deleteStudent(student.id),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(
+                                FontAwesomeIcons.trashCan,
+                                color: Color(0xFFEF4444),
+                                size: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ],
           ),
-          child: const Center(
-            child: Icon(
-              FontAwesomeIcons.userGraduate,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              student.name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'วิชา: $subjectName',
-              style: const TextStyle(
-                color: Color(0xFF8B5CF6),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              'กลุ่ม: $sectionName',
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            'รหัส: ${student.code}',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 13,
-              color: Color(0xFF94A3B8),
-              letterSpacing: 1,
-            ),
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(
-                FontAwesomeIcons.penToSquare,
-                color: Color(0xFF64748B),
-                size: 16,
-              ),
-              onPressed: () => _showStudentDialog(student),
-            ),
-            IconButton(
-              icon: const Icon(
-                FontAwesomeIcons.trashCan,
-                color: Color(0xFFEF4444),
-                size: 16,
-              ),
-              onPressed: () => _deleteStudent(student.id),
-            ),
-          ],
         ),
       ),
     );

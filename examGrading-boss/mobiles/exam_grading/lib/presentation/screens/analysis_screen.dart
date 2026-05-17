@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -54,238 +54,290 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: const Color(0xFF14B8A6),
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
-                'วิเคราะห์ผลการสอบ',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: Stack(
+        children: [
+          // Header Background
+          Container(
+            height: 200,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D9488), Color(0xFF14B8A6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF14B8A6), Color(0xFF0F766E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: _isLoading
+                ? const ListSkeletonLoader()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Custom App Bar
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                FontAwesomeIcons.chartSimple,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Text(
+                              'วิเคราะห์ผลการสอบ',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_isLoading)
-            const SliverToBoxAdapter(
-              child: ListSkeletonLoader(),
-            )
-          else if (_exams.isEmpty)
-            SliverFillRemaining(child: _buildEmptyState())
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final exam = _exams[index];
-                  final examResults = _results
-                      .where((r) => r['examId'] == exam.id)
-                      .toList();
-                  final participantCount = examResults.length;
 
-                  double average = 0;
-                  int passCount = 0;
+                      // Global Stats Row
+                      _buildSummaryStats(),
 
-                  if (participantCount > 0) {
-                    final totalScore = examResults.fold<double>(0, (sum, r) {
-                      final s =
-                          double.tryParse(r['score']?.toString() ?? '0') ?? 0;
-                      return sum + s;
-                    });
-                    average = totalScore / participantCount;
+                      const SizedBox(height: 24),
 
-                    // Pass criteria: >= 50%
-                    passCount = examResults.where((r) {
-                      final s =
-                          double.tryParse(r['score']?.toString() ?? '0') ?? 0;
-                      return (s / exam.questions) >= 0.5;
-                    }).length;
-                  }
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'รายการข้อสอบ',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            Text(
+                              'ทั้งหมด ${_exams.length}',
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
-                  return _buildAnalysisCard(
-                    exam,
-                    participantCount,
-                    average,
-                    passCount,
-                  );
-                }, childCount: _exams.length),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+                      const SizedBox(height: 16),
 
-  Widget _buildAnalysisCard(
-    ExamModel exam,
-    int participantCount,
-    double average,
-    int passCount,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    exam.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Color(0xFF1E293B),
-                    ),
+                      Expanded(
+                        child: _exams.isEmpty
+                            ? _buildEmptyState()
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                                itemCount: _exams.length,
+                                itemBuilder: (context, index) {
+                                  final exam = _exams[index];
+                                  final examResults = _results
+                                      .where((r) => r['examId'] == exam.id)
+                                      .toList();
+                                  
+                                  return _buildAnalysisCard(exam, examResults);
+                                },
+                              ),
+                      ),
+                    ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCCFBF1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    exam.subject,
-                    style: const TextStyle(
-                      color: Color(0xFF0D9488),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  icon: FontAwesomeIcons.users,
-                  gradient: const [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
-                  value: participantCount.toString(),
-                  label: 'ผู้เข้าสอบ',
-                ),
-                _buildStatItem(
-                  icon: FontAwesomeIcons.chartPie,
-                  gradient: const [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
-                  value: average.toStringAsFixed(2),
-                  label: 'คะแนนเฉลี่ย',
-                ),
-                _buildStatItem(
-                  icon: FontAwesomeIcons.checkDouble,
-                  gradient: const [Color(0xFF10B981), Color(0xFF047857)],
-                  value: passCount.toString(),
-                  label: 'สอบผ่าน',
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required List<Color> gradient,
-    required String value,
-    required String label,
-  }) {
+  Widget _buildSummaryStats() {
+    int totalStudents = _results.length;
+    double avgScore = 0;
+    if (_results.isNotEmpty) {
+      avgScore = _results.fold<double>(0, (sum, r) => sum + (double.tryParse(r['score']?.toString() ?? '0') ?? 0)) / totalStudents;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildSummaryItem(
+              '${_exams.length}',
+              'ชุดข้อสอบ',
+              FontAwesomeIcons.fileLines,
+              const Color(0xFF3B82F6),
+            ),
+            Container(width: 1, height: 40, color: const Color(0xFFF1F5F9)),
+            _buildSummaryItem(
+              '$totalStudents',
+              'ตรวจแล้ว',
+              FontAwesomeIcons.userCheck,
+              const Color(0xFF10B981),
+            ),
+            Container(width: 1, height: 40, color: const Color(0xFFF1F5F9)),
+            _buildSummaryItem(
+              avgScore.toStringAsFixed(1),
+              'คะแนนเฉลี่ย',
+              FontAwesomeIcons.star,
+              const Color(0xFFF59E0B),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String value, String label, IconData icon, Color color) {
     return Column(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: gradient[0].withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Center(child: Icon(icon, color: Colors.white, size: 18)),
-        ),
-        const SizedBox(height: 12),
+        Icon(icon, color: color.withOpacity(0.6), size: 16),
+        const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
             color: Color(0xFF1E293B),
           ),
         ),
         Text(
           label,
           style: const TextStyle(
+            fontSize: 10,
             color: Color(0xFF64748B),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnalysisCard(ExamModel exam, List<Map<String, dynamic>> results) {
+    int count = results.length;
+    double avg = 0;
+    int passed = 0;
+
+    if (count > 0) {
+      avg = results.fold<double>(0, (sum, r) => sum + (double.tryParse(r['score']?.toString() ?? '0') ?? 0)) / count;
+      passed = results.where((r) => (double.tryParse(r['score']?.toString() ?? '0') ?? 0) >= (exam.questions / 2)).length;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    FontAwesomeIcons.solidChartBar,
+                    color: Color(0xFF0D9488),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exam.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      Text(
+                        exam.subject,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  FontAwesomeIcons.chevronRight,
+                  color: Color(0xFFCBD5E1),
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildMiniStat('ผู้เข้าสอบ', '$count'),
+                _buildMiniStat('เฉลี่ย', avg.toStringAsFixed(1)),
+                _buildMiniStat('ผ่าน', '$passed', isSuccess: true),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, {bool isSuccess = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: isSuccess ? const Color(0xFF10B981) : const Color(0xFF1E293B),
           ),
         ),
       ],
@@ -297,25 +349,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              FontAwesomeIcons.chartLine,
-              size: 60,
-              color: Colors.grey.withOpacity(0.3),
-            ),
+          Icon(
+            FontAwesomeIcons.chartPie,
+            size: 64,
+            color: Colors.grey.withOpacity(0.2),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           const Text(
-            'ยังไม่มีข้อมูลข้อสอบในระบบ',
+            'ยังไม่มีข้อมูลการวิเคราะห์',
             style: TextStyle(
-              fontSize: 18,
-              color: Color(0xFF1E293B),
-              fontWeight: FontWeight.bold,
+              color: Color(0xFF94A3B8),
+              fontSize: 16,
             ),
           ),
         ],
