@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class SheetPdfRequest(BaseModel):
     user_email: str | None = None
-    exam_id: str
+    exam_id: st
     student_ids: list[str] | None = None
     upload_to_storage: bool = True
 
@@ -12,6 +12,7 @@ class SheetPdfBySubjectRequest(BaseModel):
     user_email: str | None = None
     exam_id: str
     subject_code: str
+    section: str | None = None
 
 
 class ScanCloudinaryRequest(BaseModel):

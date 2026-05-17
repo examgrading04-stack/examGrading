@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   API_BASE_URL,
+  apiFetch,
   DataTable,
   Field,
   GhostButton,
@@ -94,7 +95,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   async function downloadPdf(exam, subjectCode) {
     setPdfLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/sheets/pdf/by-subject/download`, {
+      const response = await apiFetch("/api/sheets/pdf/by-subject/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,7 +118,11 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      Swal().fire("เกิดข้อผิดพลาด", err.message, "error");
+      Swal().fire(
+        "เชื่อมต่อ Backend ไม่ได้",
+        `กรุณาตรวจค่า VITE_API_BASE_URL ว่าชี้ไปยัง Backend บน Render ถูกต้อง\n\nค่าปัจจุบัน: ${API_BASE_URL || "-"}\n\n${err.message}`,
+        "error",
+      );
     } finally {
       setPdfLoading(false);
     }

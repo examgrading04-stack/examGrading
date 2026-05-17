@@ -37,13 +37,13 @@ def build_qr_payload(
     ใช้ key สั้นเพื่อลด QR complexity → อ่านง่ายขึ้น
     """
     payload = {
-        "sc": subject_code,       # subject code
-        "sn": subject_name,       # subject name
-        "id": student_id,         # student ID
-        "nm": student_name,       # student name
-        "dt": exam_date,          # exam date
-        "tq": total_questions,    # total questions
-        "sid": sheet_id,          # sheet ID (optional)
+        "subject_code": subject_code,       # subject code
+        "subject_name": subject_name,       # subject name
+        "student_id": student_id,         # student ID
+        "student_name": student_name,       # student name
+        "exam_date": exam_date,          # exam date
+        "total_questions": total_questions,    # total questions
+        "sheet_id": sheet_id,          # sheet ID (optional)
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -57,13 +57,13 @@ def parse_qr_payload(qr_string: str) -> dict:
         data = json.loads(qr_string)
         # normalize key ยาว → สั้น
         key_map = {
-            "subject_code":    "sc",
-            "subject_name":    "sn",
-            "student_id":      "id",
-            "student_name":    "nm",
-            "exam_date":       "dt",
-            "total_questions": "tq",
-            "sheet_id":        "sid",
+            "subject_code":    "subject_code",
+            "subject_name":    "subject_name",
+            "student_id":      "student_id",
+            "student_name":    "student_name",
+            "exam_date":       "exam_date",
+            "total_questions": "total_questions",
+            "sheet_id":        "sheet_id",
         }
         for long, short in key_map.items():
             if long in data and short not in data:
@@ -196,11 +196,11 @@ def extract_metadata_from_qr(qr_string: str):
         return meta
 
     data = parse_qr_payload(qr_string)
-    meta.subject_code    = data.get("sc", "")
-    meta.subject_name    = data.get("sn", "")
-    meta.student_id      = data.get("id", "")
-    meta.student_name    = data.get("nm", "")
-    meta.exam_date       = data.get("dt", "")
-    meta.total_questions = int(data.get("tq", 0))
-    meta.sheet_id        = data.get("sid", "")
+    meta.subject_code    = data.get("subject_code", "")
+    meta.subject_name    = data.get("subject_name", "")
+    meta.student_id      = data.get("student_id", "")
+    meta.student_name    = data.get("student_name", "")
+    meta.exam_date       = data.get("exam_date", "")
+    meta.total_questions = int(data.get("total_questions", 0))
+    meta.sheet_id        = data.get("sheet_id", "")
     return meta
