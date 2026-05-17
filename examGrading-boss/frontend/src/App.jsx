@@ -185,19 +185,25 @@ function AuthCard({ mode, setMode, auth }) {
   );
 }
 
-function ProfileModal({ user, api, onClose }) {
-  const [displayName, setDisplayName] = useState(user.displayName || "");
-  const [photoURL, setPhotoURL] = useState(user.photoURL || "");
+function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
+  const [displayName, setDisplayName] = useState(
+    profile?.displayName || user.displayName || "",
+  );
+  const [photoURL, setPhotoURL] = useState(
+    profile?.photoURL || user.photoURL || "",
+  );
 
   async function save(event) {
     event.preventDefault();
     await user.updateProfile({ displayName, photoURL });
+    await user.reload();
     await api.set(`profiles/${user.email}`, {
       displayName,
       photoURL,
       email: user.email,
       lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
     });
+    onProfileSaved?.({ displayName, photoURL, email: user.email });
     Swal().fire("สำเร็จ", "อัปเดตโปรไฟล์เรียบร้อยแล้ว", "success");
     onClose();
   }
@@ -265,23 +271,36 @@ function ProfileModal({ user, api, onClose }) {
   );
 }
 
-function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
+function Shell({
+  user,
+  profile,
+  auth,
+  routeId,
+  query,
+  navigate,
+  data,
+  api,
+  refresh,
+  onProfileSaved,
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const route = routeById[routeId] || routeById.dashboard;
   const displayName = user.displayName || user.email || "อาจารย์ผู้สอน";
-  const avatar = user.photoURL ? (
+  const effectiveDisplayName = profile?.displayName || displayName;
+  const photoURL = profile?.photoURL || user.photoURL || "";
+  const avatar = photoURL ? (
     <img
-      src={user.photoURL}
+      src={photoURL}
       alt=""
       className="w-full h-full object-cover"
       onError={(e) => {
         e.target.onerror = null;
-        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || "U")}&background=random`;
+        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(effectiveDisplayName || "U")}&background=random`;
       }}
     />
   ) : (
-    displayName.slice(0, 1).toUpperCase()
+    effectiveDisplayName.slice(0, 1).toUpperCase()
   );
 
   function renderPage() {
@@ -377,7 +396,7 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
           >
             <span className="hidden sm:flex flex-col items-end">
               <span className="text-sm font-semibold text-slate-800 leading-none group-hover:text-blue-600 transition-colors">
-                {displayName}
+                {effectiveDisplayName}
               </span>
               <span className="text-xs text-slate-500 mt-1">
                 ตั้งค่าโปรไฟล์
@@ -395,8 +414,10 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
       {profileOpen && (
         <ProfileModal
           user={user}
+          profile={profile}
           api={api}
           onClose={() => setProfileOpen(false)}
+          onProfileSaved={onProfileSaved}
         />
       )}
     </div>
@@ -406,6 +427,7 @@ function Shell({ user, auth, routeId, query, navigate, data, api, refresh }) {
 export default function App() {
   const [firebase, setFirebase] = useState(null);
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [authMode, setAuthMode] = useState(
     currentRouteId() === "register" ? "register" : "login",
   );
@@ -425,6 +447,7 @@ export default function App() {
     setFirebase(services);
     const unsubscribe = services.auth.onAuthStateChanged(async (nextUser) => {
       setUser(nextUser);
+      setProfile(nextUser ? await loadProfile(services, nextUser) : null);
       setLoading(false);
       if (nextUser) await loadData(services, nextUser);
     });
@@ -453,6 +476,26 @@ export default function App() {
       .collection(collectionPath)
       .get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  }
+
+  async function loadProfile(services, currentUser) {
+    if (!services || !currentUser?.email) return null;
+    const doc = await services.db
+      .collection("users")
+      .doc(currentUser.email)
+      .collection("profiles")
+      .doc(currentUser.email)
+      .get();
+
+    if (doc.exists) {
+      return { email: currentUser.email, ...doc.data() };
+    }
+
+    return {
+      email: currentUser.email,
+      displayName: currentUser.displayName || "",
+      photoURL: currentUser.photoURL || "",
+    };
   }
 
   async function loadData(services = firebase, currentUser = user) {
@@ -603,6 +646,7 @@ export default function App() {
   return (
     <Shell
       user={user}
+      profile={profile}
       auth={firebase.auth}
       routeId={routeId}
       query={query}
@@ -610,6 +654,12 @@ export default function App() {
       data={data}
       api={api}
       refresh={refresh}
+      onProfileSaved={(nextProfile) =>
+        setProfile((currentProfile) => ({
+          ...(currentProfile || {}),
+          ...nextProfile,
+        }))
+      }
     />
   );
 }
