@@ -293,32 +293,38 @@ def create_answer_sheets_pdf(
 
 
 def get_students_by_subject(
-    db, user_email: str, subject_code: str
+    db, user_email: str, subject_code: str, section: str | None = None
 ) -> list[dict[str, Any]]:
-    """Fetch all students that belong to a given subject (via subject field or class field)."""
+    """Fetch students for a subject, optionally restricted to one section."""
     students_ref = user_root(db, user_email).collection("students")
     docs = list(students_ref.stream())
     students = []
-    
-    # Clean subject code for comparison
     target = str(subject_code).strip()
-    
+    target_section = str(section or "").strip()
+    target_class = f"{target}_{target_section}" if target and target_section else ""
+
     for doc in docs:
         student = doc.to_dict() or {}
         student["id"] = doc.id
-        
-        # 1. Match by explicit subject fields
+
         s_code = student.get("subject") or student.get("subjectCode")
-        if s_code == target:
-            students.append(student)
+        s_class = str(student.get("class") or "").strip()
+
+        if target_section:
+            if s_class in {target_class, target_section}:
+                students.append(student)
+                continue
+            if s_code == target and (
+                str(student.get("section") or "").strip() == target_section
+                or str(student.get("sectionId") or "").strip() == target_class
+            ):
+                students.append(student)
+                continue
             continue
-            
-        # 2. Match by class field (e.g. "INT101_SEC1" starts with "INT101")
-        s_class = student.get("class")
-        if s_class and str(s_class).startswith(target + "_") or s_class == target:
+
+        if s_code == target or s_class == target or s_class.startswith(target + "_"):
             students.append(student)
-            continue
-            
+
     return students
 
 
@@ -332,8 +338,13 @@ def download_answer_sheets_by_subject(
     user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
     exam = get_exam(db, user_email, payload.exam_id)
 
-    # Try to fetch students enrolled in the specific subject
-    students = get_students_by_subject(db, user_email, payload.subject_code)
+    # Try to fetch students enrolled in the specific subject/section
+    students = get_students_by_subject(
+        db,
+        user_email,
+        payload.subject_code,
+        payload.section,
+    )
     if not students:
         raise HTTPException(status_code=400, detail="ไม่พบรายชื่อผู้เรียนในวิชานี้")
 

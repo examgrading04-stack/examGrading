@@ -7,10 +7,37 @@ function defaultApiBaseUrl() {
   if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") {
     return "http://127.0.0.1:8000";
   }
-  return `http://${hostname}:8000`;
+  return "";
 }
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl();
+
+export function apiBaseUrls() {
+  const urls = API_BASE_URL ? [API_BASE_URL] : [];
+  if (
+    ["localhost", "127.0.0.1"].includes(window.location.hostname) &&
+    API_BASE_URL !== "http://127.0.0.1:8000"
+  ) {
+    urls.push("http://127.0.0.1:8000");
+  }
+  return [...new Set(urls)];
+}
+
+export async function apiFetch(path, options) {
+  let lastError;
+  const baseUrls = apiBaseUrls();
+  if (!baseUrls.length) {
+    throw new Error("ยังไม่ได้ตั้งค่า VITE_API_BASE_URL สำหรับ Backend");
+  }
+  for (const baseUrl of baseUrls) {
+    try {
+      return await fetch(`${baseUrl}${path}`, options);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
 
 export function formatThaiDate(value = new Date()) {
   return new Date(value).toLocaleDateString("th-TH", {
