@@ -22,6 +22,40 @@ import {
   Swal,
 } from "./ui.jsx";
 
+function cleanProfileText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function AvatarImage({ src, name, iconFallback = false }) {
+  const cleanSrc = cleanProfileText(src);
+  const fallbackName = cleanProfileText(name) || "U";
+  const [failedSrc, setFailedSrc] = useState("");
+  const shouldShowImage = cleanSrc && cleanSrc !== failedSrc;
+
+  if (shouldShowImage) {
+    return (
+      <img
+        key={cleanSrc}
+        src={cleanSrc}
+        alt=""
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover"
+        onError={() => setFailedSrc(cleanSrc)}
+      />
+    );
+  }
+
+  if (iconFallback) {
+    return (
+      <span className="text-slate-400">
+        <Icon name="fa-user" />
+      </span>
+    );
+  }
+
+  return fallbackName.slice(0, 1).toUpperCase();
+}
+
 function AuthCard({ mode, setMode, auth }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -195,15 +229,24 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
 
   async function save(event) {
     event.preventDefault();
-    await user.updateProfile({ displayName, photoURL });
+    const nextDisplayName = cleanProfileText(displayName);
+    const nextPhotoURL = cleanProfileText(photoURL);
+    await user.updateProfile({
+      displayName: nextDisplayName,
+      photoURL: nextPhotoURL,
+    });
     await user.reload();
     await api.set(`profiles/${user.email}`, {
-      displayName,
-      photoURL,
+      displayName: nextDisplayName,
+      photoURL: nextPhotoURL,
       email: user.email,
       lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
     });
-    onProfileSaved?.({ displayName, photoURL, email: user.email });
+    onProfileSaved?.({
+      displayName: nextDisplayName,
+      photoURL: nextPhotoURL,
+      email: user.email,
+    });
     Swal().fire("สำเร็จ", "อัปเดตโปรไฟล์เรียบร้อยแล้ว", "success");
     onClose();
   }
@@ -223,21 +266,11 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
 
         <div className="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-emerald-100 flex items-center justify-center text-blue-700 font-bold text-3xl overflow-hidden shadow-md border-4 border-white">
-            {photoURL ? (
-              <img
-                src={photoURL}
-                alt="Preview"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || "U")}&background=random`;
-                }}
-              />
-            ) : (
-              <span className="text-slate-400">
-                <Icon name="fa-user" />
-              </span>
-            )}
+            <AvatarImage
+              src={photoURL}
+              name={displayName || user.email}
+              iconFallback
+            />
           </div>
           <div className="text-center">
             <p className="text-sm font-bold text-slate-700">
@@ -289,19 +322,7 @@ function Shell({
   const displayName = user.displayName || user.email || "อาจารย์ผู้สอน";
   const effectiveDisplayName = profile?.displayName || displayName;
   const photoURL = profile?.photoURL || user.photoURL || "";
-  const avatar = photoURL ? (
-    <img
-      src={photoURL}
-      alt=""
-      className="w-full h-full object-cover"
-      onError={(e) => {
-        e.target.onerror = null;
-        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(effectiveDisplayName || "U")}&background=random`;
-      }}
-    />
-  ) : (
-    effectiveDisplayName.slice(0, 1).toUpperCase()
-  );
+  const avatar = <AvatarImage src={photoURL} name={effectiveDisplayName} />;
 
   function renderPage() {
     const props = {

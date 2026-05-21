@@ -20,14 +20,32 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  int _profileRevision = 0;
 
-  final List<Widget> _pages = [const _DashboardHome(), const AnalysisScreen()];
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfileScreen()),
+    );
+    await FirebaseAuth.instance.currentUser?.reload();
+    if (mounted) {
+      setState(() => _profileRevision++);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      _DashboardHome(
+        key: ValueKey(_profileRevision),
+        onOpenProfile: _openProfile,
+      ),
+      const AnalysisScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: _pages[_selectedIndex],
+      body: pages[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -123,7 +141,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _DashboardHome extends StatelessWidget {
-  const _DashboardHome({Key? key}) : super(key: key);
+  const _DashboardHome({Key? key, required this.onOpenProfile})
+      : super(key: key);
+
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -219,14 +240,7 @@ class _DashboardHome extends StatelessWidget {
                       ],
                     ),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileScreen(),
-                          ),
-                        );
-                      },
+                      onTap: onOpenProfile,
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(

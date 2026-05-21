@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -34,6 +35,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveProfileDocument({
+    String? displayName,
+    String? photoURL,
+  }) async {
+    final email = _user.email;
+    if (email == null || email.isEmpty) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(email)
+        .collection('profiles')
+        .doc(email)
+        .set({
+      'email': email,
+      if (displayName != null) 'displayName': displayName,
+      if (photoURL != null) 'photoURL': photoURL,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<String?> _uploadToCloudinary(File imageFile) async {
@@ -81,11 +102,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await _user.updatePhotoURL(cloudUrl);
       await _user.reload();
-      setState(() {
-        _user = _auth.currentUser!;
-      });
+      final refreshedUser = _auth.currentUser;
+      if (refreshedUser != null) {
+        _user = refreshedUser;
+      }
+      await _saveProfileDocument(
+        displayName: _user.displayName ?? _nameController.text.trim(),
+        photoURL: cloudUrl,
+      );
 
       if (!mounted) return;
+      setState(() {});
       QuickAlert.show(
         context: context,
         type: QuickAlertType.success,
@@ -113,10 +140,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await _user.updateDisplayName(newName);
       await _user.reload();
-      setState(() {
-        _user = _auth.currentUser!;
-      });
+      final refreshedUser = _auth.currentUser;
+      if (refreshedUser != null) {
+        _user = refreshedUser;
+      }
+      await _saveProfileDocument(
+        displayName: newName,
+        photoURL: _user.photoURL,
+      );
       if (!mounted) return;
+      setState(() {});
       QuickAlert.show(
         context: context,
         type: QuickAlertType.success,

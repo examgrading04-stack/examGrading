@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class SheetPdfRequest(BaseModel):
     user_email: str | None = None
-    exam_id: st
+    exam_id: str
     student_ids: list[str] | None = None
     upload_to_storage: bool = True
 
