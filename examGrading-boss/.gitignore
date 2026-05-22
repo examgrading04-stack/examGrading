@@ -68,3 +68,4 @@ htmlcov/
 # OMR debug images (generated)
 *_diag_*.jpg
 *_debug_*.jpg
+preview_*.png
