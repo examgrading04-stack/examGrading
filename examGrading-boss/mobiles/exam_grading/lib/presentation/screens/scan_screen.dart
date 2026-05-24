@@ -65,7 +65,7 @@ class _ScanScreenState extends State<ScanScreen> {
       ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
 
     final response = await request.send().timeout(
-      const Duration(seconds: 30),
+      const Duration(seconds: 60),
       onTimeout: () =>
           throw Exception('หมดเวลาเชื่อมต่อกับ Cloudinary (Timeout)'),
     );
@@ -77,6 +77,16 @@ class _ScanScreenState extends State<ScanScreen> {
     final respStr = await response.stream.bytesToString();
     final data = json.decode(respStr);
     return data['secure_url'] as String?;
+  }
+
+  Future<void> _warmupServer() async {
+    try {
+      await http
+          .get(ApiConfig.endpoint('/api/health'))
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {
+      // Ignore warmup failures; real request will surface actionable errors.
+    }
   }
 
   Future<void> _uploadAndProcess() async {
@@ -102,22 +112,33 @@ class _ScanScreenState extends State<ScanScreen> {
 
       final uid = FirebaseAuth.instance.currentUser!.email!;
 
-      // 2. Call FastAPI
-      final response = await http
-          .post(
-            ApiConfig.endpoint('/api/scan-cloudinary'),
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode({
-              'image_url': cloudUrl,
-              'user_email': uid,
-            }),
-          )
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () => throw Exception(
-              'หมดเวลาเชื่อมต่อ Server: ${ApiConfig.baseUrl}',
-            ),
-          );
+      // 2. Call FastAPI (warmup + retry for cold start hosting)
+      await _warmupServer();
+
+      Future<http.Response> sendScanRequest() {
+        return http
+            .post(
+              ApiConfig.endpoint('/api/scan-cloudinary'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({
+                'image_url': cloudUrl,
+                'user_email': uid,
+              }),
+            )
+            .timeout(
+              const Duration(seconds: 90),
+              onTimeout: () => throw Exception(
+                'หมดเวลาเชื่อมต่อ Server: ${ApiConfig.baseUrl}',
+              ),
+            );
+      }
+
+      http.Response response;
+      try {
+        response = await sendScanRequest();
+      } on Exception {
+        response = await sendScanRequest();
+      }
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
