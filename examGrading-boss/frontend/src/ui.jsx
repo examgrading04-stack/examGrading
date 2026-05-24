@@ -210,22 +210,50 @@ export function useChart(canvasRef, config, deps) {
 }
 
 export function StatCard({ title, value, icon, color }) {
-  const colors = {
-    blue: "border-blue-500 text-blue-600 bg-blue-50",
-    green: "border-emerald-500 text-emerald-600 bg-emerald-50",
-    violet: "border-violet-500 text-violet-600 bg-violet-50",
-    amber: "border-amber-500 text-amber-600 bg-amber-50",
+  const styles = {
+    blue: {
+      grad: "from-blue-500/10 to-indigo-500/10",
+      text: "text-blue-600",
+      border: "border-blue-200",
+      iconBg: "bg-blue-500/20",
+    },
+    green: {
+      grad: "from-emerald-500/10 to-teal-500/10",
+      text: "text-emerald-600",
+      border: "border-emerald-200",
+      iconBg: "bg-emerald-500/20",
+    },
+    emerald: {
+      grad: "from-emerald-500/10 to-teal-500/10",
+      text: "text-emerald-600",
+      border: "border-emerald-200",
+      iconBg: "bg-emerald-500/20",
+    },
+    violet: {
+      grad: "from-violet-500/10 to-fuchsia-500/10",
+      text: "text-violet-600",
+      border: "border-violet-200",
+      iconBg: "bg-violet-500/20",
+    },
+    amber: {
+      grad: "from-amber-500/10 to-orange-500/10",
+      text: "text-amber-600",
+      border: "border-amber-200",
+      iconBg: "bg-amber-500/20",
+    },
   };
+  const s = styles[color] || styles.blue;
   return (
     <div
-      className={`bg-white p-6 rounded-2xl shadow-sm border-l-4 ${colors[color].split(" ")[0]} flex justify-between items-center hover:shadow-md transition-shadow`}
+      className={`relative overflow-hidden bg-white/70 backdrop-blur-xl p-6 rounded-3xl shadow-sm border ${s.border} flex justify-between items-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group`}
     >
-      <div>
-        <p className="text-slate-500 text-sm font-medium">{title}</p>
-        <h3 className="text-3xl font-extrabold mt-2 text-slate-800">{value}</h3>
+      <div className={`absolute inset-0 bg-gradient-to-br ${s.grad} opacity-50 group-hover:opacity-100 transition-opacity`} />
+      <div className="relative z-10">
+        <p className="text-slate-500 text-xs font-black uppercase tracking-wider">{title}</p>
+        <h3 className="text-3xl font-black mt-2 text-slate-800">{value}</h3>
       </div>
       <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color].split(" ").slice(1).join(" ")}`}
+        className={`relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center ${s.text} ${s.iconBg} backdrop-blur-md shadow-inner border border-white/60`}
       >
         <Icon name={icon} />
       </div>
@@ -275,6 +303,35 @@ export function DataTable({ columns, rows, emptyText = "ยังไม่มี
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export function Modal({ isOpen, onClose, title, children, maxWidth = "max-w-2xl" }) {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/50 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div 
+        className={`relative w-full ${maxWidth} bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <h3 className="text-xl font-extrabold text-slate-800">{title}</h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 transition-colors"
+          >
+            <Icon name="fa-xmark" />
+          </button>
+        </div>
+        <div className="p-5 overflow-y-auto flex-1">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

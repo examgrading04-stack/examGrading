@@ -1,9 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class AnswerKeyScreen extends StatefulWidget {
   final ExamModel exam;
@@ -96,7 +97,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'กรุณากำหนดเฉลยให้ครบทุกข้อ',
-        confirmBtnColor: const Color(0xFFF59E0B),
+        confirmBtnColor: AppColors.primary,
       );
       return;
     }
@@ -122,7 +123,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         context: context,
         type: QuickAlertType.success,
         text: 'บันทึกเฉลยสำเร็จ',
-        confirmBtnColor: const Color(0xFFF59E0B),
+        confirmBtnColor: AppColors.primary,
       );
     } catch (e) {
       QuickAlert.show(
@@ -158,56 +159,35 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
+      return Scaffold(
+        backgroundColor: AppColors.background,
         body: Center(
-          child: SpinKitCircle(color: Color(0xFFF59E0B), size: 50.0),
+          child: SpinKitCircle(color: AppColors.primary, size: 50.0),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFFF59E0B),
+            backgroundColor: AppColors.surface,
+            iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'เฉลย: ${widget.exam.name}',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                color: AppColors.surface,
               ),
             ),
             actions: [
@@ -219,7 +199,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: AppColors.primary,
                         strokeWidth: 2,
                       ),
                     ),
@@ -227,7 +207,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                 )
               else
                 IconButton(
-                  icon: const Icon(Icons.save, color: Colors.white),
+                  icon: const Icon(Icons.save, color: AppColors.primary),
                   onPressed: _saveAnswerKey,
                   tooltip: 'บันทึกเฉลย',
                 ),
@@ -253,14 +233,8 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFF1F5F9)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                    boxShadow: AppColors.softShadow,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -272,10 +246,10 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                       children: [
                         Text(
                           'ข้อที่ $qNum',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -304,24 +278,16 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: isChecked
-                                      ? const Color(0xFFF59E0B)
+                                      ? AppColors.primary
                                       : Colors.white,
                                   border: Border.all(
                                     color: isChecked
                                         ? Colors.transparent
-                                        : const Color(0xFFE2E8F0),
+                                        : AppColors.border,
                                     width: 1.5,
                                   ),
                                   boxShadow: isChecked
-                                      ? [
-                                          BoxShadow(
-                                            color: const Color(
-                                              0xFFF59E0B,
-                                            ).withOpacity(0.2),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ]
+                                      ? AppColors.primaryShadow
                                       : [],
                                 ),
                                 alignment: Alignment.center,
@@ -330,7 +296,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                                   style: TextStyle(
                                     color: isChecked
                                         ? Colors.white
-                                        : const Color(0xFF64748B),
+                                        : AppColors.textSecondary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),

@@ -1,4 +1,4 @@
-﻿class ExamModel {
+class ExamModel {
   String id;
   String name;
   String subject;
@@ -52,6 +52,13 @@
 
   static Map<String, Map<String, String>> _parseAnswerKey(dynamic raw) {
     if (raw is! Map) return {};
+
+    // Check if it's a flat map (e.g., {"1": "A", "2": "B"})
+    if (raw.isNotEmpty && raw.values.first is! Map) {
+      return {
+        '0': raw.map((k, v) => MapEntry(k.toString(), v.toString())),
+      };
+    }
 
     return raw.map((setIndex, answers) {
       final answerMap = answers is Map ? answers : <dynamic, dynamic>{};

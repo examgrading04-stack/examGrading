@@ -37,7 +37,7 @@ env/
 mobiles/**/.env
 
 # IDE / Editor
-.vscode/settings.json
+.vscode/
 .idea/
 *.suo
 *.ntvs*

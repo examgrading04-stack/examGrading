@@ -15,6 +15,7 @@ import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class AnswerSheetsScreen extends StatefulWidget {
   final ExamModel exam;
@@ -82,9 +83,9 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
 
   Color _templateColor() {
     final q = widget.exam.questions;
-    if (q <= 30) return const Color(0xFF10B981);
-    if (q <= 50) return const Color(0xFF2563EB);
-    return const Color(0xFFF59E0B);
+    if (q <= 30) return AppColors.success;
+    if (q <= 50) return AppColors.info;
+    return AppColors.warning;
   }
 
   Future<void> _downloadPdf() async {
@@ -93,7 +94,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'ไม่พบรายชื่อผู้เรียน กรุณาเพิ่มผู้เรียนก่อน',
-        confirmBtnColor: const Color(0xFF4F46E5),
+        confirmBtnColor: AppColors.primary,
       );
       return;
     }
@@ -139,7 +140,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
               ? 'กระดาษคำตอบสำหรับ ${_students.length} คนพร้อมใช้งาน'
               : 'ไฟล์ถูกบันทึกไว้ที่ ${file.path}\n${openResult.message}',
           confirmBtnText: 'ตกลง',
-          confirmBtnColor: const Color(0xFF4F46E5),
+          confirmBtnColor: AppColors.primary,
         );
       } else {
         throw Exception(_errorMessage(response));
@@ -203,27 +204,19 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     final templateColor = _templateColor();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'กระดาษคำตอบ',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+        backgroundColor: AppColors.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: AppColors.textPrimary),
       ),
       body: Stack(
         children: [
@@ -237,14 +230,8 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0F172A).withOpacity(0.04),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                    boxShadow: AppColors.softShadow,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,18 +243,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                             height: 52,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                                colors: AppColors.primaryGradient,
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF7C3AED).withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              boxShadow: AppColors.primaryShadow,
                             ),
                             child: const Center(
                               child: Icon(
@@ -284,18 +265,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                               children: [
                                 Text(
                                   exam.name,
-                                  style: const TextStyle(
-                                    fontSize: 15,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                const SizedBox(height: 4),
                                 Text(
                                   subject.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF64748B),
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -305,7 +286,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      Divider(height: 1.5, color: AppColors.border),
                       const SizedBox(height: 20),
                       _infoRow(
                         FontAwesomeIcons.barcode,
@@ -333,11 +314,11 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                             color: templateColor,
                           ),
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             'Template: ',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF64748B),
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -347,7 +328,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: templateColor.withOpacity(0.1),
+                              color: templateColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -375,18 +356,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         FontAwesomeIcons.users,
                         size: 13,
-                        color: Color(0xFF64748B),
+                        color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'รายชื่อผู้เรียน (${_students.length} คน)',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -402,7 +383,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   child: Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
-                      child: SpinKitThreeBounce(color: Color(0xFF4F46E5), size: 32),
+                      child: SpinKitThreeBounce(color: AppColors.primary, size: 32),
                     ),
                   ),
                 )
@@ -414,21 +395,21 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppColors.border, width: 1.5),
                     ),
-                    child: const Column(
+                    child: Column(
                       children: [
                         Icon(
                           FontAwesomeIcons.userSlash,
                           size: 32,
-                          color: Color(0xFF94A3B8),
+                          color: AppColors.textMuted,
                         ),
                         SizedBox(height: 16),
                         Text(
                           'ยังไม่มีรายชื่อผู้เรียน\nกรุณาเพิ่มผู้เรียนในวิชานี้ก่อน',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: AppColors.textSecondary,
                             fontSize: 13,
                           ),
                         ),
@@ -447,30 +428,24 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF0F172A).withOpacity(0.02),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.border, width: 1.5),
+                          boxShadow: AppColors.softShadow,
                         ),
                         child: Row(
                           children: [
                             Container(
                               width: 36,
                               height: 36,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEEF2FF),
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySoft,
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
                                 child: Text(
                                   '${index + 1}',
                                   style: const TextStyle(
-                                    color: Color(0xFF4F46E5),
+                                    color: AppColors.primary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                   ),
@@ -484,29 +459,29 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                                 children: [
                                   Text(
                                     student.name,
-                                    style: const TextStyle(
-                                      fontSize: 13,
+                                    style: TextStyle(
+                                      fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
+                                      color: AppColors.textPrimary,
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 4),
                                   Text(
                                     'รหัส: ${student.code}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       fontFamily: 'monospace',
-                                      color: Color(0xFF64748B),
+                                      color: AppColors.textSecondary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               FontAwesomeIcons.qrcode,
-                              size: 14,
-                              color: Color(0xFF94A3B8),
+                              size: 16,
+                              color: AppColors.textMuted,
                             ),
                           ],
                         ),
@@ -523,17 +498,17 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           // Loading Overlay
           if (_isGenerating)
             Container(
-              color: const Color(0xFF0F172A).withOpacity(0.7),
+              color: AppColors.surface.withValues(alpha: 0.8),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SpinKitThreeBounce(color: Colors.white, size: 36),
+                    SpinKitThreeBounce(color: AppColors.primary, size: 36),
                     SizedBox(height: 20),
                     Text(
                       'กำลังสร้างกระดาษคำตอบ...',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.primaryDark,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
@@ -550,14 +525,8 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F172A).withOpacity(0.04),
-              blurRadius: 20,
-              offset: const Offset(0, -8),
-            ),
-          ],
+          border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+          boxShadow: AppColors.softShadow,
         ),
         child: Container(
           width: double.infinity,
@@ -567,18 +536,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
             gradient: _students.isEmpty
                 ? null
                 : const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                    colors: AppColors.primaryGradient,
                   ),
-            color: _students.isEmpty ? const Color(0xFFE2E8F0) : null,
+            color: _students.isEmpty ? AppColors.border : null,
             boxShadow: _students.isEmpty
                 ? null
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF7C3AED).withOpacity(0.35),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                : AppColors.primaryShadow,
           ),
           child: ElevatedButton.icon(
             onPressed: _isGenerating || _students.isEmpty ? null : _downloadPdf,
@@ -615,18 +578,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   Widget _infoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 12, color: const Color(0xFF64748B)),
+        Icon(icon, size: 13, color: AppColors.textSecondary),
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: AppColors.textPrimary,
           ),
         ),
       ],

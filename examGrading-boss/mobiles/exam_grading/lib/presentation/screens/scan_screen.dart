@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:exam_grading/config/api_config.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({Key? key}) : super(key: key);
@@ -125,7 +126,7 @@ class _ScanScreenState extends State<ScanScreen> {
           context: context,
           type: QuickAlertType.success,
           text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
-          confirmBtnColor: const Color(0xFF4F46E5),
+          confirmBtnColor: AppColors.primary,
           onConfirmBtnTap: () {
             Navigator.pop(context); // close alert
             Navigator.pop(context); // close screen
@@ -157,12 +158,12 @@ class _ScanScreenState extends State<ScanScreen> {
       builder: (context) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
         padding: const EdgeInsets.only(
           top: 24,
-          left: 24,
-          right: 24,
+          left: 28,
+          right: 28,
           bottom: 40,
         ),
         child: Column(
@@ -170,21 +171,21 @@ class _ScanScreenState extends State<ScanScreen> {
           children: [
             Center(
               child: Container(
-                width: 36,
-                height: 4,
+                width: 40,
+                height: 5,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             const Text(
               'เพิ่มกระดาษคำตอบ',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
+                color: AppColors.primaryDark,
               ),
             ),
             const SizedBox(height: 32),
@@ -194,7 +195,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 _buildPickerOption(
                   icon: FontAwesomeIcons.camera,
                   label: 'สแกนอัตโนมัติ',
-                  color: const Color(0xFF4F46E5),
+                  color: AppColors.primary,
                   onTap: () {
                     Navigator.pop(context);
                     _openAutoScanner();
@@ -203,7 +204,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 _buildPickerOption(
                   icon: FontAwesomeIcons.solidImage,
                   label: 'อัลบั้มภาพ',
-                  color: const Color(0xFF7C3AED),
+                  color: const Color(0xFF7C3AED), // Keep violet secondary
                   onTap: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
@@ -231,7 +232,7 @@ class _ScanScreenState extends State<ScanScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Center(child: Icon(icon, color: color, size: 28)),
@@ -253,59 +254,26 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFF0F172A),
+            backgroundColor: AppColors.surface,
+            iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
+              title: Text(
                 'สแกนกระดาษคำตอบ',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -40,
-                      left: -30,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                color: AppColors.surface,
               ),
             ),
           ),
@@ -316,47 +284,48 @@ class _ScanScreenState extends State<ScanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.border, width: 1.5),
+                      boxShadow: AppColors.softShadow,
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(14),
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Center(
                             child: Icon(
                               FontAwesomeIcons.qrcode,
-                              color: Color(0xFF4F46E5),
-                              size: 18,
+                              color: AppColors.primary,
+                              size: 20,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        const Expanded(
+                        const SizedBox(width: 16),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'ตรวจจาก QR บนกระดาษคำตอบ',
                                 style: TextStyle(
-                                  color: Color(0xFF1E293B),
+                                  color: AppColors.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              SizedBox(height: 6),
                               Text(
                                 'สแกนหรือเลือกภาพก่อน แล้วกดอัปโหลดเมื่อพร้อม',
                                 style: TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: AppColors.textSecondary,
                                   fontSize: 12,
                                 ),
                               ),
@@ -366,7 +335,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 24),
 
                   GestureDetector(
                     onTap: _showPickerBottomSheet,
@@ -375,26 +344,28 @@ class _ScanScreenState extends State<ScanScreen> {
                       decoration: BoxDecoration(
                         color: _image != null
                             ? Colors.black
-                            : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(24),
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(32),
                         border: _image == null
                             ? Border.all(
-                                color: const Color(0xFFE2E8F0),
+                                color: AppColors.border,
                                 width: 2,
                               )
                             : null,
                         boxShadow: [
                           if (_image != null)
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
+                              color: Colors.black.withValues(alpha: 0.12),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
+                          if (_image == null)
+                            ...AppColors.softShadow,
                         ],
                       ),
                       child: _image != null
                           ? ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(32),
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
@@ -404,7 +375,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                       gradient: LinearGradient(
                                         colors: [
                                           Colors.transparent,
-                                          Colors.black.withOpacity(0.55),
+                                          Colors.black.withValues(alpha: 0.55),
                                         ],
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -412,8 +383,8 @@ class _ScanScreenState extends State<ScanScreen> {
                                     ),
                                   ),
                                   Positioned(
-                                    bottom: 20,
-                                    right: 20,
+                                    bottom: 24,
+                                    right: 24,
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(20),
                                       child: Container(
@@ -422,10 +393,10 @@ class _ScanScreenState extends State<ScanScreen> {
                                           vertical: 8,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.45),
+                                          color: Colors.black.withValues(alpha: 0.45),
                                           borderRadius: BorderRadius.circular(20),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(0.25),
+                                            color: Colors.white.withValues(alpha: 0.25),
                                             width: 1,
                                           ),
                                         ),
@@ -460,11 +431,11 @@ class _ScanScreenState extends State<ScanScreen> {
                                   width: 84,
                                   height: 84,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEEF2FF),
+                                    color: AppColors.primarySoft,
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF4F46E5).withOpacity(0.12),
+                                        color: AppColors.primary.withValues(alpha: 0.12),
                                         blurRadius: 15,
                                         offset: const Offset(0, 6),
                                       ),
@@ -474,25 +445,25 @@ class _ScanScreenState extends State<ScanScreen> {
                                     child: Icon(
                                       FontAwesomeIcons.camera,
                                       size: 28,
-                                      color: Color(0xFF4F46E5),
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                const Text(
+                                Text(
                                   'แตะเพื่อสแกนหรือเลือกภาพ',
                                   style: TextStyle(
-                                    color: Color(0xFF1E293B),
+                                    color: AppColors.textPrimary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'ระบบจะอ่านรหัสข้อสอบจาก QR บนกระดาษคำตอบ',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: Color(0xFF64748B),
+                                    color: AppColors.textSecondary,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -510,16 +481,12 @@ class _ScanScreenState extends State<ScanScreen> {
                       borderRadius: BorderRadius.circular(18),
                       gradient: LinearGradient(
                         colors: _image == null
-                            ? const [Color(0xFFE2E8F0), Color(0xFFCBD5E1)]
-                            : const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                            ? [AppColors.border, Color(0xFFCBD5E1)]
+                            : AppColors.primaryGradient,
                       ),
                       boxShadow: [
                         if (_image != null)
-                          BoxShadow(
-                            color: const Color(0xFF7C3AED).withOpacity(0.35),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
+                          ...AppColors.primaryShadow,
                       ],
                     ),
                     child: ElevatedButton(
@@ -544,7 +511,7 @@ class _ScanScreenState extends State<ScanScreen> {
                               'อัปโหลดและประมวลผล',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: _image == null ? const Color(0xFF94A3B8) : Colors.white,
+                                color: _image == null ? AppColors.textMuted : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                               ),
@@ -633,7 +600,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
       setState(() {
         _hasCameraError = true;
         _statusText = 'เปิดกล้องไม่ได้: $e';
-        _statusColor = const Color(0xFFFCA5A5);
+        _statusColor = AppColors.error;
       });
     }
   }
@@ -678,7 +645,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
       return;
     }
 
-    _updateStatus('กำลังจับภาพอัตโนมัติ...', const Color(0xFF86EFAC));
+    _updateStatus('กำลังจับภาพอัตโนมัติ...', AppColors.success);
   }
 
   double _sampleLuma(Uint8List bytes) {
@@ -715,7 +682,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
     setState(() {
       _isCapturing = true;
       _statusText = 'กำลังสแกน...';
-      _statusColor = const Color(0xFF86EFAC);
+      _statusColor = AppColors.success;
     });
 
     try {
@@ -733,7 +700,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
         _isCapturing = false;
         _stableSince = null;
         _statusText = 'สแกนไม่สำเร็จ ลองจัดกระดาษใหม่';
-        _statusColor = const Color(0xFFFCA5A5);
+        _statusColor = AppColors.error;
       });
       await _startAutoScan();
     }
@@ -779,7 +746,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
                       _statusText,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Color(0xFFFCA5A5),
+                        color: AppColors.error,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -828,7 +795,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.45),
+                              color: Colors.black.withValues(alpha: 0.45),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Row(
@@ -861,10 +828,10 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.55),
+                          color: Colors.black.withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.16),
+                            color: Colors.white.withValues(alpha: 0.16),
                           ),
                         ),
                         child: Text(
@@ -883,7 +850,7 @@ class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
               ),
               if (_isCapturing)
                 Container(
-                  color: Colors.black.withOpacity(0.18),
+                  color: Colors.black.withValues(alpha: 0.18),
                   child: const Center(
                     child: SpinKitPulse(color: Colors.white, size: 80),
                   ),
@@ -937,11 +904,11 @@ class _AnswerSheetMaskPainter extends CustomPainter {
 
     canvas.drawPath(
       overlayPath,
-      Paint()..color = Colors.black.withOpacity(0.54),
+      Paint()..color = Colors.black.withValues(alpha: 0.54),
     );
 
     final borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.35)
+      ..color = Colors.white.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4;
     canvas.drawRRect(
@@ -950,7 +917,7 @@ class _AnswerSheetMaskPainter extends CustomPainter {
     );
 
     final cornerPaint = Paint()
-      ..color = const Color(0xFF86EFAC)
+      ..color = AppColors.success
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round;

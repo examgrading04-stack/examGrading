@@ -10,6 +10,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/presentation/screens/login_screen.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -118,6 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         type: QuickAlertType.success,
         title: 'สำเร็จ',
         text: 'อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว',
+        confirmBtnColor: AppColors.success,
       );
     } catch (e) {
       if (!mounted) return;
@@ -126,6 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         type: QuickAlertType.error,
         title: 'เกิดข้อผิดพลาด',
         text: e.toString(),
+        confirmBtnColor: AppColors.error,
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -155,6 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         type: QuickAlertType.success,
         title: 'สำเร็จ',
         text: 'อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว',
+        confirmBtnColor: AppColors.success,
       );
     } catch (e) {
       if (!mounted) return;
@@ -163,6 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         type: QuickAlertType.error,
         title: 'เกิดข้อผิดพลาด',
         text: e.toString(),
+        confirmBtnColor: AppColors.error,
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -178,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       confirmBtnText: 'ใช่',
       cancelBtnText: 'ยกเลิก',
       showCancelBtn: true,
-      confirmBtnColor: Colors.red,
+      confirmBtnColor: AppColors.error,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
         await _auth.signOut();
@@ -199,48 +204,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : (_user.email?.isNotEmpty == true ? _user.email![0].toUpperCase() : 'A');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Premium light background
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Top Midnight Gradient Backdrop
+          // Top Background (no gradient to match clean theme)
           Container(
             height: 260,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)], // Midnight blue to deep royal blue
-              ),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(40),
-                bottomRight: Radius.circular(40),
-              ),
-            ),
-          ),
-          // Ambient Circular Glows
-          Positioned(
-            top: -30,
-            left: -30,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.03),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 100,
-            right: -20,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF3B82F6).withOpacity(0.08),
-              ),
-            ),
+            color: AppColors.surface,
           ),
           // Custom App Bar and Content
           SafeArea(
@@ -258,16 +228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.08),
+                              color: AppColors.border,
                             ),
                           ),
                           child: const Center(
                             child: Icon(
                               FontAwesomeIcons.chevronLeft,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               size: 16,
                             ),
                           ),
@@ -276,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Text(
                         'โปรไฟล์ผู้ใช้งาน',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.8,
@@ -309,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 height: 130,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: AppColors.primarySoft,
                                 ),
                               ),
                               // Inner Glowing Ring
@@ -318,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 height: 112,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: const Color(0xFF3B82F6).withOpacity(0.12),
+                                  color: AppColors.primary.withValues(alpha: 0.12),
                                 ),
                               ),
                               // Photo Frame
@@ -328,13 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(color: Colors.white, width: 3.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.12),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
+                                  boxShadow: AppColors.softShadow,
                                 ),
                                 child: ClipOval(
                                   child: photoUrl != null
@@ -346,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 child: Text(
                                                   initial,
                                                   style: const TextStyle(
-                                                    color: Color(0xFF1E3A8A),
+                                                    color: AppColors.primaryDark,
                                                     fontSize: 32,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -359,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             child: Text(
                                               initial,
                                               style: const TextStyle(
-                                                color: Color(0xFF2563EB),
+                                                color: AppColors.primary,
                                                 fontSize: 32,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -376,17 +340,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                                      colors: AppColors.primaryGradient,
                                     ),
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white, width: 2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF7C3AED).withOpacity(0.35),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
+                                    boxShadow: AppColors.primaryShadow,
                                   ),
                                   child: const Icon(
                                     FontAwesomeIcons.camera,
@@ -408,14 +366,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
+                            border: Border.all(color: AppColors.border, width: 1.5),
+                            boxShadow: AppColors.softShadow,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
+                                  color: AppColors.textPrimary,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -437,32 +389,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF334155),
+                                  color: AppColors.textPrimary,
                                 ),
                                 decoration: InputDecoration(
                                   labelText: 'ชื่อแสดงผล',
                                   labelStyle: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF94A3B8),
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w600,
                                   ),
                                   hintText: 'กรอกชื่อแสดงผลของคุณ',
                                   hintStyle: const TextStyle(
-                                    color: Color(0xFFCBD5E1),
+                                    color: AppColors.textMuted,
                                     fontWeight: FontWeight.normal,
                                   ),
                                   floatingLabelBehavior: FloatingLabelBehavior.always,
                                   prefixIcon: const Padding(
                                     padding: EdgeInsets.only(right: 12),
-                                    child: Icon(FontAwesomeIcons.solidUser, color: Color(0xFF64748B), size: 13),
+                                    child: Icon(FontAwesomeIcons.solidUser, color: AppColors.textSecondary, size: 13),
                                   ),
                                   prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
                                   enabledBorder: const UnderlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+                                    borderSide: BorderSide(color: AppColors.border, width: 1.5),
                                   ),
                                   focusedBorder: const UnderlineInputBorder(
-                                    borderSide: BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                                   ),
                                 ),
                               ),
@@ -473,7 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: const BoxDecoration(
                                   border: Border(
-                                    bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+                                    bottom: BorderSide(color: AppColors.border, width: 1.5),
                                   ),
                                 ),
                                 child: Row(
@@ -481,7 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   children: [
                                     const Padding(
                                       padding: EdgeInsets.only(right: 12, bottom: 4),
-                                      child: Icon(FontAwesomeIcons.solidEnvelope, color: Color(0xFF94A3B8), size: 13),
+                                      child: Icon(FontAwesomeIcons.solidEnvelope, color: AppColors.textSecondary, size: 13),
                                     ),
                                     Expanded(
                                       child: Column(
@@ -491,7 +443,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             'ที่อยู่อีเมลผู้ใช้ (ไม่สามารถแก้ไขได้)',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              color: Color(0xFF94A3B8),
+                                              color: AppColors.textSecondary,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -499,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           Text(
                                             _user.email ?? '',
                                             style: const TextStyle(
-                                              color: Color(0xFF64748B),
+                                              color: AppColors.textSecondary,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -512,13 +464,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFD1FAE5),
+                                          color: AppColors.success.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: const Text(
                                           'ยืนยันแล้ว',
                                           style: TextStyle(
-                                            color: Color(0xFF065F46),
+                                            color: AppColors.success,
                                             fontSize: 9,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -541,15 +493,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                              colors: AppColors.primaryGradient,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF7C3AED).withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
+                            boxShadow: AppColors.primaryShadow,
                           ),
                           child: ElevatedButton(
                             onPressed: _updateProfile,
@@ -586,21 +532,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 52,
                           child: TextButton.icon(
                             onPressed: _logout,
-                            icon: const Icon(FontAwesomeIcons.powerOff, color: Colors.red, size: 15),
+                            icon: const Icon(FontAwesomeIcons.powerOff, color: AppColors.error, size: 15),
                             label: const Text(
                               'ออกจากระบบบัญชี',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.red,
+                                color: AppColors.error,
                                 letterSpacing: 0.5,
                               ),
                             ),
                             style: TextButton.styleFrom(
-                              backgroundColor: Colors.red.withOpacity(0.08),
+                              backgroundColor: AppColors.error.withValues(alpha: 0.08),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18),
-                                side: BorderSide(color: Colors.red.withOpacity(0.2), width: 1.5),
+                                side: BorderSide(color: AppColors.error.withValues(alpha: 0.2), width: 1.5),
                               ),
                             ),
                           ),
@@ -614,14 +560,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey.withOpacity(0.35),
+                            color: AppColors.textMuted,
                             letterSpacing: 1.5,
                           ),
                         ),
                         const SizedBox(height: 12),
                         Icon(
                           FontAwesomeIcons.shieldHalved,
-                          color: Colors.blueGrey.withOpacity(0.15),
+                          color: AppColors.textMuted.withValues(alpha: 0.5),
                           size: 24,
                         ),
                         const SizedBox(height: 24),
@@ -634,9 +580,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           if (_isLoading)
             Container(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
               child: const Center(
-                child: SpinKitCircle(color: Colors.white, size: 70.0),
+                child: SpinKitCircle(color: AppColors.primary, size: 70.0),
               ),
             ),
         ],

@@ -7,6 +7,7 @@ import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/screens/sections_screen.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class SubjectsScreen extends StatefulWidget {
   const SubjectsScreen({Key? key}) : super(key: key);
@@ -125,35 +126,35 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF334155),
+        color: AppColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 12,
-          color: Color(0xFF94A3B8),
+          color: AppColors.textMuted,
           fontWeight: FontWeight.w600,
         ),
         hintText: 'กรอก$label',
-        hintStyle: const TextStyle(
-          color: Color(0xFFCBD5E1),
+        hintStyle: TextStyle(
+          color: AppColors.textMuted.withValues(alpha: 0.5),
           fontWeight: FontWeight.normal,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(right: 12),
-          child: Icon(icon, color: const Color(0xFF64748B), size: 13),
+          child: Icon(icon, color: AppColors.textSecondary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5),
+          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
     );
@@ -166,15 +167,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
-          colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+          colors: AppColors.primaryGradient,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: AppColors.primaryShadow,
       ),
       child: ElevatedButton(
         onPressed: onPressed,
@@ -230,27 +225,21 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       context: context,
       type: QuickAlertType.success,
       text: text,
-      confirmBtnColor: const Color(0xFF2563EB),
+      confirmBtnColor: AppColors.primary,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
-            colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+            colors: AppColors.primaryGradient,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF3B82F6).withOpacity(0.35),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
@@ -268,52 +257,19 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFF1E3A8A),
+            backgroundColor: AppColors.surface,
+            iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
+              title: Text(
                 'รายวิชาทั้งหมด',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -40,
-                      left: -30,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                color: AppColors.surface,
               ),
             ),
           ),
@@ -325,7 +281,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E3A8A),
+                  color: AppColors.primaryDark,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -359,7 +315,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: AppColors.softShadow,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -367,32 +324,32 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     Container(
                       width: 64,
                       height: 64,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
                         child: Icon(
                           FontAwesomeIcons.folderOpen,
-                          color: Color(0xFF94A3B8),
+                          color: AppColors.primary,
                           size: 24,
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'ยังไม่มีข้อมูลรายวิชา',
                       style: TextStyle(
-                        color: Color(0xFF1E293B),
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเพิ่มวิชาแรกของคุณ',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -405,193 +362,158 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
             .toList();
 
-        return SliverToBoxAdapter(child: _buildSubjectsTable(subjects));
+        return SliverToBoxAdapter(child: _buildSubjectsList(subjects));
       },
     );
   }
 
-  Widget _buildSubjectsTable(List<SubjectModel> subjects) {
+  Widget _buildSubjectsList(List<SubjectModel> subjects) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1E3A8A).withOpacity(0.04),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      child: Column(
+        children: subjects.map((subject) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border, width: 1.5),
+              boxShadow: AppColors.softShadow,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(3),
-              1: FlexColumnWidth(1.4),
-              2: IntrinsicColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: [
-              TableRow(
-                decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    child: Text(
-                      'รายวิชา',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SectionsScreen(subject: subject),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 17),
-                    child: Text(
-                      'ปี/เทอม',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    child: Text(
-                      'จัดการ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              ...subjects.map((subject) {
-                return TableRow(
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
                   children: [
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                SectionsScreen(subject: subject),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 16,
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          FontAwesomeIcons.book,
+                          color: AppColors.primary,
+                          size: 22,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              subject.code,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Color(0xFF2563EB),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                subject.code,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppColors.primary,
+                                ),
                               ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${subject.year}/${subject.term}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            subject.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 3),
+                          ),
+                          if (subject.teacher.isNotEmpty) ...[
+                            const SizedBox(height: 4),
                             Text(
-                              subject.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              subject.teacher,
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF334155),
-                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 15,
-                      ),
-                      child: Text(
-                        '${subject.year}/${subject.term}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF475569),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () => _showSubjectDialog(subject),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFDBEAFE),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  FontAwesomeIcons.solidPenToSquare,
-                                  color: Color(0xFF2563EB),
-                                  size: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () => _deleteSubject(subject.id),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFEF2F2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  FontAwesomeIcons.trash,
-                                  color: Color(0xFFEF4444),
-                                  size: 11,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showSubjectDialog(subject),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.infoSoft,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.solidPenToSquare,
+                                color: AppColors.info,
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () => _deleteSubject(subject.id),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.errorSoft,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.trash,
+                                color: AppColors.error,
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                );
-              }).toList(),
-            ],
-          ),
-        ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -608,12 +530,12 @@ class _SheetFrame extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-        left: 24,
-        right: 24,
+        left: 28,
+        right: 28,
         top: 24,
       ),
       child: SingleChildScrollView(
@@ -623,24 +545,24 @@ class _SheetFrame extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 36,
-                height: 4,
+                width: 40,
+                height: 5,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             Text(
               title,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E3A8A),
+                color: AppColors.primaryDark,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
             ...children,
           ],
         ),
@@ -648,3 +570,4 @@ class _SheetFrame extends StatelessWidget {
     );
   }
 }
+

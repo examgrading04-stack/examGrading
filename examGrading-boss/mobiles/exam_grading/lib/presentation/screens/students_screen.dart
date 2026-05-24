@@ -6,6 +6,7 @@ import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class SectionOption {
   final String id;
@@ -103,7 +104,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'กรุณาเพิ่มกลุ่มเรียนก่อนเพิ่มผู้เรียน',
-        confirmBtnColor: const Color(0xFF059669),
+        confirmBtnColor: AppColors.primary,
       );
       return;
     }
@@ -118,12 +119,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
               ),
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-                left: 24,
-                right: 24,
+                left: 28,
+                right: 28,
                 top: 24,
               ),
               child: SingleChildScrollView(
@@ -133,24 +134,24 @@ class _StudentsScreenState extends State<StudentsScreen> {
                   children: [
                     Center(
                       child: Container(
-                        width: 36,
-                        height: 4,
+                        width: 40,
+                        height: 5,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(2),
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     Text(
                       isEdit ? 'แก้ไขข้อมูลผู้เรียน' : 'เพิ่มผู้เรียนใหม่',
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF065F46),
+                        color: AppColors.primaryDark,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
                     _buildPopupField(
                       'รหัสนักศึกษา',
                       codeController,
@@ -176,15 +177,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF059669), Color(0xFF10B981)],
+                          colors: AppColors.primaryGradient,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF10B981).withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                        boxShadow: AppColors.primaryShadow,
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
@@ -195,7 +190,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               context: context,
                               type: QuickAlertType.warning,
                               text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-                              confirmBtnColor: const Color(0xFF059669),
+                              confirmBtnColor: AppColors.primary,
                             );
                             return;
                           }
@@ -232,7 +227,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             text: isEdit
                                 ? 'แก้ไขข้อมูลผู้เรียนสำเร็จ'
                                 : 'เพิ่มผู้เรียนสำเร็จ',
-                            confirmBtnColor: const Color(0xFF059669),
+                            confirmBtnColor: AppColors.primary,
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -270,40 +265,40 @@ class _StudentsScreenState extends State<StudentsScreen> {
   ) {
     return TextField(
       controller: controller,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF334155),
+        color: AppColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: Color(0xFF059669),
+          color: AppColors.primary,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
         hintText: 'กรอก$label',
-        hintStyle: const TextStyle(
-          color: Color(0xFFCBD5E1),
+        hintStyle: TextStyle(
+          color: AppColors.textMuted.withValues(alpha: 0.5),
           fontWeight: FontWeight.normal,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 16, right: 10),
-          child: Icon(icon, color: const Color(0xFF059669), size: 13),
+          child: Icon(icon, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         filled: true,
-        fillColor: const Color(0xFFF8FAFC),
+        fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF10B981), width: 2.0),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
       ),
     );
@@ -322,26 +317,26 @@ class _StudentsScreenState extends State<StudentsScreen> {
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: Color(0xFF059669),
+          color: AppColors.primary,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
           padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(FontAwesomeIcons.users, color: Color(0xFF059669), size: 13),
+          child: Icon(FontAwesomeIcons.users, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         filled: true,
-        fillColor: const Color(0xFFF8FAFC),
+        fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF10B981), width: 2.0),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
       ),
       value: sections.any((s) => s.id == value) ? value : null,
@@ -351,17 +346,17 @@ class _StudentsScreenState extends State<StudentsScreen> {
               value: s.id,
               child: Text(
                 s.displayName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF334155),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
           )
           .toList(),
       onChanged: onChanged,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF059669), size: 20),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 20),
     );
   }
 
@@ -389,7 +384,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
           context: context,
           type: QuickAlertType.success,
           text: 'ลบข้อมูลผู้เรียนเรียบร้อยแล้ว',
-          confirmBtnColor: const Color(0xFF059669),
+          confirmBtnColor: AppColors.primary,
         );
       },
     );
@@ -398,20 +393,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
-            colors: [Color(0xFF059669), Color(0xFF10B981)],
+            colors: AppColors.primaryGradient,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF10B981).withOpacity(0.35),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
@@ -429,52 +418,19 @@ class _StudentsScreenState extends State<StudentsScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFF065F46),
+            backgroundColor: AppColors.surface,
+            iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
+              title: Text(
                 'จัดการผู้เรียน',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF065F46), Color(0xFF10B981)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -40,
-                      left: -30,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                color: AppColors.surface,
               ),
             ),
           ),
@@ -484,12 +440,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'ตัวกรองวิชาและกลุ่มเรียน',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
+                      color: AppColors.textSecondary,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -501,10 +457,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: _filterSubjectId != null ? const Color(0xFFECFDF5) : Colors.white,
+                            color: _filterSubjectId != null ? AppColors.primarySoft : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: _filterSubjectId != null ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                              color: _filterSubjectId != null ? AppColors.primary : AppColors.border,
                               width: _filterSubjectId != null ? 1.8 : 1.0,
                             ),
                           ),
@@ -515,13 +471,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               dropdownColor: Colors.white,
                               icon: Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                color: _filterSubjectId != null ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                color: _filterSubjectId != null ? AppColors.primary : AppColors.textSecondary,
                                 size: 18,
                               ),
                               decoration: InputDecoration(
                                 prefixIcon: Icon(
                                   FontAwesomeIcons.bookOpen,
-                                  color: _filterSubjectId != null ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                  color: _filterSubjectId != null ? AppColors.primary : AppColors.textSecondary,
                                   size: 13,
                                 ),
                                 border: InputBorder.none,
@@ -530,12 +486,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               ),
                               value: _filterSubjectId,
                               items: [
-                                const DropdownMenuItem(
+                                DropdownMenuItem(
                                   value: null,
                                   child: Text(
                                     'ทุกวิชาเรียน',
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                   ),
                                 ),
                                 ..._subjects.map(
@@ -544,7 +500,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     child: Text(
                                       s.name,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                     ),
                                   ),
                                 ),
@@ -553,9 +509,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 _filterSubjectId = val;
                                 _filterSectionId = null;
                               }),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF1E293B),
+                                  color: AppColors.textPrimary,
                                 ),
                             ),
                           ),
@@ -568,10 +524,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
-                              color: _filterSectionId != null ? const Color(0xFFECFDF5) : Colors.white,
+                              color: _filterSectionId != null ? AppColors.primarySoft : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: _filterSectionId != null ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                                color: _filterSectionId != null ? AppColors.primary : AppColors.border,
                                 width: _filterSectionId != null ? 1.8 : 1.0,
                               ),
                             ),
@@ -582,13 +538,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 dropdownColor: Colors.white,
                                 icon: Icon(
                                   Icons.keyboard_arrow_down_rounded,
-                                  color: _filterSectionId != null ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                  color: _filterSectionId != null ? AppColors.primary : AppColors.textSecondary,
                                   size: 18,
                                 ),
                                 decoration: InputDecoration(
                                   prefixIcon: Icon(
                                     FontAwesomeIcons.users,
-                                    color: _filterSectionId != null ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                                    color: _filterSectionId != null ? AppColors.primary : AppColors.textSecondary,
                                     size: 13,
                                   ),
                                   border: InputBorder.none,
@@ -597,12 +553,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 ),
                                 value: _filterSectionId,
                                 items: [
-                                  const DropdownMenuItem(
+                                  DropdownMenuItem(
                                     value: null,
                                     child: Text(
                                       'ทุกกลุ่มเรียน',
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                     ),
                                   ),
                                   ..._sections
@@ -613,16 +569,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                           child: Text(
                                             'Sec ${s.sec}',
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                           ),
                                         ),
                                       ),
                                 ],
                                 onChanged: (val) =>
                                     setState(() => _filterSectionId = val),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
-                                  color: Color(0xFF1E293B),
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                             ),
@@ -690,15 +646,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           Container(
                             width: 64,
                             height: 64,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE2E8F0),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
                               shape: BoxShape.circle,
                             ),
                             child: const Center(
                               child: Icon(
                                 FontAwesomeIcons.usersSlash,
                                 size: 24,
-                                color: Color(0xFF94A3B8),
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -706,17 +662,17 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           const Text(
                             'ไม่พบข้อมูลผู้เรียน',
                             style: TextStyle(
-                              color: Color(0xFF065F46),
+                              color: AppColors.primaryDark,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
+                          Text(
                             'คุณยังไม่มีผู้เรียนในวิชานี้ หรือกรองข้อมูลไม่ตรง',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: AppColors.textSecondary,
                               fontSize: 13,
                             ),
                           ),
@@ -728,7 +684,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
               }
 
               return SliverToBoxAdapter(
-                child: _buildStudentsTable(students),
+                child: _buildStudentsList(students),
               );
             },
           ),
@@ -738,204 +694,157 @@ class _StudentsScreenState extends State<StudentsScreen> {
     );
   }
 
-  Widget _buildStudentsTable(List<StudentModel> students) {
+  Widget _buildStudentsList(List<StudentModel> students) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF065F46).withOpacity(0.04),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      child: Column(
+        children: students.map((student) {
+          String subjectName = '-';
+          String sectionName = 'ไม่ระบุ';
+          try {
+            final section = _sections.firstWhere(
+              (s) => s.id == student.className,
+            );
+            sectionName = section.sec;
+            subjectName = _subjects
+                .firstWhere((s) => s.id == section.subjectId)
+                .name;
+          } catch (e) {
+            // ignore
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border, width: 1.5),
+              boxShadow: AppColors.softShadow,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(2.8),
-              1: FlexColumnWidth(2.2),
-              2: IntrinsicColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: [
-              TableRow(
-                decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    child: Text(
-                      'ผู้เรียน',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        FontAwesomeIcons.solidUser,
+                        color: AppColors.primary,
+                        size: 20,
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    child: Text(
-                      'กลุ่ม/วิชา',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          student.code,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySoft,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Sec $sectionName',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                subjectName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                    child: Text(
-                      'จัดการ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
+                  Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _showStudentDialog(student),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.infoSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.solidPenToSquare,
+                              color: AppColors.info,
+                              size: 14,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => _deleteStudent(student.id),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.errorSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.trash,
+                              color: AppColors.error,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              ...students.map((student) {
-                String subjectName = '-';
-                String sectionName = 'ไม่ระบุ';
-                try {
-                  final section = _sections.firstWhere(
-                    (s) => s.id == student.className,
-                  );
-                  sectionName = section.sec;
-                  subjectName = _subjects
-                      .firstWhere((s) => s.id == section.subjectId)
-                      .name;
-                } catch (e) {
-                  // ignore
-                }
-
-                return TableRow(
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            student.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            student.code,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD1FAE5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Sec $sectionName',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF059669),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            subjectName,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () => _showStudentDialog(student),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFD1FAE5),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  FontAwesomeIcons.solidPenToSquare,
-                                  color: Color(0xFF059669),
-                                  size: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () => _deleteStudent(student.id),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFEF2F2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  FontAwesomeIcons.trash,
-                                  color: Color(0xFFEF4444),
-                                  size: 11,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ],
-          ),
-        ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

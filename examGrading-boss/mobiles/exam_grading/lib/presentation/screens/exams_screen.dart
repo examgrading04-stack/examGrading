@@ -8,6 +8,7 @@ import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/screens/answer_key_screen.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:exam_grading/presentation/screens/answer_sheets_screen.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({Key? key}) : super(key: key);
@@ -56,7 +57,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'กรุณาเพิ่มรายวิชาก่อนสร้างข้อสอบ',
-        confirmBtnColor: const Color(0xFFD97706),
+        confirmBtnColor: AppColors.primary,
       );
       return;
     }
@@ -71,12 +72,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
               ),
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-                left: 24,
-                right: 24,
+                left: 28,
+                right: 28,
                 top: 24,
               ),
               child: SingleChildScrollView(
@@ -86,24 +87,24 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   children: [
                     Center(
                       child: Container(
-                        width: 36,
-                        height: 4,
+                        width: 40,
+                        height: 5,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(2),
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     Text(
                       isEdit ? 'แก้ไขข้อมูลข้อสอบ' : 'สร้างข้อสอบใหม่',
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFC2410C),
+                        color: AppColors.primaryDark,
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
                     _buildPopupField(
                       'ชื่อการสอบ',
                       nameController,
@@ -137,15 +138,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
                         gradient: const LinearGradient(
-                          colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+                          colors: AppColors.primaryGradient,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFF59E0B).withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                        boxShadow: AppColors.primaryShadow,
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
@@ -155,7 +150,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               context: context,
                               type: QuickAlertType.warning,
                               text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-                              confirmBtnColor: const Color(0xFFD97706),
+                              confirmBtnColor: AppColors.primary,
                             );
                             return;
                           }
@@ -226,7 +221,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               context: context,
                               type: QuickAlertType.success,
                               text: 'แก้ไขข้อมูลข้อสอบสำเร็จ',
-                              confirmBtnColor: const Color(0xFFD97706),
+                              confirmBtnColor: AppColors.primary,
                             );
                           }
                         },
@@ -267,35 +262,40 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF334155),
+        color: AppColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: Color(0xFF94A3B8),
-          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
         hintText: 'กรอก$label',
-        hintStyle: const TextStyle(
-          color: Color(0xFFCBD5E1),
+        hintStyle: TextStyle(
+          color: AppColors.textMuted.withValues(alpha: 0.5),
           fontWeight: FontWeight.normal,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Icon(icon, color: const Color(0xFF64748B), size: 13),
+          padding: const EdgeInsets.only(left: 16, right: 10),
+          child: Icon(icon, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        filled: true,
+        fillColor: AppColors.background,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
       ),
     );
@@ -308,25 +308,32 @@ class _ExamsScreenState extends State<ExamsScreen> {
     ValueChanged<String?> onChanged,
   ) {
     return DropdownButtonFormField<String>(
+      borderRadius: BorderRadius.circular(16),
+      dropdownColor: Colors.white,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: Color(0xFF94A3B8),
-          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
-          padding: EdgeInsets.only(right: 12),
-          child: Icon(FontAwesomeIcons.bookOpen, color: Color(0xFF64748B), size: 13),
+          padding: EdgeInsets.only(left: 16, right: 10),
+          child: Icon(FontAwesomeIcons.bookOpen, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        filled: true,
+        fillColor: AppColors.background,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
       ),
       value: subjects.any((s) => s.code == value) ? value : null,
@@ -336,17 +343,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
               value: s.code,
               child: Text(
                 '${s.code} ${s.name}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF334155),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
           )
           .toList(),
       onChanged: onChanged,
-      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 20),
     );
   }
 
@@ -359,10 +366,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return TextField(
       controller: controller,
       readOnly: true,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF334155),
+        color: AppColors.textPrimary,
       ),
       onTap: () async {
         final date = await showDatePicker(
@@ -373,10 +380,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
-                colorScheme: const ColorScheme.light(
-                  primary: Color(0xFFD97706),
+                colorScheme: ColorScheme.light(
+                  primary: AppColors.primary,
                   onPrimary: Colors.white,
-                  onSurface: Color(0xFF0F172A),
+                  onSurface: AppColors.textPrimary,
                 ),
               ),
               child: child!,
@@ -391,21 +398,26 @@ class _ExamsScreenState extends State<ExamsScreen> {
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: Color(0xFF94A3B8),
-          fontWeight: FontWeight.w600,
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
-          padding: EdgeInsets.only(right: 12),
-          child: Icon(FontAwesomeIcons.solidCalendarDays, color: Color(0xFF64748B), size: 13),
+          padding: EdgeInsets.only(left: 16, right: 10),
+          child: Icon(FontAwesomeIcons.solidCalendarDays, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        filled: true,
+        fillColor: AppColors.background,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFD97706), width: 1.5),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
       ),
     );
@@ -435,7 +447,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
           context: context,
           type: QuickAlertType.success,
           text: 'ลบข้อสอบเรียบร้อยแล้ว',
-          confirmBtnColor: const Color(0xFFD97706),
+          confirmBtnColor: AppColors.primary,
         );
       },
     );
@@ -471,20 +483,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
-            colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+            colors: AppColors.primaryGradient,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFF59E0B).withOpacity(0.35),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
@@ -502,52 +508,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
             expandedHeight: 60,
             floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFFC2410C),
+            backgroundColor: AppColors.surface,
+            iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text(
+              title: Text(
                 'จัดการข้อสอบ',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 16,
                 ),
               ),
               background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFC2410C), Color(0xFFF59E0B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -20,
-                      right: -20,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -40,
-                      left: -30,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                color: AppColors.surface,
               ),
             ),
           ),
@@ -575,15 +548,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           Container(
                             width: 64,
                             height: 64,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE2E8F0),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
                               shape: BoxShape.circle,
                             ),
                             child: const Center(
                               child: Icon(
                                 FontAwesomeIcons.fileLines,
                                 size: 24,
-                                color: Color(0xFF94A3B8),
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -591,17 +564,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           const Text(
                             'ยังไม่มีข้อมูลข้อสอบ',
                             style: TextStyle(
-                              color: Color(0xFFC2410C),
+                              color: AppColors.primaryDark,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
+                          Text(
                             'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างข้อสอบชุดแรก',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: AppColors.textSecondary,
                               fontSize: 13,
                             ),
                           ),
@@ -638,14 +611,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFC2410C).withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppColors.border, width: 1.5),
+        boxShadow: AppColors.softShadow,
       ),
       child: Column(
         children: [
@@ -659,18 +626,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   height: 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+                      colors: AppColors.primaryGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF59E0B).withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    boxShadow: AppColors.primaryShadow,
                   ),
                   child: const Center(
                     child: Icon(
@@ -687,38 +648,38 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     children: [
                       Text(
                         exam.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Color(0xFF0F172A),
+                          fontSize: 16,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
+                          color: AppColors.primarySoft,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           'วิชา: ${exam.subject}',
                           style: const TextStyle(
-                            color: Color(0xFFD97706),
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
-                            fontSize: 10,
+                            fontSize: 11,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(FontAwesomeIcons.solidCalendarDays, size: 10, color: Color(0xFF94A3B8)),
+                          Icon(FontAwesomeIcons.solidCalendarDays, size: 12, color: AppColors.textSecondary),
                           const SizedBox(width: 6),
                           Text(
                             'วันที่: ${exam.date}',
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 11,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -731,11 +692,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.background,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-              border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -746,7 +707,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       FontAwesomeIcons.circleQuestion,
                       '${exam.questions} ข้อ',
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     _buildSmallInfo(
                       FontAwesomeIcons.layerGroup,
                       '${exam.sets} ชุด',
@@ -758,33 +719,33 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   children: [
                     _buildCompactAction(
                       icon: FontAwesomeIcons.key,
-                      iconSize: 10,
-                      color: const Color(0xFF059669),
-                      bgColor: const Color(0xFFD1FAE5),
+                      iconSize: 11,
+                      color: AppColors.success,
+                      bgColor: AppColors.successSoft,
                       onTap: () => _openAnswerKey(exam),
                     ),
                     const SizedBox(width: 10),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.filePdf,
-                      iconSize: 11,
-                      color: const Color(0xFF2563EB),
-                      bgColor: const Color(0xFFDBEAFE),
+                      iconSize: 12,
+                      color: AppColors.info,
+                      bgColor: AppColors.infoSoft,
                       onTap: () => _openAnswerSheets(exam),
                     ),
                     const SizedBox(width: 10),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.solidPenToSquare,
-                      iconSize: 11,
-                      color: const Color(0xFFD97706),
-                      bgColor: const Color(0xFFFFFBEB),
+                      iconSize: 12,
+                      color: AppColors.warning,
+                      bgColor: AppColors.warningSoft,
                       onTap: () => _showExamDialog(exam),
                     ),
                     const SizedBox(width: 10),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.trash,
-                      iconSize: 10,
-                      color: const Color(0xFFEF4444),
-                      bgColor: const Color(0xFFFEF2F2),
+                      iconSize: 11,
+                      color: AppColors.error,
+                      bgColor: AppColors.errorSoft,
                       onTap: () => _deleteExam(exam.id),
                     ),
                   ],
@@ -807,8 +768,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: bgColor,
           shape: BoxShape.circle,
@@ -823,13 +784,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
   Widget _buildSmallInfo(IconData icon, String label) {
     return Row(
       children: [
-        Icon(icon, size: 11, color: const Color(0xFF64748B)),
+        Icon(icon, size: 13, color: AppColors.textSecondary),
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 11,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/config/firebase_options.dart';
 import 'package:exam_grading/presentation/screens/login_screen.dart';
 import 'package:exam_grading/presentation/screens/dashboard_screen.dart';
+import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -21,13 +22,13 @@ class ExamScannerApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB),
-          primary: const Color(0xFF2563EB),
-          surface: const Color(0xFFF8FAFC),
+          seedColor: AppColors.primary,
+          primary: AppColors.primary,
+          surface: AppColors.background,
         ),
         textTheme: GoogleFonts.kanitTextTheme(Theme.of(context).textTheme),
         appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
@@ -51,7 +52,7 @@ class ExamScannerApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
           ),
         ),
@@ -60,15 +61,15 @@ class ExamScannerApp extends StatelessWidget {
           fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderSide: const BorderSide(color: AppColors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderSide: const BorderSide(color: AppColors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
