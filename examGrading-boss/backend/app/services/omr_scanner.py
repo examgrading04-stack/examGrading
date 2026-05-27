@@ -179,14 +179,14 @@ def _parse_qr_data(data, meta):
     """แปลง QR string → SheetMetadata"""
     try:
         d = json.loads(data)
-        meta.subject_code  = d.get("sc", d.get("subject_code", ""))
-        meta.subject_name  = d.get("sn", d.get("subject_name", ""))
-        meta.student_id    = d.get("id", d.get("student_id", ""))
-        meta.student_name  = d.get("nm", d.get("student_name", ""))
-        meta.exam_date     = d.get("dt", d.get("exam_date", ""))
-        meta.total_questions = int(d.get("tq", d.get("total_questions", 0)))
-        meta.sheet_id = d.get("sid", d.get("sheet_id", ""))
-        meta.exam_id = d.get("eid", d.get("exam_id", ""))
+        meta.subject_code  = d.get("subject_code", d.get("subject_code", ""))
+        meta.subject_name  = d.get("subject_name", d.get("subject_name", ""))
+        meta.student_id    = d.get("student_id", d.get("student_id", ""))
+        meta.student_name  = d.get("student_name", d.get("student_name", ""))
+        meta.exam_date     = d.get("exam_date", d.get("exam_date", ""))
+        meta.total_questions = int(d.get("total_questions", d.get("total_questions", 0)))
+        meta.sheet_id = d.get("sheet_id", d.get("sheet_id", ""))
+        meta.exam_id = d.get("exam_id", d.get("exam_id", ""))
         if not meta.exam_id and ":" in meta.sheet_id:
             meta.exam_id = meta.sheet_id.split(":", 1)[0]
     except:
