@@ -54,8 +54,9 @@ class OMRConfig:
     SNAP_PARAM2=18                 # Hough param2 (ต่ำ=เจอง่ายขึ้น)
     SNAP_FALLBACK_SCORE=0.18       # ถ้าคะแนนจาก local refine ต่ำกว่าค่านี้ ค่อยเรียก Hough snap
     LOCAL_REFINE_ENABLE=True       # refine center ด้วย local search เพื่อทนภาพมือถือเอียง/เบลอ
-    LOCAL_REFINE_RADIUS=5          # ระยะค้นหา (px) รอบ center หลัง snap
-    LOCAL_REFINE_STEP=1            # step ของ local search
+    LOCAL_REFINE_RADIUS=3          # ลดระยะค้นหาเพื่อความเร็ว (ยังคงทนมือถือได้ดี)
+    LOCAL_REFINE_STEP=2            # step กว้างขึ้นเพื่อลดรอบคำนวณ
+    LOCAL_REFINE_EARLY_STOP=0.42   # ถ้าคะแนนสูงพอแล้วหยุด refine เร็วขึ้น
     CHOICES=["A","B","C","D","E"]
 
 def load_and_preprocess(path_or_img):
@@ -435,6 +436,7 @@ def measure_bubble_ratios(warped,grid_rect,positions):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     g = clahe.apply(grid_gray)
     g = cv2.GaussianBlur(g, (3, 3), 0)
+    mask_cache = {}
 
     def _mean_in_mask(patch, mask):
         # mask เป็น 0/255
@@ -492,14 +494,24 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         if not (0 <= cx < w and 0 <= cy < h):
             return 0.0
 
-        inner = np.zeros((h,w), np.uint8)
-        ring  = np.zeros((h,w), np.uint8)
-        inner_r = max(4, R - 2)
-        ring_r1 = R + 3
-        ring_r2 = R + 9
-        cv2.circle(inner, (cx,cy), inner_r, 255, -1)
-        cv2.circle(ring,  (cx,cy), ring_r2, 255, -1)
-        cv2.circle(ring,  (cx,cy), ring_r1, 0,   -1)
+        cache_key = (h, w, cx, cy)
+        cached = mask_cache.get(cache_key)
+        if cached is None:
+            inner = np.zeros((h,w), np.uint8)
+            ring  = np.zeros((h,w), np.uint8)
+            inner_r = max(4, R - 2)
+            ring_r1 = R + 3
+            ring_r2 = R + 9
+            cv2.circle(inner, (cx,cy), inner_r, 255, -1)
+            cv2.circle(ring,  (cx,cy), ring_r2, 255, -1)
+            cv2.circle(ring,  (cx,cy), ring_r1, 0,   -1)
+            cached = (inner, ring)
+            # กัน cache โตเกินจำเป็นในภาพที่หลากหลายมาก
+            if len(mask_cache) > 256:
+                mask_cache.clear()
+            mask_cache[cache_key] = cached
+        else:
+            inner, ring = cached
 
         inner_mean = _mean_in_mask(patch, inner)
         ring_mean  = _mean_in_mask(patch, ring)
@@ -516,6 +528,7 @@ def measure_bubble_ratios(warped,grid_rect,positions):
             return best
         rr = int(getattr(OMRConfig, "LOCAL_REFINE_RADIUS", 5))
         step = int(getattr(OMRConfig, "LOCAL_REFINE_STEP", 1))
+        early_stop = float(getattr(OMRConfig, "LOCAL_REFINE_EARLY_STOP", 0.42))
         if rr <= 0 or step <= 0:
             return best
         for dy in range(-rr, rr + 1, step):
@@ -525,6 +538,8 @@ def measure_bubble_ratios(warped,grid_rect,positions):
                 s = _score_with_center(y + dy, x + dx)
                 if s > best:
                     best = s
+                    if best >= early_stop:
+                        return best
         return best
 
     def ratio_at(y,x):
