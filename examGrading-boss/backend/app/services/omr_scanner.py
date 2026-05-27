@@ -60,6 +60,17 @@ class OMRConfig:
     LOCAL_REFINE_EARLY_STOP=0.55   # ยังหยุดได้เมื่อคะแนนชัดมาก
     CHOICES=["A","B","C","D","E"]
 
+def _layout_question_count(total_q: int) -> int:
+    """
+    จำนวนข้อที่ใช้วาง grid จริงบนกระดาษ
+    กระดาษรองรับ layout 30/50/100 เท่านั้น
+    """
+    if total_q <= 30:
+        return 30
+    if total_q <= 50:
+        return 50
+    return 100
+
 def load_and_preprocess(path_or_img):
     if isinstance(path_or_img, str):
         img=cv2.imread(path_or_img)
@@ -846,14 +857,23 @@ def scan_answer_sheet(image_input,force_questions=0,debug=False):
         else:
             print(f"[4] QR: subject='{meta.subject_code}' tq={total_q}")
         meta.total_questions=total_q; result.metadata=meta
-        grid_rect=detect_grid_region(warped_gray,total_q)
+        layout_q = _layout_question_count(total_q)
+        if layout_q != total_q:
+            print(f"[4.1] Layout normalize: exam={total_q} -> sheet_layout={layout_q}")
+        grid_rect=detect_grid_region(warped_gray,layout_q)
         print(f"[5] Grid: {grid_rect}")
-        positions=get_bubble_positions(warped,grid_rect,total_q)
+        positions=get_bubble_positions(warped,grid_rect,layout_q)
         print(f"[6] Positions: {sum(1 for p in positions if p)} groups OK")
         raw_scores=measure_bubble_ratios(warped,grid_rect,positions)
+        # ถ้าข้อสอบจริงน้อยกว่า layout ของกระดาษ ให้ตัดเฉพาะข้อที่ใช้จริง
+        if total_q and total_q < layout_q:
+            raw_scores = {q: v for q, v in raw_scores.items() if q <= total_q}
         result.raw_scores=raw_scores
-        print(f"[7] Measured: {len(raw_scores)} questions")
-        answers,flagged=decide_answers(raw_scores, n_q=total_q)
+        print(f"[7] Measured: {len(raw_scores)} questions (layout={layout_q})")
+        answers,flagged=decide_answers(raw_scores, n_q=layout_q)
+        if total_q and total_q < layout_q:
+            answers = {q: a for q, a in answers.items() if q <= total_q}
+            flagged = [f for f in flagged if int(f.get("question", 0)) <= total_q]
         result.answers=answers; result.flagged=flagged
         print(f"[8] Answers: {len(answers)} ข้อ, flagged: {len(flagged)}")
         if debug: _save_debug(warped,grid_rect,positions,answers,flagged,image_input)
