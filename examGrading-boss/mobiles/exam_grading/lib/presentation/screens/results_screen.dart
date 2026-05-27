@@ -449,6 +449,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     }
 
     final answers = result['answers'] as Map<String, dynamic>? ?? {};
+    final imageUrl = result['imageUrl']?.toString().trim() ?? '';
+    final hasImageUrl = imageUrl.isNotEmpty;
 
     showModalBottomSheet(
       context: context,
@@ -542,11 +544,133 @@ class _ResultsScreenState extends State<ResultsScreen> {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(24),
-                  itemCount: exam.questions,
+                  itemCount: exam.questions + (hasImageUrl ? 1 : 0),
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final qNum = (index + 1).toString();
+                    if (hasImageUrl && index == 0) {
+                      return GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => Dialog(
+                              insetPadding: const EdgeInsets.all(12),
+                              backgroundColor: Colors.black87,
+                              child: Stack(
+                                children: [
+                                  InteractiveViewer(
+                                    minScale: 0.8,
+                                    maxScale: 4,
+                                    child: Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return SizedBox(
+                                          height: 320,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              color: AppColors.primary,
+                                              value: progress.expectedTotalBytes != null
+                                                  ? progress.cumulativeBytesLoaded /
+                                                      progress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (_, __, ___) => const SizedBox(
+                                        height: 220,
+                                        child: Center(
+                                          child: Text(
+                                            'โหลดรูปไม่สำเร็จ',
+                                            style: TextStyle(color: Colors.white),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 8,
+                                    top: 8,
+                                    child: IconButton(
+                                      onPressed: () => Navigator.of(ctx).pop(),
+                                      icon: const Icon(Icons.close, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'รูปกระดาษคำตอบที่ตรวจ',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  imageUrl,
+                                  height: 180,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return SizedBox(
+                                      height: 180,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.primary,
+                                          value: progress.expectedTotalBytes != null
+                                              ? progress.cumulativeBytesLoaded /
+                                                  progress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 180,
+                                    color: AppColors.surface,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      'โหลดรูปไม่สำเร็จ',
+                                      style: TextStyle(color: AppColors.textSecondary),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'แตะเพื่อดูรูปขนาดใหญ่',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    final questionIndex = hasImageUrl ? index - 1 : index;
+                    final qNum = (questionIndex + 1).toString();
                     final setIndex = result['set']?.toString();
                     final correctAns = _getCorrectAnswer(exam, qNum, setIndex);
 

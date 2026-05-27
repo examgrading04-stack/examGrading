@@ -314,6 +314,36 @@ function StudentAnswersView({ result, exam }) {
         </div>
       </div>
 
+      {result.imageUrl ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              รูปกระดาษคำตอบที่ตรวจ
+            </p>
+            <a
+              href={result.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-blue-600 hover:underline"
+            >
+              เปิดรูปขนาดเต็ม
+            </a>
+          </div>
+          <a href={result.imageUrl} target="_blank" rel="noreferrer">
+            <img
+              src={result.imageUrl}
+              alt="Scanned answer sheet"
+              loading="lazy"
+              className="w-full max-h-[420px] object-contain rounded-lg border border-slate-200 bg-slate-50"
+            />
+          </a>
+        </div>
+      ) : (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+          ไม่มีรูปกระดาษคำตอบในผลสอบนี้
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-xl border border-slate-200">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
