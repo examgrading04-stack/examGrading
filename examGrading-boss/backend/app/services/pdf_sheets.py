@@ -1,6 +1,7 @@
 import os
 import tempfile
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -54,10 +55,20 @@ def _default_font_path() -> str:
 
 
 def _load_font(size: int, font_path: str | None = None) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    return _load_font_cached(size, font_path or _default_font_path())
+
+
+@lru_cache(maxsize=64)
+def _load_font_cached(size: int, font_path: str) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     try:
-        return ImageFont.truetype(font_path or _default_font_path(), size)
+        return ImageFont.truetype(font_path, size)
     except OSError:
         return ImageFont.load_default()
+
+
+@lru_cache(maxsize=8)
+def _load_template_rgb(template_path: str) -> Image.Image:
+    return Image.open(template_path).convert("RGB")
 
 
 def _draw_fitted_text(
@@ -122,7 +133,7 @@ def create_single_sheet_image(
     if not resolved_template.exists():
         raise FileNotFoundError(f"Template not found: {resolved_template}")
 
-    template_img = Image.open(resolved_template).convert("RGB")
+    template_img = _load_template_rgb(str(resolved_template)).copy()
     payload_str = build_qr_payload(
         subject_code=sheet_payload.get("subject_code", ""),
         subject_name=sheet_payload.get("subject_name", ""),

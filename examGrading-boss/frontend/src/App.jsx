@@ -522,15 +522,20 @@ export default function App() {
   async function loadData(services = firebase, currentUser = user) {
     if (!services || !currentUser) return;
     const subjects = await getDocs(services, currentUser, "subjects");
+    const sectionsSnapshots = await Promise.all(
+      subjects.map((subject) =>
+        services.db
+          .collection("users")
+          .doc(currentUser.email)
+          .collection("subjects")
+          .doc(subject.id)
+          .collection("sections")
+          .get()
+          .then((snapshot) => ({ subject, snapshot })),
+      ),
+    );
     const sections = [];
-    for (const subject of subjects) {
-      const snapshot = await services.db
-        .collection("users")
-        .doc(currentUser.email)
-        .collection("subjects")
-        .doc(subject.id)
-        .collection("sections")
-        .get();
+    sectionsSnapshots.forEach(({ subject, snapshot }) => {
       snapshot.forEach((doc) =>
         sections.push({
           id: `${subject.id}_${doc.id}`,
@@ -539,7 +544,7 @@ export default function App() {
           ...doc.data(),
         }),
       );
-    }
+    });
     const [students, exams, results] = await Promise.all([
       getDocs(services, currentUser, "students"),
       getDocs(services, currentUser, "exams"),

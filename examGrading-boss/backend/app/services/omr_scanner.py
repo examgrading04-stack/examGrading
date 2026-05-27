@@ -52,6 +52,7 @@ class OMRConfig:
     SNAP_TO_DETECTED_CIRCLE=True   # snap จุดวัดไปศูนย์กลาง bubble จริง
     SNAP_SEARCH_PAD=26             # ขนาดหน้าต่างค้นหา (px) รอบจุดคาด
     SNAP_PARAM2=18                 # Hough param2 (ต่ำ=เจอง่ายขึ้น)
+    SNAP_FALLBACK_SCORE=0.18       # ถ้าคะแนนจาก local refine ต่ำกว่าค่านี้ ค่อยเรียก Hough snap
     LOCAL_REFINE_ENABLE=True       # refine center ด้วย local search เพื่อทนภาพมือถือเอียง/เบลอ
     LOCAL_REFINE_RADIUS=5          # ระยะค้นหา (px) รอบ center หลัง snap
     LOCAL_REFINE_STEP=1            # step ของ local search
@@ -509,23 +510,38 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         if score > 1: score = 1.0
         return score
 
+    def _local_refine_score(y, x):
+        best = _score_with_center(y, x)
+        if not getattr(OMRConfig, "LOCAL_REFINE_ENABLE", True):
+            return best
+        rr = int(getattr(OMRConfig, "LOCAL_REFINE_RADIUS", 5))
+        step = int(getattr(OMRConfig, "LOCAL_REFINE_STEP", 1))
+        if rr <= 0 or step <= 0:
+            return best
+        for dy in range(-rr, rr + 1, step):
+            for dx in range(-rr, rr + 1, step):
+                if dx == 0 and dy == 0:
+                    continue
+                s = _score_with_center(y + dy, x + dx)
+                if s > best:
+                    best = s
+        return best
+
     def ratio_at(y,x):
         # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
-        y, x = _snap_center(int(y), int(x))
-        best = _score_with_center(y, x)
-
-        # local refine: ชดเชย warp drift/มุมถ่ายมือถือที่ทำให้ center คลาดทีละไม่กี่พิกเซล
-        if getattr(OMRConfig, "LOCAL_REFINE_ENABLE", True):
-            rr = int(getattr(OMRConfig, "LOCAL_REFINE_RADIUS", 5))
-            step = int(getattr(OMRConfig, "LOCAL_REFINE_STEP", 1))
-            if rr > 0 and step > 0:
-                for dy in range(-rr, rr + 1, step):
-                    for dx in range(-rr, rr + 1, step):
-                        if dx == 0 and dy == 0:
-                            continue
-                        s = _score_with_center(y + dy, x + dx)
-                        if s > best:
-                            best = s
+        y = int(y)
+        x = int(x)
+        # Fast path: local refine บนจุดคาดก่อน (ไม่ใช้ Hough)
+        best = _local_refine_score(y, x)
+        # Slow path: เรียก Hough เฉพาะจุดที่ score อ่อน/ไม่มั่นใจ
+        if (
+            getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True)
+            and best < float(getattr(OMRConfig, "SNAP_FALLBACK_SCORE", 0.18))
+        ):
+            sy, sx = _snap_center(y, x)
+            snapped = _local_refine_score(int(sy), int(sx))
+            if snapped > best:
+                best = snapped
         return best
     results={}
     for gi,group in enumerate(positions):
