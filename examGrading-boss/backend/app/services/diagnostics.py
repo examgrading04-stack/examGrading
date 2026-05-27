@@ -71,12 +71,12 @@ def diag_qr(warped, report: DiagReport, debug_img):
     # ใช้ multi-strategy เดียวกับ omr_scanner
     meta = decode_qr(warped)
     report.qr_data = {
-        "sc": meta.subject_code,
-        "sn": meta.subject_name,
-        "id": meta.student_id,
-        "nm": meta.student_name,
-        "dt": meta.exam_date,
-        "tq": meta.total_questions,
+        "subject_code": meta.subject_code,
+        "subject_name": meta.subject_name,
+        "student_id": meta.student_id,
+        "student_name": meta.student_name,
+        "exam_date": meta.exam_date,
+        "total_questions": meta.total_questions,
     }
     if meta.subject_code or meta.total_questions:
         report.qr_ok = True
