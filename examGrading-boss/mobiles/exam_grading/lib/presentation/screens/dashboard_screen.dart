@@ -161,6 +161,14 @@ class _DashboardHome extends StatelessWidget {
 
   final VoidCallback onOpenProfile;
 
+  DateTime? _readResultTime(Map<String, dynamic> data) {
+    final dynamic createdAt = data['createdAt'];
+    if (createdAt is Timestamp) return createdAt.toDate();
+    final dynamic timestamp = data['timestamp'];
+    if (timestamp is Timestamp) return timestamp.toDate();
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -327,13 +335,43 @@ class _DashboardHome extends StatelessWidget {
                               .collection('users')
                               .doc(email)
                               .collection('results')
-                              .orderBy('timestamp', descending: true)
-                              .limit(1)
                               .snapshots()
                         : const Stream.empty(),
                     builder: (context, snapshot) {
                       String title = 'พร้อมสำหรับการตรวจ';
                       String subtitle = 'เลือกเมนูด้านล่างเพื่อเริ่มต้นการใช้งาน';
+                      if (snapshot.hasError) {
+                        title = 'โหลดข้อมูลผลสอบไม่สำเร็จ';
+                        subtitle = 'กรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง';
+                        return _buildHeaderCard(title, subtitle);
+                      }
+                      if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                        final docs = [...snapshot.data!.docs];
+                        docs.sort((a, b) {
+                          final aData = a.data() as Map<String, dynamic>;
+                          final bData = b.data() as Map<String, dynamic>;
+                          final at = _readResultTime(aData);
+                          final bt = _readResultTime(bData);
+                          if (at == null && bt == null) return 0;
+                          if (at == null) return 1;
+                          if (bt == null) return -1;
+                          return bt.compareTo(at);
+                        });
+                        final latest = docs.first.data() as Map<String, dynamic>;
+                        final latestScore = latest['score'];
+                        final latestTotal = latest['total'];
+                        final latestStudent = (latest['studentName'] ?? '').toString();
+                        if (latestScore != null && latestTotal != null) {
+                          title = 'ผลตรวจล่าสุด: $latestScore/$latestTotal คะแนน';
+                        } else {
+                          title = 'มีผลสอบล่าสุดแล้ว';
+                        }
+                        if (latestStudent.isNotEmpty) {
+                          subtitle = 'ล่าสุด: $latestStudent';
+                        } else {
+                          subtitle = 'สามารถดูรายละเอียดได้ในหน้า ประวัติ';
+                        }
+                      }
                       return _buildHeaderCard(title, subtitle);
                     },
                   ),

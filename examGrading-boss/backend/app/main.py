@@ -432,6 +432,7 @@ async def scan_sheet(
         "summary": summary,
         "metadata": metadata,
         "createdAt": firestore.SERVER_TIMESTAMP,
+        "timestamp": firestore.SERVER_TIMESTAMP,
     }
 
     result_id = None
@@ -554,6 +555,7 @@ async def scan_cloudinary(
         "metadata": metadata,
         "imageUrl": image_url,
         "createdAt": firestore.SERVER_TIMESTAMP,
+        "timestamp": firestore.SERVER_TIMESTAMP,
     }
 
     result_id = None

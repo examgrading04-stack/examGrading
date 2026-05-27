@@ -19,6 +19,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
   String _selectedSubject = 'ทั้งหมด';
 
+  DateTime? _readResultTime(Map<String, dynamic> data) {
+    final dynamic createdAt = data['createdAt'];
+    if (createdAt is Timestamp) return createdAt.toDate();
+    final dynamic timestamp = data['timestamp'];
+    if (timestamp is Timestamp) return timestamp.toDate();
+    return null;
+  }
+
   List<String> get _subjects {
     final subjects = _exams.map((e) => e.subject).where((s) => s.isNotEmpty).toSet().toList();
     subjects.sort();
@@ -161,7 +169,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       .collection('users')
                       .doc(uid)
                       .collection('results')
-                      .orderBy('timestamp', descending: true)
                       .snapshots()
                 : const Stream.empty(),
             builder: (context, snapshot) {
@@ -171,6 +178,33 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     child: SpinKitThreeBounce(
                       color: AppColors.primary,
                       size: 32.0,
+                    ),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return SliverFillRemaining(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(FontAwesomeIcons.triangleExclamation, color: AppColors.error, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'โหลดผลสอบไม่สำเร็จ: ${snapshot.error}',
+                              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -185,7 +219,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 );
               }
 
-              final docs = snapshot.data!.docs;
+              final docs = [...snapshot.data!.docs];
+              docs.sort((a, b) {
+                final aData = a.data() as Map<String, dynamic>;
+                final bData = b.data() as Map<String, dynamic>;
+                final at = _readResultTime(aData);
+                final bt = _readResultTime(bData);
+                if (at == null && bt == null) return 0;
+                if (at == null) return 1;
+                if (bt == null) return -1;
+                return bt.compareTo(at);
+              });
 
               final filteredDocs = docs.where((doc) {
                 if (_selectedSubject == 'ทั้งหมด') return true;
@@ -255,9 +299,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     }
                     
                     final scoreStr = isPending ? 'กำลังประมวลผล...' : dynamicScore.toString();
-                    final timestamp = data['timestamp'] as Timestamp?;
-                    final dateString = timestamp != null
-                        ? "${timestamp.toDate().day}/${timestamp.toDate().month}/${timestamp.toDate().year} ${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')} น."
+                    final readTime = _readResultTime(data);
+                    final dateString = readTime != null
+                        ? "${readTime.day}/${readTime.month}/${readTime.year} ${readTime.hour}:${readTime.minute.toString().padLeft(2, '0')} น."
                         : 'ไม่ทราบเวลา';
 
                     // Parse exam ID for a cleaner display
@@ -422,7 +466,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ),
                       ),
                     );
-                  }, childCount: docs.length),
+                  }, childCount: filteredDocs.length),
                 ),
               );
             },
