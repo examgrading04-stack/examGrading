@@ -52,6 +52,9 @@ class OMRConfig:
     SNAP_TO_DETECTED_CIRCLE=True   # snap จุดวัดไปศูนย์กลาง bubble จริง
     SNAP_SEARCH_PAD=26             # ขนาดหน้าต่างค้นหา (px) รอบจุดคาด
     SNAP_PARAM2=18                 # Hough param2 (ต่ำ=เจอง่ายขึ้น)
+    LOCAL_REFINE_ENABLE=True       # refine center ด้วย local search เพื่อทนภาพมือถือเอียง/เบลอ
+    LOCAL_REFINE_RADIUS=5          # ระยะค้นหา (px) รอบ center หลัง snap
+    LOCAL_REFINE_STEP=1            # step ของ local search
     CHOICES=["A","B","C","D","E"]
 
 def load_and_preprocess(path_or_img):
@@ -475,9 +478,7 @@ def measure_bubble_ratios(warped,grid_rect,positions):
             return y, x
         return int(y1 + best[1]), int(x1 + best[0])
 
-    def ratio_at(y,x):
-        # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
-        y, x = _snap_center(int(y), int(x))
+    def _score_with_center(y, x):
         pad = R + 10
         y1,y2=max(0,y-pad),min(g.shape[0],y+pad)
         x1,x2=max(0,x-pad),min(g.shape[1],x+pad)
@@ -507,6 +508,25 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         if score < 0: score = 0.0
         if score > 1: score = 1.0
         return score
+
+    def ratio_at(y,x):
+        # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
+        y, x = _snap_center(int(y), int(x))
+        best = _score_with_center(y, x)
+
+        # local refine: ชดเชย warp drift/มุมถ่ายมือถือที่ทำให้ center คลาดทีละไม่กี่พิกเซล
+        if getattr(OMRConfig, "LOCAL_REFINE_ENABLE", True):
+            rr = int(getattr(OMRConfig, "LOCAL_REFINE_RADIUS", 5))
+            step = int(getattr(OMRConfig, "LOCAL_REFINE_STEP", 1))
+            if rr > 0 and step > 0:
+                for dy in range(-rr, rr + 1, step):
+                    for dx in range(-rr, rr + 1, step):
+                        if dx == 0 and dy == 0:
+                            continue
+                        s = _score_with_center(y + dy, x + dx)
+                        if s > best:
+                            best = s
+        return best
     results={}
     for gi,group in enumerate(positions):
         if group is None: continue
@@ -802,7 +822,22 @@ def scan_answer_sheet(image_input,force_questions=0,debug=False):
 def calculate_score(answers,answer_key):
     correct,wrong,skipped=[],[],[]
     for q_no,key in answer_key.items():
+        # รองรับทั้ง key แบบ int และ str จากหลายแหล่งข้อมูล
         a=answers.get(q_no)
+        if a is None:
+            try:
+                a = answers.get(int(q_no))
+            except Exception:
+                pass
+        if a is None:
+            try:
+                a = answers.get(str(q_no))
+            except Exception:
+                pass
+        if isinstance(a, str):
+            a = a.strip().upper()
+        if isinstance(key, str):
+            key = key.strip().upper()
         if a is None: skipped.append(q_no)
         elif a==key: correct.append(q_no)
         else: wrong.append({"question":q_no,"student":a,"correct":key})
