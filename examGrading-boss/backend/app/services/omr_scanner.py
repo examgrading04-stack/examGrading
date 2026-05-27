@@ -45,6 +45,7 @@ class OMRConfig:
     # เกณฑ์ถูกใช้กับ "normalized score" (score - baseline) ใน decide_answers
     # score ถูกคำนวณจากความมืดในวง bubble เทียบกับวงแหวนรอบๆ (0..1 โดยประมาณ)
     NORM_FILL_MIN=0.06; NORM_GAP_MIN=0.04
+    MULTI_MARK_RATIO=0.92          # ถ้าอันดับ 2 ใกล้อันดับ 1 มาก ให้ถือว่าอาจฝนซ้ำ
     ANCHOR_MIN_AREA=3000; ANCHOR_MAX_AREA=9000; ANCHOR_ASPECT_TOL=0.15
     WARP_W=900; WARP_H=1200
     BUBBLE_RADIUS=16; HOUGH_MIN_R=10; HOUGH_MAX_R=30; HOUGH_MIN_DIST=20
@@ -52,11 +53,11 @@ class OMRConfig:
     SNAP_TO_DETECTED_CIRCLE=True   # snap จุดวัดไปศูนย์กลาง bubble จริง
     SNAP_SEARCH_PAD=26             # ขนาดหน้าต่างค้นหา (px) รอบจุดคาด
     SNAP_PARAM2=18                 # Hough param2 (ต่ำ=เจอง่ายขึ้น)
-    SNAP_FALLBACK_SCORE=0.18       # ถ้าคะแนนจาก local refine ต่ำกว่าค่านี้ ค่อยเรียก Hough snap
+    SNAP_FALLBACK_SCORE=0.24       # เพิ่ม threshold เพื่อเรียก Hough มากขึ้น (แม่นยำกว่า)
     LOCAL_REFINE_ENABLE=True       # refine center ด้วย local search เพื่อทนภาพมือถือเอียง/เบลอ
-    LOCAL_REFINE_RADIUS=3          # ลดระยะค้นหาเพื่อความเร็ว (ยังคงทนมือถือได้ดี)
-    LOCAL_REFINE_STEP=2            # step กว้างขึ้นเพื่อลดรอบคำนวณ
-    LOCAL_REFINE_EARLY_STOP=0.42   # ถ้าคะแนนสูงพอแล้วหยุด refine เร็วขึ้น
+    LOCAL_REFINE_RADIUS=5          # เน้นความแม่นยำ: ค้นหารอบกว้างขึ้น
+    LOCAL_REFINE_STEP=1            # เน้นความแม่นยำ: ไล่ทุกพิกเซลย่อย
+    LOCAL_REFINE_EARLY_STOP=0.55   # ยังหยุดได้เมื่อคะแนนชัดมาก
     CHOICES=["A","B","C","D","E"]
 
 def load_and_preprocess(path_or_img):
@@ -546,17 +547,16 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
         y = int(y)
         x = int(x)
-        # Fast path: local refine บนจุดคาดก่อน (ไม่ใช้ Hough)
+        # Accuracy path: local refine บนจุดคาด และลอง snap ด้วย Hough เพิ่มอีกทาง
         best = _local_refine_score(y, x)
-        # Slow path: เรียก Hough เฉพาะจุดที่ score อ่อน/ไม่มั่นใจ
-        if (
-            getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True)
-            and best < float(getattr(OMRConfig, "SNAP_FALLBACK_SCORE", 0.18))
-        ):
-            sy, sx = _snap_center(y, x)
-            snapped = _local_refine_score(int(sy), int(sx))
-            if snapped > best:
-                best = snapped
+        if getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True):
+            need_snap = best < float(getattr(OMRConfig, "SNAP_FALLBACK_SCORE", 0.24))
+            # แม้คะแนนจะสูงอยู่แล้ว ให้ลอง snap เพิ่มในบางกรณีเพื่อกัน drift
+            if need_snap or best < 0.55:
+                sy, sx = _snap_center(y, x)
+                snapped = _local_refine_score(int(sy), int(sx))
+                if snapped > best:
+                    best = snapped
         return best
     results={}
     for gi,group in enumerate(positions):
@@ -657,6 +657,18 @@ def decide_answers(raw_scores, n_q=None):
         if max_n<dynamic_fill_min:
             flagged.append({"question":q_no,"reason":"not_filled","ratios":dict(zip(choices,ratios))})
             answers[q_no]=None
+        elif len(sr) > 1 and max_n > 0:
+            second_n = sr[1][1]
+            # กันอ่านผิดกรณีฝนติดกัน 2 ช่อง: ให้เป็น invalid แทนการเดา
+            if second_n >= dynamic_fill_min and (second_n / max_n) >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.92)):
+                flagged.append({"question":q_no,"reason":"multiple_mark","ratios":dict(zip(choices,ratios))})
+                answers[q_no]=None
+                continue
+            if gap<OMRConfig.NORM_GAP_MIN:
+                flagged.append({"question":q_no,"reason":"low_confidence","ratios":dict(zip(choices,ratios))})
+                answers[q_no]=choices[max_idx]
+            else:
+                answers[q_no]=choices[max_idx]
         elif gap<OMRConfig.NORM_GAP_MIN:
             flagged.append({"question":q_no,"reason":"low_confidence","ratios":dict(zip(choices,ratios))})
             answers[q_no]=choices[max_idx]
