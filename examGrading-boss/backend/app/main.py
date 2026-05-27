@@ -442,6 +442,7 @@ async def scan_sheet(
 
     response_payload = dict(payload)
     response_payload["createdAt"] = None
+    response_payload["timestamp"] = None
     response_payload["resultId"] = result_id
     response_payload["imagePath"] = image_path
     return response_payload
@@ -565,6 +566,7 @@ async def scan_cloudinary(
 
     response_payload = dict(payload_to_save)
     response_payload["createdAt"] = None
+    response_payload["timestamp"] = None
     response_payload["resultId"] = result_id
     response_payload["imagePath"] = local_path
     
