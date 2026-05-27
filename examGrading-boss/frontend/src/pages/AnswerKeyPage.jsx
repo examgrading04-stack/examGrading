@@ -20,7 +20,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
   }
 
   const questionNumbers = Array.from({ length: Number(exam?.questions || 0) }, (_, index) => index + 1);
-  const options = Array.from({ length: 4 }, (_, index) => String.fromCharCode(65 + index));
+  const options = Array.from({ length: 5 }, (_, index) => String.fromCharCode(65 + index));
 
   return (
     <div className="page-enter space-y-6">
