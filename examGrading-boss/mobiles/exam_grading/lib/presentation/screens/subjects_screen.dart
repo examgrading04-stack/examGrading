@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
-
 import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/screens/sections_screen.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
@@ -11,20 +10,17 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class SubjectsScreen extends StatefulWidget {
   const SubjectsScreen({Key? key}) : super(key: key);
-
   @override
   State<SubjectsScreen> createState() => _SubjectsScreenState();
 }
 
 class _SubjectsScreenState extends State<SubjectsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
-
   CollectionReference<Map<String, dynamic>> get _subjectsRef =>
       FirebaseFirestore.instance
           .collection('users')
           .doc(_uid)
           .collection('subjects');
-
   @override
   void initState() {
     super.initState();
@@ -37,7 +33,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     final yearController = TextEditingController(text: subject?.year);
     final teacherController = TextEditingController(text: subject?.teacher);
     final isEdit = subject != null;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -85,7 +80,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   _warn('กรุณากรอกรหัสและชื่อวิชา');
                   return;
                 }
-
                 final data = {
                   'code': codeController.text,
                   'name': nameController.text,
@@ -93,7 +87,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   'year': yearController.text,
                   'teacher': teacherController.text,
                 };
-
                 if (isEdit) {
                   await _subjectsRef
                       .doc(subject.id)
@@ -105,7 +98,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       .set(data)
                       .timeout(const Duration(seconds: 15));
                 }
-
                 if (!mounted) return;
                 Navigator.pop(context);
                 _success(isEdit ? 'แก้ไขรายวิชาสำเร็จ' : 'เพิ่มรายวิชาสำเร็จ');
@@ -166,9 +158,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       height: 52,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: AppColors.primaryGradient,
-        ),
+        color: AppColors.primary,
         boxShadow: AppColors.primaryShadow,
       ),
       child: ElevatedButton(
@@ -236,9 +226,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: AppColors.primaryGradient,
-          ),
+          color: AppColors.primary,
           boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
@@ -268,9 +256,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           const SliverToBoxAdapter(
@@ -301,7 +287,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverToBoxAdapter(child: ListSkeletonLoader());
         }
-
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
           return SliverToBoxAdapter(
@@ -349,7 +334,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     Text(
                       'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเพิ่มวิชาแรกของคุณ',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -357,11 +345,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
           );
         }
-
         final subjects = docs
             .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
             .toList();
-
         return SliverToBoxAdapter(child: _buildSubjectsList(subjects));
       },
     );
@@ -426,7 +412,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.background,
                                   borderRadius: BorderRadius.circular(10),
@@ -522,9 +511,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 class _SheetFrame extends StatelessWidget {
   final String title;
   final List<Widget> children;
-
   const _SheetFrame({required this.title, required this.children});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -570,4 +557,3 @@ class _SheetFrame extends StatelessWidget {
     );
   }
 }
-

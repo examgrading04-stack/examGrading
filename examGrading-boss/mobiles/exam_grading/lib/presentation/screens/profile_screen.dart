@@ -14,7 +14,6 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
-
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -24,7 +23,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late User _user;
   final TextEditingController _nameController = TextEditingController();
   bool _isLoading = false;
-
   @override
   void initState() {
     super.initState();
@@ -44,18 +42,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) async {
     final email = _user.email;
     if (email == null || email.isEmpty) return;
-
     await FirebaseFirestore.instance
         .collection('users')
         .doc(email)
         .collection('profiles')
         .doc(email)
         .set({
-      'email': email,
-      if (displayName != null) 'displayName': displayName,
-      if (photoURL != null) 'photoURL': photoURL,
-      'lastUpdated': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+          'email': email,
+          if (displayName != null) 'displayName': displayName,
+          if (photoURL != null) 'photoURL': photoURL,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
   }
 
   Future<String?> _uploadToCloudinary(File imageFile) async {
@@ -65,23 +62,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint('Cloudinary config missing in .env');
       return null;
     }
-
     final uri = Uri.parse(
-        'https://api.cloudinary.com/v1_1/$cloudName/image/upload');
-
+      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
+    );
     final request = http.MultipartRequest('POST', uri)
       ..fields['upload_preset'] = uploadPreset
       ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
     final response = await request.send().timeout(
       const Duration(seconds: 30),
-      onTimeout: () => throw Exception('หมดเวลาเชื่อมต่อกับ Cloudinary (Timeout)'),
+      onTimeout: () =>
+          throw Exception('หมดเวลาเชื่อมต่อกับ Cloudinary (Timeout)'),
     );
     if (response.statusCode != 200) {
       debugPrint('Cloudinary upload failed: ${response.statusCode}');
       return null;
     }
-
     final respStr = await response.stream.bytesToString();
     final data = json.decode(respStr);
     return data['secure_url'] as String?;
@@ -90,17 +85,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
     if (pickedFile == null) return;
-
     setState(() => _isLoading = true);
-
     try {
       final cloudUrl = await _uploadToCloudinary(File(pickedFile.path));
       if (cloudUrl == null) {
         throw Exception('อัปโหลดรูปล้มเหลว');
       }
-
       await _user.updatePhotoURL(cloudUrl);
       await _user.reload();
       final refreshedUser = _auth.currentUser;
@@ -111,7 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         displayName: _user.displayName ?? _nameController.text.trim(),
         photoURL: cloudUrl,
       );
-
       if (!mounted) return;
       setState(() {});
       QuickAlert.show(
@@ -138,7 +128,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateProfile() async {
     final newName = _nameController.text.trim();
     if (newName.isEmpty) return;
-
     setState(() => _isLoading = true);
     try {
       await _user.updateDisplayName(newName);
@@ -199,26 +188,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final photoUrl = _user.photoURL;
-    final initial = (_user.displayName?.isNotEmpty == true) 
-        ? _user.displayName![0].toUpperCase() 
-        : (_user.email?.isNotEmpty == true ? _user.email![0].toUpperCase() : 'A');
-
+    final initial = (_user.displayName?.isNotEmpty == true)
+        ? _user.displayName![0].toUpperCase()
+        : (_user.email?.isNotEmpty == true
+              ? _user.email![0].toUpperCase()
+              : 'A');
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Top Background (no gradient to match clean theme)
-          Container(
+          /* Top Background (no gradient to match clean theme) */ Container(
             height: 260,
             color: AppColors.surface,
           ),
-          // Custom App Bar and Content
-          SafeArea(
+          /* Custom App Bar and Content */ SafeArea(
             child: Column(
               children: [
-                // Premium AppBar Area
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                /* Premium AppBar Area */ Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -230,9 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.border,
-                            ),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: const Center(
                             child: Icon(
@@ -252,29 +240,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           letterSpacing: 0.8,
                         ),
                       ),
-                      const SizedBox(width: 40), // Balanced spacing
+                      const SizedBox(width: 40) /* Balanced spacing */,
                     ],
                   ),
                 ),
-
-                // Main Scrollable Area
-                Expanded(
+                /* Main Scrollable Area */ Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 16.0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 10),
-
-                        // Layered Avatar Upload Widget
-                        GestureDetector(
+                        /* Layered Avatar Upload Widget */ GestureDetector(
                           onTap: _pickAndUploadImage,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              // Outer Glow Layer
-                              Container(
+                              /* Outer Glow Layer */ Container(
                                 width: 130,
                                 height: 130,
                                 decoration: BoxDecoration(
@@ -282,22 +268,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: AppColors.primarySoft,
                                 ),
                               ),
-                              // Inner Glowing Ring
-                              Container(
+                              /* Inner Glowing Ring */ Container(
                                 width: 112,
                                 height: 112,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.12,
+                                  ),
                                 ),
                               ),
-                              // Photo Frame
-                              Container(
+                              /* Photo Frame */ Container(
                                 width: 98,
                                 height: 98,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 3.5),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3.5,
+                                  ),
                                   boxShadow: AppColors.softShadow,
                                 ),
                                 child: ClipOval(
@@ -305,12 +294,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ? Image.network(
                                           photoUrl,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              Center(
+                                          errorBuilder:
+                                              (
+                                                context,
+                                                error,
+                                                stackTrace,
+                                              ) => Center(
                                                 child: Text(
                                                   initial,
                                                   style: const TextStyle(
-                                                    color: AppColors.primaryDark,
+                                                    color:
+                                                        AppColors.primaryDark,
                                                     fontSize: 32,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -332,18 +326,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                 ),
                               ),
-                              // Camera Edit Icon
-                              Positioned(
+                              /* Camera Edit Icon */ Positioned(
                                 bottom: 4,
                                 right: 4,
                                 child: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: AppColors.primaryGradient,
-                                    ),
+                                    color: AppColors.primary,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                     boxShadow: AppColors.primaryShadow,
                                   ),
                                   child: const Icon(
@@ -356,17 +350,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                         ),
-                        
                         const SizedBox(height: 32),
-
-                        // Form Account Card
-                        Container(
+                        /* Form Account Card */ Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: AppColors.border, width: 1.5),
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
                             boxShadow: AppColors.softShadow,
                           ),
                           child: Column(
@@ -382,9 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-
-                              // Name Form Input (Minimalist Underline Style)
-                              TextField(
+                              /* Name Form Input (Minimalist Underline Style) */ TextField(
                                 controller: _nameController,
                                 style: const TextStyle(
                                   fontSize: 14,
@@ -403,41 +395,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     color: AppColors.textMuted,
                                     fontWeight: FontWeight.normal,
                                   ),
-                                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                                  floatingLabelBehavior:
+                                      FloatingLabelBehavior.always,
                                   prefixIcon: const Padding(
                                     padding: EdgeInsets.only(right: 12),
-                                    child: Icon(FontAwesomeIcons.solidUser, color: AppColors.textSecondary, size: 13),
+                                    child: Icon(
+                                      FontAwesomeIcons.solidUser,
+                                      color: AppColors.textSecondary,
+                                      size: 13,
+                                    ),
                                   ),
-                                  prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 0,
+                                    minHeight: 0,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
                                   enabledBorder: const UnderlineInputBorder(
-                                    borderSide: BorderSide(color: AppColors.border, width: 1.5),
+                                    borderSide: BorderSide(
+                                      color: AppColors.border,
+                                      width: 1.5,
+                                    ),
                                   ),
                                   focusedBorder: const UnderlineInputBorder(
-                                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                                    borderSide: BorderSide(
+                                      color: AppColors.primary,
+                                      width: 1.5,
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 24),
-
-                              // Email Display Form (Minimalist Underline Style)
-                              Container(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              /* Email Display Form (Minimalist Underline Style) */ Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 decoration: const BoxDecoration(
                                   border: Border(
-                                    bottom: BorderSide(color: AppColors.border, width: 1.5),
+                                    bottom: BorderSide(
+                                      color: AppColors.border,
+                                      width: 1.5,
+                                    ),
                                   ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     const Padding(
-                                      padding: EdgeInsets.only(right: 12, bottom: 4),
-                                      child: Icon(FontAwesomeIcons.solidEnvelope, color: AppColors.textSecondary, size: 13),
+                                      padding: EdgeInsets.only(
+                                        right: 12,
+                                        bottom: 4,
+                                      ),
+                                      child: Icon(
+                                        FontAwesomeIcons.solidEnvelope,
+                                        color: AppColors.textSecondary,
+                                        size: 13,
+                                      ),
                                     ),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'ที่อยู่อีเมลผู้ใช้ (ไม่สามารถแก้ไขได้)',
@@ -462,10 +481,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 2),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.success.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: AppColors.success.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: const Text(
                                           'ยืนยันแล้ว',
@@ -483,18 +509,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Action Buttons Block
-                        Container(
+                        /* Action Buttons Block */ Container(
                           width: double.infinity,
                           height: 52,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
-                            gradient: const LinearGradient(
-                              colors: AppColors.primaryGradient,
-                            ),
+                            color: AppColors.primary,
                             boxShadow: AppColors.primaryShadow,
                           ),
                           child: ElevatedButton(
@@ -509,7 +530,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(FontAwesomeIcons.solidFloppyDisk, color: Colors.white, size: 16),
+                                Icon(
+                                  FontAwesomeIcons.solidFloppyDisk,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                                 SizedBox(width: 10),
                                 Text(
                                   'บันทึกข้อมูลการตั้งค่า',
@@ -524,15 +549,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
                         SizedBox(
                           width: double.infinity,
                           height: 52,
                           child: TextButton.icon(
                             onPressed: _logout,
-                            icon: const Icon(FontAwesomeIcons.powerOff, color: AppColors.error, size: 15),
+                            icon: const Icon(
+                              FontAwesomeIcons.powerOff,
+                              color: AppColors.error,
+                              size: 15,
+                            ),
                             label: const Text(
                               'ออกจากระบบบัญชี',
                               style: TextStyle(
@@ -543,19 +570,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             style: TextButton.styleFrom(
-                              backgroundColor: AppColors.error.withValues(alpha: 0.08),
+                              backgroundColor: AppColors.error.withValues(
+                                alpha: 0.08,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(18),
-                                side: BorderSide(color: AppColors.error.withValues(alpha: 0.2), width: 1.5),
+                                side: BorderSide(
+                                  color: AppColors.error.withValues(alpha: 0.2),
+                                  width: 1.5,
+                                ),
                               ),
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 48),
-
-                        // System Branding Stamp
-                        Text(
+                        /* System Branding Stamp */ Text(
                           'EXAM SCANNER APP • VERSION 1.1.0',
                           style: TextStyle(
                             fontSize: 10,

@@ -12,7 +12,6 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({Key? key}) : super(key: key);
-
   @override
   State<ExamsScreen> createState() => _ExamsScreenState();
 }
@@ -20,7 +19,6 @@ class ExamsScreen extends StatefulWidget {
 class _ExamsScreenState extends State<ExamsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
   List<SubjectModel> _subjects = [];
-
   @override
   void initState() {
     super.initState();
@@ -51,7 +49,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
     );
     String? selectedSubjectCode = exam?.subject;
     final isEdit = exam != null;
-
     if (_subjects.isEmpty && !isEdit) {
       QuickAlert.show(
         context: context,
@@ -61,7 +58,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
       );
       return;
     }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -137,9 +133,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       height: 52,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        gradient: const LinearGradient(
-                          colors: AppColors.primaryGradient,
-                        ),
+                        color: AppColors.primary,
                         boxShadow: AppColors.primaryShadow,
                       ),
                       child: ElevatedButton(
@@ -154,7 +148,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             );
                             return;
                           }
-
                           final data = {
                             'name': nameController.text.trim(),
                             'subject': selectedSubjectCode,
@@ -164,7 +157,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             'options': 4,
                             'sets': 1,
                           };
-
                           if (isEdit) {
                             await FirebaseFirestore.instance
                                 .collection('users')
@@ -185,10 +177,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 .set(data)
                                 .timeout(const Duration(seconds: 15));
                           }
-
                           if (!mounted) return;
                           Navigator.pop(context);
-
                           if (!isEdit) {
                             final subjectObj = _subjects.firstWhere(
                               (s) => s.code == selectedSubjectCode,
@@ -286,7 +276,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
           child: Icon(icon, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         filled: true,
         fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
@@ -321,10 +314,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
           padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(FontAwesomeIcons.bookOpen, color: AppColors.primary, size: 13),
+          child: Icon(
+            FontAwesomeIcons.bookOpen,
+            color: AppColors.primary,
+            size: 13,
+          ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         filled: true,
         fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
@@ -353,7 +353,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
           )
           .toList(),
       onChanged: onChanged,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 20),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.primary,
+        size: 20,
+      ),
     );
   }
 
@@ -405,10 +409,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
           padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(FontAwesomeIcons.solidCalendarDays, color: AppColors.primary, size: 13),
+          child: Icon(
+            FontAwesomeIcons.solidCalendarDays,
+            color: AppColors.primary,
+            size: 13,
+          ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         filled: true,
         fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
@@ -487,9 +498,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: AppColors.primaryGradient,
-          ),
+          color: AppColors.primary,
           boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
@@ -519,9 +528,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           StreamBuilder<QuerySnapshot>(
@@ -536,7 +543,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverToBoxAdapter(child: ListSkeletonLoader());
               }
-
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return SliverFillRemaining(
                   child: Padding(
@@ -584,7 +590,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   ),
                 );
               }
-
               final docs = snapshot.data!.docs;
               return SliverPadding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
@@ -625,11 +630,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: AppColors.primaryShadow,
                   ),
@@ -656,7 +657,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       ),
                       const SizedBox(height: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primarySoft,
                           borderRadius: BorderRadius.circular(8),
@@ -673,7 +677,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(FontAwesomeIcons.solidCalendarDays, size: 12, color: AppColors.textSecondary),
+                          Icon(
+                            FontAwesomeIcons.solidCalendarDays,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'วันที่: ${exam.date}',
@@ -696,7 +704,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-              border: Border(top: BorderSide(color: AppColors.border, width: 1.5)),
+              border: Border(
+                top: BorderSide(color: AppColors.border, width: 1.5),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -770,10 +780,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       child: Container(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(
-          color: bgColor,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
         child: Center(
           child: Icon(icon, color: color, size: iconSize),
         ),

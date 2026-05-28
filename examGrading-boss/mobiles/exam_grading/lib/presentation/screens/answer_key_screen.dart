@@ -61,7 +61,8 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (legacyDoc.exists && legacyData != null) {
           answerKeys = _parseAnswerKey(legacyData['data']);
           if (answerKeys.isNotEmpty) {
-            await examRef.update({'answerKey': answerKeys})
+            await examRef
+                .update({'answerKey': answerKeys})
                 .timeout(const Duration(seconds: 15));
           }
         }
@@ -186,9 +187,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
             actions: [
               if (_isSaving)

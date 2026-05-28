@@ -415,19 +415,19 @@ export function AdminPage({ firebase }) {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 font-['Sarabun']">
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4 font-['Sarabun']">
         <form
           onSubmit={login}
-          className="bg-white p-8 sm:p-10 rounded-xl shadow-lg w-full max-w-md border-t-8 border-emerald-500"
+          className="bg-white p-8 sm:p-10 rounded-xl  w-full max-w-md border-t-8 border-emerald-500"
         >
           <div className="text-center mb-8">
-            <div className="bg-gray-800 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+            <div className="bg-zinc-800 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
               <Icon name="fa-user-shield" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-2xl font-bold text-zinc-800">
               Admin Control Panel
             </h1>
-            <p className="text-gray-500 mt-2">เข้าสู่ระบบสำหรับผู้ดูแลระบบ</p>
+            <p className="text-zinc-500 mt-2">เข้าสู่ระบบสำหรับผู้ดูแลระบบ</p>
           </div>
           <div className="space-y-4">
             <Field label="ชื่อผู้ใช้ผู้ดูแลระบบ (Admin Username)">
@@ -466,9 +466,9 @@ export function AdminPage({ firebase }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100 text-gray-800 font-['Sarabun']">
-      <aside className="w-64 bg-gray-900 text-gray-300 flex flex-col shrink-0">
-        <div className="p-6 border-b border-gray-700 flex items-center gap-3">
+    <div className="flex h-screen overflow-hidden bg-zinc-100 text-zinc-800 font-['Sarabun']">
+      <aside className="w-64 bg-zinc-900 text-zinc-300 flex flex-col shrink-0">
+        <div className="p-6 border-b border-zinc-700 flex items-center gap-3">
           <Icon name="fa-user-shield" />
           <span className="text-lg font-bold text-white">Admin System</span>
         </div>
@@ -481,16 +481,16 @@ export function AdminPage({ firebase }) {
             <button
               key={id}
               onClick={() => setActivePage(id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition ${activePage === id ? "bg-emerald-500 text-white" : "hover:bg-emerald-600 hover:text-white"}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition ${activePage === id ? "bg-emerald-500 text-white" : "hover:bg-emerald-600 hover:text-white"}`}
             >
               <Icon name={icon} /> {label}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-zinc-700">
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 text-red-300 hover:bg-gray-800 py-2 rounded-lg transition"
+            className="w-full flex items-center justify-center gap-2 text-red-300 hover:bg-zinc-800 py-2 rounded-xl transition"
           >
             <Icon name="fa-right-from-bracket" /> ออกจากระบบ
           </button>
@@ -498,8 +498,8 @@ export function AdminPage({ firebase }) {
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">
+        <header className="bg-white  p-4 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-zinc-800">
             {activePage === "dashboard" && "ภาพรวมระบบ (Dashboard)"}
             {activePage === "users" && "จัดการผู้ใช้งาน"}
             {activePage === "logs" && "ประวัติการใช้งาน"}
@@ -512,7 +512,7 @@ export function AdminPage({ firebase }) {
             >
               <Icon name="fa-rotate" /> รีเฟรช
             </button>
-            <span className="hidden sm:inline text-gray-600 font-medium">
+            <span className="hidden sm:inline text-zinc-600 font-medium">
               สิทธิ์: ผู้ดูแลระบบ
             </span>
             <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-800 font-bold border-2 border-emerald-500">
@@ -544,8 +544,8 @@ export function AdminPage({ firebase }) {
                   value={`${data.results.length} รายการ`}
                 />
               </div>
-              <section className="bg-white p-6 rounded-xl shadow-sm">
-                <h3 className="text-lg font-bold mb-4 text-gray-700">
+              <section className="bg-white p-6 rounded-xl ">
+                <h3 className="text-lg font-bold mb-4 text-zinc-700">
                   สถิติการตรวจข้อสอบรายเดือน
                 </h3>
                 <canvas ref={chartRef} height="80" />
@@ -557,7 +557,7 @@ export function AdminPage({ firebase }) {
             <div className="space-y-6">
               <form
                 onSubmit={saveUser}
-                className="bg-white rounded-xl shadow-sm p-5 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
+                className="bg-white rounded-xl  p-5 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
               >
                 <Field label="รหัสผู้ใช้ / อีเมล">
                   <Input
@@ -596,7 +596,7 @@ export function AdminPage({ firebase }) {
                     onChange={(event) =>
                       setUserForm({ ...userForm, role: event.target.value })
                     }
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option>Teacher</option>
                     <option>Admin</option>
@@ -626,7 +626,7 @@ export function AdminPage({ firebase }) {
                           role: "Teacher",
                         });
                       }}
-                      className="px-4 rounded-xl border border-slate-200 bg-white"
+                      className="px-4 rounded-xl border border-zinc-200 bg-white"
                     >
                       <Icon name="fa-xmark" />
                     </button>
@@ -635,7 +635,7 @@ export function AdminPage({ firebase }) {
               </form>
 
               <div className="flex justify-between items-center gap-4">
-                <h3 className="text-lg font-bold text-gray-800">
+                <h3 className="text-lg font-bold text-zinc-800">
                   ข้อมูลบัญชีผู้ใช้งาน
                 </h3>
                 <Input
@@ -646,10 +646,10 @@ export function AdminPage({ firebase }) {
                 />
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
+              <div className="bg-white rounded-xl  overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-100 text-gray-700">
+                    <tr className="bg-zinc-100 text-zinc-700">
                       <th className="p-4 border-b">รหัสผู้ใช้</th>
                       <th className="p-4 border-b">ชื่อ-นามสกุล</th>
                       <th className="p-4 border-b">อีเมล / ชื่อผู้ใช้</th>
@@ -662,9 +662,9 @@ export function AdminPage({ firebase }) {
                     {filteredUsers.map((user) => (
                       <tr
                         key={user.id}
-                        className={`hover:bg-gray-50 ${user.status === "suspended" ? "bg-red-50" : ""}`}
+                        className={`hover:bg-zinc-50 ${user.status === "suspended" ? "bg-red-50" : ""}`}
                       >
-                        <td className="p-4 border-b text-gray-600">
+                        <td className="p-4 border-b text-zinc-600">
                           {user.id}
                         </td>
                         <td className="p-4 border-b font-medium">
@@ -714,7 +714,7 @@ export function AdminPage({ firebase }) {
                           </button>
                           <button
                             onClick={() => removeUser(user)}
-                            className="text-gray-500 hover:text-red-600 mx-2"
+                            className="text-zinc-500 hover:text-red-600 mx-2"
                             title="ลบ"
                           >
                             <Icon name="fa-trash" />
@@ -726,7 +726,7 @@ export function AdminPage({ firebase }) {
                       <tr>
                         <td
                           colSpan="6"
-                          className="p-8 text-center text-gray-500"
+                          className="p-8 text-center text-zinc-500"
                         >
                           ยังไม่มีข้อมูลผู้ใช้งาน
                         </td>
@@ -741,17 +741,17 @@ export function AdminPage({ firebase }) {
           {activePage === "logs" && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-gray-800">
+                <h3 className="text-lg font-bold text-zinc-800">
                   ประวัติการใช้งานระบบ
                 </h3>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-zinc-500">
                   Collection: {logCollection}
                 </span>
               </div>
-              <div className="bg-gray-900 rounded-xl shadow-sm overflow-x-auto p-2">
-                <table className="w-full text-left border-collapse text-sm text-gray-300 font-mono">
+              <div className="bg-zinc-900 rounded-xl  overflow-x-auto p-2">
+                <table className="w-full text-left border-collapse text-sm text-zinc-300 font-mono">
                   <thead>
-                    <tr className="border-b border-gray-700 text-gray-400">
+                    <tr className="border-b border-zinc-700 text-zinc-400">
                       <th className="p-3">วัน-เวลา</th>
                       <th className="p-3">ผู้ใช้งาน</th>
                       <th className="p-3">Log ID</th>
@@ -762,7 +762,7 @@ export function AdminPage({ firebase }) {
                     {data.logs.map((log) => (
                       <tr
                         key={log.id}
-                        className="hover:bg-gray-800 border-b border-gray-800"
+                        className="hover:bg-zinc-800 border-b border-zinc-800"
                       >
                         <td className="p-3 whitespace-nowrap">
                           {formatDateTime(log.datetime)}
@@ -782,7 +782,7 @@ export function AdminPage({ firebase }) {
                       <tr>
                         <td
                           colSpan="4"
-                          className="p-8 text-center text-gray-400"
+                          className="p-8 text-center text-zinc-400"
                         >
                           ยังไม่มีประวัติการใช้งาน
                         </td>
@@ -807,11 +807,11 @@ function AdminStat({ title, value, icon, color }) {
   };
   return (
     <div
-      className={`bg-white p-6 rounded-xl shadow-sm border-t-4 ${colors[color].split(" ")[0]} flex items-center justify-between`}
+      className={`bg-white p-6 rounded-xl  border-t-4 ${colors[color].split(" ")[0]} flex items-center justify-between`}
     >
       <div>
-        <p className="text-gray-500 text-sm font-bold">{title}</p>
-        <h3 className="text-3xl font-bold mt-2 text-gray-800">{value}</h3>
+        <p className="text-zinc-500 text-sm font-bold">{title}</p>
+        <h3 className="text-3xl font-bold mt-2 text-zinc-800">{value}</h3>
       </div>
       <div className={`${colors[color].split(" ")[1]} text-4xl opacity-50`}>
         <Icon name={icon} />
@@ -819,3 +819,5 @@ function AdminStat({ title, value, icon, color }) {
     </div>
   );
 }
+
+

@@ -33,6 +33,7 @@ export const routes = [
     file: "answer-key.html",
     label: "เฉลยข้อสอบ",
     icon: "fa-key",
+    hidden: true,
   },
   {
     id: "results",

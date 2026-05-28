@@ -63,11 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           height: double.infinity,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: AppColors.primaryGradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppColors.primary,
           ),
           child: const Center(
             child: Icon(FontAwesomeIcons.cameraRetro, size: 24),
@@ -184,14 +180,7 @@ class _DashboardHome extends StatelessWidget {
         Container(
           height: 230,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryDark,
-                AppColors.secondaryDark,
-              ], 
-            ),
+            color: AppColors.primary,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(36),
               bottomRight: Radius.circular(36),
@@ -242,14 +231,14 @@ class _DashboardHome extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.1),
-                              ),
-                            ),
-                            child: const VectorLogo(size: 26),
+                            // decoration: BoxDecoration(
+                            //   color: Colors.white.withValues(alpha: 0.15),
+                            //   borderRadius: BorderRadius.circular(14),
+                            //   border: Border.all(
+                            //     color: Colors.white.withValues(alpha: 0.1),
+                            //   ),
+                            // ),
+                            child: Image.asset('images/icon.png', width: 40, height: 40),
                           ),
                           const SizedBox(width: 12),
                           const Text(
@@ -460,12 +449,8 @@ Widget _buildHeaderCard(String title, String subtitle) {
   return Container(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(24),
-      gradient: const LinearGradient(
-        colors: AppColors.primaryGradient,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      boxShadow: AppColors.primaryShadow,
+      color: Colors.white,
+      boxShadow: AppColors.softShadow,
     ),
     child: ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -480,7 +465,7 @@ Widget _buildHeaderCard(String title, String subtitle) {
               height: 110,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.1),
+                color: AppColors.primary.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -492,7 +477,7 @@ Widget _buildHeaderCard(String title, String subtitle) {
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.05),
+                color: AppColors.primary.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -503,9 +488,15 @@ Widget _buildHeaderCard(String title, String subtitle) {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppColors.secondary,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.secondary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     FontAwesomeIcons.circleCheck,
@@ -525,7 +516,7 @@ Widget _buildHeaderCard(String title, String subtitle) {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Colors.white,
+                          color: AppColors.primaryDark,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -535,7 +526,7 @@ Widget _buildHeaderCard(String title, String subtitle) {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: AppColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),

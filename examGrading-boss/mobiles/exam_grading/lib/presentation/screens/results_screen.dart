@@ -4,13 +4,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
-
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
-
   @override
   State<ResultsScreen> createState() => _ResultsScreenState();
 }
@@ -18,7 +16,6 @@ class ResultsScreen extends StatefulWidget {
 class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
   String _selectedSubject = 'ทั้งหมด';
-
   DateTime? _readResultTime(Map<String, dynamic> data) {
     final dynamic createdAt = data['createdAt'];
     if (createdAt is Timestamp) return createdAt.toDate();
@@ -28,23 +25,34 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   List<String> get _subjects {
-    final subjects = _exams.map((e) => e.subject).where((s) => s.isNotEmpty).toSet().toList();
+    final subjects = _exams
+        .map((e) => e.subject)
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList();
     subjects.sort();
     return ['ทั้งหมด', ...subjects];
   }
 
   String _getCorrectAnswer(ExamModel exam, String qNum, String? setIndex) {
     if (exam.answerKey.isEmpty) return '-';
-    if (setIndex != null && exam.answerKey.containsKey(setIndex) && exam.answerKey[setIndex]!.containsKey(qNum)) {
+    if (setIndex != null &&
+        exam.answerKey.containsKey(setIndex) &&
+        exam.answerKey[setIndex]!.containsKey(qNum)) {
       return exam.answerKey[setIndex]![qNum].toString();
     }
-    if (exam.answerKey.containsKey('0') && exam.answerKey['0']!.containsKey(qNum)) {
+    if (exam.answerKey.containsKey('0') &&
+        exam.answerKey['0']!.containsKey(qNum)) {
       return exam.answerKey['0']![qNum].toString();
     }
-    if (exam.answerKey.containsKey('1') && exam.answerKey['1']!.containsKey(qNum)) {
+    if (exam.answerKey.containsKey('1') &&
+        exam.answerKey['1']!.containsKey(qNum)) {
       return exam.answerKey['1']![qNum].toString();
     }
-    final firstSet = exam.answerKey.values.firstWhere((_) => true, orElse: () => {});
+    final firstSet = exam.answerKey.values.firstWhere(
+      (_) => true,
+      orElse: () => {},
+    );
     if (firstSet.containsKey(qNum)) {
       return firstSet[qNum].toString();
     }
@@ -83,7 +91,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.email ?? '';
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -119,9 +126,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 ],
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           SliverToBoxAdapter(
@@ -139,7 +144,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: DropdownButton<String>(
                     value: _selectedSubject,
                     isExpanded: true,
-                    icon: Icon(FontAwesomeIcons.chevronDown, size: 14, color: AppColors.textSecondary),
+                    icon: Icon(
+                      FontAwesomeIcons.chevronDown,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -152,10 +161,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         });
                       }
                     },
-                    items: _subjects.map<DropdownMenuItem<String>>((String value) {
+                    items: _subjects.map<DropdownMenuItem<String>>((
+                      String value,
+                    ) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Text(value == 'ทั้งหมด' ? 'รายวิชาทั้งหมด' : 'วิชา: $value'),
+                        child: Text(
+                          value == 'ทั้งหมด'
+                              ? 'รายวิชาทั้งหมด'
+                              : 'วิชา: $value',
+                        ),
                       );
                     }).toList(),
                   ),
@@ -191,16 +206,26 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(FontAwesomeIcons.triangleExclamation, color: AppColors.error, size: 18),
+                          Icon(
+                            FontAwesomeIcons.triangleExclamation,
+                            color: AppColors.error,
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'โหลดผลสอบไม่สำเร็จ: ${snapshot.error}',
-                              style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 12),
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],
@@ -209,7 +234,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 );
               }
-
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return SliverFillRemaining(
                   child: Padding(
@@ -218,7 +242,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 );
               }
-
               final docs = [...snapshot.data!.docs];
               docs.sort((a, b) {
                 final aData = a.data() as Map<String, dynamic>;
@@ -230,12 +253,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 if (bt == null) return -1;
                 return bt.compareTo(at);
               });
-
               final filteredDocs = docs.where((doc) {
                 if (_selectedSubject == 'ทั้งหมด') return true;
                 final data = doc.data() as Map<String, dynamic>;
                 final examId = data['examId'] ?? '';
-                
                 String subjectCode = '';
                 if (examId.contains('_')) {
                   subjectCode = examId.split('_')[0];
@@ -244,13 +265,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     final exam = _exams.firstWhere((e) => e.id == examId);
                     subjectCode = exam.subject;
                   } catch (e) {
-                    // Do nothing
+                    /* Do nothing */
                   }
                 }
-                
                 return subjectCode == _selectedSubject;
               }).toList();
-
               if (filteredDocs.isEmpty) {
                 return SliverFillRemaining(
                   child: Padding(
@@ -259,37 +278,41 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 );
               }
-
               return SliverPadding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 80),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
-                    final data = filteredDocs[index].data() as Map<String, dynamic>;
+                    final data =
+                        filteredDocs[index].data() as Map<String, dynamic>;
                     final examId = data['examId'] ?? 'ไม่ระบุ';
                     final isPending = data['score'] == null;
-                    
                     ExamModel? currentExam;
                     try {
                       currentExam = _exams.firstWhere((e) => e.id == examId);
                     } catch (_) {}
-
-                    int dynamicScore = int.tryParse(data['score']?.toString() ?? '0') ?? 0;
-                    
-                    if (currentExam != null && (data.containsKey('answers') || data.containsKey('itemResults'))) {
+                    int dynamicScore =
+                        int.tryParse(data['score']?.toString() ?? '0') ?? 0;
+                    if (currentExam != null &&
+                        (data.containsKey('answers') ||
+                            data.containsKey('itemResults'))) {
                       int calculatedScore = 0;
                       final answers = data['answers'] as Map?;
                       final itemResults = data['itemResults'] as Map?;
                       final setIndex = data['set']?.toString();
-
                       for (int i = 1; i <= currentExam.questions; i++) {
                         final qStr = i.toString();
-                        final correctAns = _getCorrectAnswer(currentExam, qStr, setIndex);
-                        
+                        final correctAns = _getCorrectAnswer(
+                          currentExam,
+                          qStr,
+                          setIndex,
+                        );
                         if (answers != null && answers.containsKey(qStr)) {
-                          if (answers[qStr].toString() == correctAns && correctAns != '-') {
+                          if (answers[qStr].toString() == correctAns &&
+                              correctAns != '-') {
                             calculatedScore++;
                           }
-                        } else if (itemResults != null && itemResults.containsKey(qStr)) {
+                        } else if (itemResults != null &&
+                            itemResults.containsKey(qStr)) {
                           if (itemResults[qStr] == true) {
                             calculatedScore++;
                           }
@@ -297,25 +320,27 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       }
                       dynamicScore = calculatedScore;
                     }
-                    
-                    final scoreStr = isPending ? 'กำลังประมวลผล...' : dynamicScore.toString();
+                    final scoreStr = isPending
+                        ? 'กำลังประมวลผล...'
+                        : dynamicScore.toString();
                     final readTime = _readResultTime(data);
                     final dateString = readTime != null
                         ? "${readTime.day}/${readTime.month}/${readTime.year} ${readTime.hour}:${readTime.minute.toString().padLeft(2, '0')} น."
-                        : 'ไม่ทราบเวลา';
-
-                    // Parse exam ID for a cleaner display
+                        : 'ไม่ทราบเวลา'; /* Parse exam ID for a cleaner display */
                     String subjectCode = '';
                     String examName = examId;
                     if (examId.contains('_')) {
                       final parts = examId.split('_');
                       subjectCode = parts[0];
-                      examName = parts.sublist(1).join(' ').replaceAll('_', ' ');
+                      examName = parts
+                          .sublist(1)
+                          .join(' ')
+                          .replaceAll('_', ' ');
                     }
-
-                    final studentName = data['studentName']?.toString() ?? 'นักเรียนไม่ทราบชื่อ';
+                    final studentName =
+                        data['studentName']?.toString() ??
+                        'นักเรียนไม่ทราบชื่อ';
                     final studentCode = data['studentCode']?.toString() ?? '';
-
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Material(
@@ -323,21 +348,31 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
                           onTap: () {
-                              if (!isPending && currentExam != null) {
-                                _showAnswerDetails(context, data, currentExam, dynamicScore);
-                              } else if (!isPending) {
-                                final exam = ExamModel(
-                                  id: examId,
-                                  name: examName,
-                                  subject: subjectCode,
-                                  date: '',
-                                  questions: 0,
-                                  options: 0,
-                                  sets: 0,
-                                  answerKey: {},
-                                );
-                                _showAnswerDetails(context, data, exam, dynamicScore);
-                              }
+                            if (!isPending && currentExam != null) {
+                              _showAnswerDetails(
+                                context,
+                                data,
+                                currentExam,
+                                dynamicScore,
+                              );
+                            } else if (!isPending) {
+                              final exam = ExamModel(
+                                id: examId,
+                                name: examName,
+                                subject: subjectCode,
+                                date: '',
+                                questions: 0,
+                                options: 0,
+                                sets: 0,
+                                answerKey: {},
+                              );
+                              _showAnswerDetails(
+                                context,
+                                data,
+                                exam,
+                                dynamicScore,
+                              );
+                            }
                           },
                           child: Container(
                             decoration: BoxDecoration(
@@ -357,19 +392,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                     width: 56,
                                     height: 56,
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: isPending
-                                            ? [
-                                                const Color(0xFF9CA3AF),
-                                                const Color(0xFFD1D5DB),
-                                              ]
-                                            : AppColors.primaryGradient,
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
+                                      color: AppColors.primary,
                                       borderRadius: BorderRadius.circular(18),
                                       boxShadow: [
-                                        if (!isPending) ...AppColors.primaryShadow,
+                                        if (!isPending)
+                                          ...AppColors.primaryShadow,
                                       ],
                                     ),
                                     child: Center(
@@ -403,9 +430,25 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                           children: [
                                             if (studentCode.isNotEmpty) ...[
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8)),
-                                                child: Text('รหัส: $studentCode', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 9)),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.surface,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  'รหัส: $studentCode',
+                                                  style: TextStyle(
+                                                    color:
+                                                        AppColors.textPrimary,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 9,
+                                                  ),
+                                                ),
                                               ),
                                               const SizedBox(width: 6),
                                             ],
@@ -414,7 +457,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                 examName,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
+                                                style: TextStyle(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -422,9 +470,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                                            Icon(FontAwesomeIcons.solidClock, size: 10, color: AppColors.textMuted),
+                                            Icon(
+                                              FontAwesomeIcons.solidClock,
+                                              size: 10,
+                                              color: AppColors.textMuted,
+                                            ),
                                             const SizedBox(width: 6),
-                                            Text(dateString, style: TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.w500)),
+                                            Text(
+                                              dateString,
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -444,7 +503,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                       border: Border.all(
                                         color: isPending
                                             ? AppColors.border
-                                            : AppColors.primary.withValues(alpha: 0.2),
+                                            : AppColors.primary.withValues(
+                                                alpha: 0.2,
+                                              ),
                                         width: 1.5,
                                       ),
                                     ),
@@ -491,11 +552,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
       );
       return;
     }
-
     final answers = result['answers'] as Map<String, dynamic>? ?? {};
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -565,9 +624,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: AppColors.primaryGradient,
-                            ),
+                            color: AppColors.primary,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: AppColors.primaryShadow,
                           ),
@@ -615,23 +672,29 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                           child: Center(
                                             child: CircularProgressIndicator(
                                               color: AppColors.primary,
-                                              value: progress.expectedTotalBytes != null
+                                              value:
+                                                  progress.expectedTotalBytes !=
+                                                      null
                                                   ? progress.cumulativeBytesLoaded /
-                                                      progress.expectedTotalBytes!
+                                                        progress
+                                                            .expectedTotalBytes!
                                                   : null,
                                             ),
                                           ),
                                         );
                                       },
-                                      errorBuilder: (_, __, ___) => const SizedBox(
-                                        height: 220,
-                                        child: Center(
-                                          child: Text(
-                                            'โหลดรูปไม่สำเร็จ',
-                                            style: TextStyle(color: Colors.white),
+                                      errorBuilder: (_, __, ___) =>
+                                          const SizedBox(
+                                            height: 220,
+                                            child: Center(
+                                              child: Text(
+                                                'โหลดรูปไม่สำเร็จ',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
                                     ),
                                   ),
                                   Positioned(
@@ -639,7 +702,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                     top: 8,
                                     child: IconButton(
                                       onPressed: () => Navigator.of(ctx).pop(),
-                                      icon: const Icon(Icons.close, color: Colors.white),
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -680,9 +746,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                       child: Center(
                                         child: CircularProgressIndicator(
                                           color: AppColors.primary,
-                                          value: progress.expectedTotalBytes != null
+                                          value:
+                                              progress.expectedTotalBytes !=
+                                                  null
                                               ? progress.cumulativeBytesLoaded /
-                                                  progress.expectedTotalBytes!
+                                                    progress.expectedTotalBytes!
                                               : null,
                                         ),
                                       ),
@@ -694,7 +762,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                     alignment: Alignment.center,
                                     child: Text(
                                       'โหลดรูปไม่สำเร็จ',
-                                      style: TextStyle(color: AppColors.textSecondary),
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -717,15 +787,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     final qNum = (questionIndex + 1).toString();
                     final setIndex = result['set']?.toString();
                     final correctAns = _getCorrectAnswer(exam, qNum, setIndex);
-
                     String studentAns = '-';
                     bool isCorrect = false;
-
                     if (answers.isNotEmpty && answers.containsKey(qNum)) {
                       studentAns = answers[qNum].toString();
                       isCorrect = studentAns == correctAns && correctAns != '-';
                     } else if (result.containsKey('itemResults')) {
-                      final itemResults = result['itemResults'] as Map<String, dynamic>;
+                      final itemResults =
+                          result['itemResults'] as Map<String, dynamic>;
                       isCorrect = itemResults[qNum] == true;
                       if (isCorrect) {
                         studentAns = correctAns;
@@ -735,7 +804,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         studentAns = '-';
                       }
                     }
-
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(

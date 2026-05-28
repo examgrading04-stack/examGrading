@@ -129,8 +129,8 @@ function AuthCard({ mode, setMode, auth }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-indigo-50 to-white p-4">
-      <div className="bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.05)] border border-white/70 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-slate-200 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <AppLogo />
@@ -359,9 +359,9 @@ function Shell({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 w-72 bg-white/95 backdrop-blur-xl border-r border-slate-200/70 shadow-xl flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-sm lg:z-20`}
+        className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-xl flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between h-[73px]">
           <div className="flex items-center gap-4">
             <AppLogo compact />
             <span className="text-xl font-extrabold tracking-tight text-slate-800">
@@ -385,7 +385,7 @@ function Shell({
                   navigate(item.id);
                   setSidebarOpen(false);
                 }}
-                className={`sidebar-menu ${routeId === item.id ? "active" : ""} w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-slate-600`}
+                className={`sidebar-menu ${routeId === item.id ? "active" : ""} w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-600`}
               >
                 <Icon name={item.icon} />{" "}
                 <span className="font-medium">{item.label}</span>
@@ -399,11 +399,11 @@ function Shell({
         </div>
       </aside>
       <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
-        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/70 shadow-sm p-4 px-6 lg:px-8 flex justify-between items-center sticky top-0 z-10">
+        <header className="bg-white border-b border-slate-200 p-4 px-6 lg:px-8 flex justify-between items-center sticky top-0 z-10 h-[73px]">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
             >
               <Icon name="fa-bars" />
             </button>
@@ -423,7 +423,7 @@ function Shell({
                 ตั้งค่าโปรไฟล์
               </span>
             </span>
-            <span className="w-11 h-11 bg-gradient-to-br from-blue-100 to-emerald-100 rounded-full flex items-center justify-center text-blue-700 font-bold overflow-hidden shadow-sm border border-white">
+            <span className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold overflow-hidden border border-slate-200">
               {avatar}
             </span>
           </button>
@@ -650,8 +650,8 @@ export default function App() {
 
   if (loading || !firebase) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500 font-semibold">
-        กำลังโหลดระบบ...
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="loader"><span>Scan</span></p>
       </div>
     );
   }

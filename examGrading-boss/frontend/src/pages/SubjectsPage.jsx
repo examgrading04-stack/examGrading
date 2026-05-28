@@ -50,7 +50,7 @@ export function SubjectsPage({ data, api, refresh }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-xl font-extrabold">รายวิชาทั้งหมด</h3>
-                <p className="text-sm text-slate-500">จัดการรายวิชา เทอม และปีการศึกษา</p>
+                <p className="text-sm text-zinc-500">จัดการรายวิชา เทอม และปีการศึกษา</p>
               </div>
             </div>
             <DataTable
@@ -82,7 +82,7 @@ export function SubjectsPage({ data, api, refresh }) {
                 <GhostButton onClick={() => setActiveSubject(null)} className="py-2 px-3"><Icon name="fa-arrow-left" /></GhostButton>
                 <div>
                   <h3 className="text-xl font-extrabold">กลุ่มเรียน: {currentSubject?.name}</h3>
-                  <p className="text-sm text-slate-500">จัดการกลุ่มเรียนของวิชา {currentSubject?.code}</p>
+                  <p className="text-sm text-zinc-500">จัดการกลุ่มเรียนของวิชา {currentSubject?.code}</p>
                 </div>
               </div>
             </div>
@@ -101,7 +101,7 @@ export function SubjectsPage({ data, api, refresh }) {
 
       <aside className="space-y-6">
         {!activeSubject ? (
-          <form onSubmit={saveSubject} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <form onSubmit={saveSubject} className="bg-white rounded-2xl border border-zinc-200 p-5  space-y-4">
             <h4 className="font-extrabold">{subjectForm.id ? "แก้ไขรายวิชา" : "เพิ่มรายวิชา"}</h4>
             <Field label="รหัสวิชา"><Input value={subjectForm.code} onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value })} placeholder="เช่น CS101" required disabled={Boolean(subjectForm.id)} /></Field>
             <Field label="ชื่อวิชา"><Input value={subjectForm.name} onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })} placeholder="เช่น Introduction to Programming" required /></Field>
@@ -113,7 +113,7 @@ export function SubjectsPage({ data, api, refresh }) {
             <PrimaryButton className="w-full"><Icon name="fa-floppy-disk" /> บันทึกรายวิชา</PrimaryButton>
           </form>
         ) : (
-          <form onSubmit={saveSection} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <form onSubmit={saveSection} className="bg-white rounded-2xl border border-zinc-200 p-5  space-y-4">
             <h4 className="font-extrabold">เพิ่มกลุ่มเรียน</h4>
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-700 text-sm mb-2">
               <div className="font-bold flex items-center gap-2"><Icon name="fa-book" /> {currentSubject?.code}</div>
@@ -129,5 +129,6 @@ export function SubjectsPage({ data, api, refresh }) {
     </div>
   );
 }
+
 
 

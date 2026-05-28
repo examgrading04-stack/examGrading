@@ -14,7 +14,6 @@ class _ItemAnalysis {
     required this.correctCount,
     required this.totalCount,
   });
-
   final double difficulty;
   final double discrimination;
   final int correctCount;
@@ -23,7 +22,6 @@ class _ItemAnalysis {
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
-
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
 }
@@ -34,7 +32,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   List<Map<String, dynamic>> _results = [];
   Map<String, String> _subjectNames = {};
   bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
@@ -46,7 +43,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       setState(() => _isLoading = false);
       return;
     }
-
     try {
       final examsSnapshot = await FirebaseFirestore.instance
           .collection('users')
@@ -63,7 +59,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           .doc(_uid)
           .collection('subjects')
           .get();
-
       if (!mounted) return;
       setState(() {
         _exams = examsSnapshot.docs
@@ -84,16 +79,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   String _getCorrectAnswer(ExamModel exam, String qNum, String? setIndex) {
     if (exam.answerKey.isEmpty) return '-';
-    if (setIndex != null && exam.answerKey.containsKey(setIndex) && exam.answerKey[setIndex]!.containsKey(qNum)) {
+    if (setIndex != null &&
+        exam.answerKey.containsKey(setIndex) &&
+        exam.answerKey[setIndex]!.containsKey(qNum)) {
       return exam.answerKey[setIndex]![qNum].toString();
     }
-    if (exam.answerKey.containsKey('0') && exam.answerKey['0']!.containsKey(qNum)) {
+    if (exam.answerKey.containsKey('0') &&
+        exam.answerKey['0']!.containsKey(qNum)) {
       return exam.answerKey['0']![qNum].toString();
     }
-    if (exam.answerKey.containsKey('1') && exam.answerKey['1']!.containsKey(qNum)) {
+    if (exam.answerKey.containsKey('1') &&
+        exam.answerKey['1']!.containsKey(qNum)) {
       return exam.answerKey['1']![qNum].toString();
     }
-    final firstSet = exam.answerKey.values.firstWhere((_) => true, orElse: () => {});
+    final firstSet = exam.answerKey.values.firstWhere(
+      (_) => true,
+      orElse: () => {},
+    );
     if (firstSet.containsKey(qNum)) {
       return firstSet[qNum].toString();
     }
@@ -101,17 +103,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   int _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
-    if (exam.answerKey.isEmpty) return int.tryParse(result['score']?.toString() ?? '0') ?? 0;
-    
+    if (exam.answerKey.isEmpty)
+      return int.tryParse(result['score']?.toString() ?? '0') ?? 0;
     int calcScore = 0;
     final answers = result['answers'] as Map?;
     final itemResults = result['itemResults'] as Map?;
     final setIndex = result['set']?.toString();
-
     for (int i = 1; i <= exam.questions; i++) {
       final qStr = i.toString();
       final correctAns = _getCorrectAnswer(exam, qStr, setIndex);
-      
       if (answers != null && answers.containsKey(qStr)) {
         if (answers[qStr].toString() == correctAns && correctAns != '-') {
           calcScore++;
@@ -140,26 +140,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   SliverToBoxAdapter(
                     child: Stack(
                       children: [
-                        // Top Premium Gradient Header
-                        Container(
+                        /* Top Premium Gradient Header */ Container(
                           height: 250,
                           decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.primaryDark,
-                                AppColors.secondaryDark,
-                              ], 
-                            ),
+                            color: AppColors.primary,
                             borderRadius: BorderRadius.only(
                               bottomLeft: Radius.circular(36),
                               bottomRight: Radius.circular(36),
                             ),
                           ),
                         ),
-                        // Decorative Circular Glows
-                        Positioned(
+                        /* Decorative Circular Glows */ Positioned(
                           top: -40,
                           left: -40,
                           child: Container(
@@ -183,44 +174,58 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                             ),
                           ),
                         ),
-                        // Header Content
-                        SafeArea(
+                        /* Header Content */ SafeArea(
                           bottom: false,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Title row
-                                Row(
+                                /* Title row */ Row(
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.2),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.2,
+                                        ),
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.3),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.3,
+                                          ),
                                           width: 1.5,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.1),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
                                             blurRadius: 10,
                                             offset: const Offset(0, 4),
                                           ),
                                         ],
                                       ),
-                                      child: const Icon(FontAwesomeIcons.chartPie, color: Colors.white, size: 24),
+                                      child: const Icon(
+                                        FontAwesomeIcons.chartPie,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
                                     ),
                                     const SizedBox(width: 16),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'ภาพรวมการวิเคราะห์',
                                           style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.85),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.85,
+                                            ),
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -245,7 +250,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 _buildGuidancePanel(),
                                 const SizedBox(height: 24),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'รายการข้อสอบ',
@@ -290,7 +296,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               .where((result) => result['examId'] == exam.id)
                               .toList();
                           return InkWell(
-                            onTap: () => _showItemAnalysisBottomSheet(exam, results),
+                            onTap: () =>
+                                _showItemAnalysisBottomSheet(exam, results),
                             borderRadius: BorderRadius.circular(20),
                             child: _buildAnalysisCard(exam, results),
                           );
@@ -306,14 +313,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget _buildSummaryGrid() {
     double totalScore = 0;
     int totalCount = 0;
-    
     for (var result in _results) {
       final examId = result['examId'];
       ExamModel? exam;
       try {
         exam = _exams.firstWhere((e) => e.id == examId);
       } catch (_) {}
-      
       if (exam != null) {
         totalScore += _getDynamicScore(result, exam);
         totalCount++;
@@ -322,9 +327,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         totalCount++;
       }
     }
-    
     final averageScore = totalCount == 0 ? 0.0 : totalScore / totalCount;
-
     return GridView.count(
       crossAxisCount: 3,
       mainAxisSpacing: 10,
@@ -440,10 +443,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     color: AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(FontAwesomeIcons.circleInfo, color: AppColors.primary, size: 14),
+                  child: const Icon(
+                    FontAwesomeIcons.circleInfo,
+                    color: AppColors.primary,
+                    size: 14,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                Text('เกณฑ์การแปลความหมายคุณภาพ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary)),
+                Text(
+                  'เกณฑ์การแปลความหมายคุณภาพ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -460,24 +474,71 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.primary.withValues(alpha: 0.2))),
-                            child: const Text('p', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold, fontSize: 12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: const Text(
+                              'p',
+                              style: TextStyle(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          const Flexible(child: Text('ความยากง่าย', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryDark), overflow: TextOverflow.ellipsis)),
+                          const Flexible(
+                            child: Text(
+                              'ความยากง่าย',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: AppColors.primaryDark,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      _buildCriteriaRow('0.80-1.00', 'ง่ายไป', AppColors.error, AppColors.error.withValues(alpha: 0.1)),
+                      _buildCriteriaRow(
+                        '0.80-1.00',
+                        'ง่ายไป',
+                        AppColors.error,
+                        AppColors.error.withValues(alpha: 0.1),
+                      ),
                       const SizedBox(height: 6),
-                      _buildCriteriaRow('0.40-0.79', 'เหมาะสม', AppColors.success, AppColors.success.withValues(alpha: 0.1), isBold: true),
+                      _buildCriteriaRow(
+                        '0.40-0.79',
+                        'เหมาะสม',
+                        AppColors.success,
+                        AppColors.success.withValues(alpha: 0.1),
+                        isBold: true,
+                      ),
                       const SizedBox(height: 6),
-                      _buildCriteriaRow('0.00-0.39', 'ยากไป', AppColors.error, AppColors.error.withValues(alpha: 0.1)),
+                      _buildCriteriaRow(
+                        '0.00-0.39',
+                        'ยากไป',
+                        AppColors.error,
+                        AppColors.error.withValues(alpha: 0.1),
+                      ),
                     ],
                   ),
                 ),
-                Container(width: 1, height: 85, color: AppColors.border, margin: const EdgeInsets.symmetric(horizontal: 12)),
+                Container(
+                  width: 1,
+                  height: 85,
+                  color: AppColors.border,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,20 +546,62 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.success.withValues(alpha: 0.2))),
-                            child: const Text('D', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: AppColors.success.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: const Text(
+                              'D',
+                              style: TextStyle(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          const Flexible(child: Text('อำนาจจำแนก', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.success), overflow: TextOverflow.ellipsis)),
+                          const Flexible(
+                            child: Text(
+                              'อำนาจจำแนก',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: AppColors.success,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      _buildCriteriaRow('≥ 0.40', 'ดีมาก', AppColors.success, AppColors.success.withValues(alpha: 0.1), isBold: true),
+                      _buildCriteriaRow(
+                        '≥ 0.40',
+                        'ดีมาก',
+                        AppColors.success,
+                        AppColors.success.withValues(alpha: 0.1),
+                        isBold: true,
+                      ),
                       const SizedBox(height: 6),
-                      _buildCriteriaRow('0.20-0.39', 'พอใช้', AppColors.warning, AppColors.warning.withValues(alpha: 0.1)),
+                      _buildCriteriaRow(
+                        '0.20-0.39',
+                        'พอใช้',
+                        AppColors.warning,
+                        AppColors.warning.withValues(alpha: 0.1),
+                      ),
                       const SizedBox(height: 6),
-                      _buildCriteriaRow('< 0.20', 'ปรับปรุง', AppColors.error, AppColors.error.withValues(alpha: 0.1)),
+                      _buildCriteriaRow(
+                        '< 0.20',
+                        'ปรับปรุง',
+                        AppColors.error,
+                        AppColors.error.withValues(alpha: 0.1),
+                      ),
                     ],
                   ),
                 ),
@@ -510,15 +613,38 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildCriteriaRow(String range, String label, Color color, Color bgColor, {bool isBold = false}) {
+  Widget _buildCriteriaRow(
+    String range,
+    String label,
+    Color color,
+    Color bgColor, {
+    bool isBold = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(range, style: TextStyle(fontSize: 10, color: isBold ? AppColors.textPrimary : AppColors.textSecondary, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        Text(
+          range,
+          style: TextStyle(
+            fontSize: 10,
+            color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6)),
-          child: Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold)),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );
@@ -533,8 +659,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         ? 0.0
         : results.fold<double>(
                 0,
-                (total, result) =>
-                    total + _getDynamicScore(result, exam),
+                (total, result) => total + _getDynamicScore(result, exam),
               ) /
               count;
     final passed = results
@@ -550,7 +675,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final avgDiscrimination = _average(
       itemAnalysis.map((item) => item.discrimination).toList(),
     );
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -723,9 +847,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: success
-                  ? AppColors.success
-                  : AppColors.textPrimary,
+              color: success ? AppColors.success : AppColors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
@@ -800,10 +922,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     List<Map<String, dynamic>> results,
   ) {
     if (results.isEmpty || exam.questions <= 0) return [];
-
     final sorted = [...results]
       ..sort(
-        (a, b) => _getDynamicScore(b, exam).compareTo(_getDynamicScore(a, exam)),
+        (a, b) =>
+            _getDynamicScore(b, exam).compareTo(_getDynamicScore(a, exam)),
       );
     final groupSize = (sorted.length * 0.27)
         .ceil()
@@ -812,7 +934,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final upperGroup = sorted.take(groupSize).toList();
     final lowerGroup = sorted.skip(sorted.length - groupSize).toList();
     final items = <_ItemAnalysis>[];
-
     for (
       var questionIndex = 1;
       questionIndex <= exam.questions;
@@ -825,12 +946,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             (result['answers'] as Map?)?.containsKey(question) == true,
       );
       if (!hasItemData) continue;
-
       bool isCorrect(Map<String, dynamic> result) {
-        final correctAns = _getCorrectAnswer(exam, question, result['set']?.toString());
+        final correctAns = _getCorrectAnswer(
+          exam,
+          question,
+          result['set']?.toString(),
+        );
         final answers = result['answers'] as Map?;
         if (answers != null && answers.containsKey(question)) {
-           return answers[question].toString() == correctAns && correctAns != '-';
+          return answers[question].toString() == correctAns &&
+              correctAns != '-';
         }
         return (result['itemResults'] as Map?)?[question] == true;
       }
@@ -840,7 +965,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           upperGroup.where(isCorrect).length / upperGroup.length;
       final lowerCorrect =
           lowerGroup.where(isCorrect).length / lowerGroup.length;
-
       items.add(
         _ItemAnalysis(
           difficulty: correctCount / results.length,
@@ -850,7 +974,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         ),
       );
     }
-
     return items;
   }
 
@@ -883,7 +1006,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return AppColors.error;
   }
 
-  void _showItemAnalysisBottomSheet(ExamModel exam, List<Map<String, dynamic>> results) {
+  void _showItemAnalysisBottomSheet(
+    ExamModel exam,
+    List<Map<String, dynamic>> results,
+  ) {
     if (results.isEmpty) {
       QuickAlert.show(
         context: context,
@@ -893,9 +1019,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       );
       return;
     }
-
     final itemAnalysis = _calculateItemAnalysis(exam, results);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -913,7 +1037,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -942,7 +1068,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                             color: AppColors.primarySoft,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(FontAwesomeIcons.chartPie, color: AppColors.primary, size: 18),
+                          child: const Icon(
+                            FontAwesomeIcons.chartPie,
+                            color: AppColors.primary,
+                            size: 18,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -951,12 +1081,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                             children: [
                               Text(
                                 'วิเคราะห์คุณภาพข้อสอบ',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 exam.name,
-                                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                             ],
                           ),
@@ -971,33 +1108,84 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   color: Colors.white,
                   child: Column(
                     children: [
-                      // Table Header
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      /* Table Header */ Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primarySoft,
-                          border: Border(bottom: BorderSide(color: AppColors.border)),
+                          border: Border(
+                            bottom: BorderSide(color: AppColors.border),
+                          ),
                         ),
                         child: Row(
                           children: const [
-                            Expanded(flex: 1, child: Text('ข้อ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark))),
-                            Expanded(flex: 2, child: Text('ตอบถูก', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark))),
-                            Expanded(flex: 2, child: Text('ความยาก (p)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark))),
-                            Expanded(flex: 2, child: Text('จำแนก (D)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark))),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'ข้อ',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'ตอบถูก',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'ความยาก (p)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'จำแนก (D)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      // Table Body
-                      Expanded(
+                      /* Table Body */ Expanded(
                         child: ListView.builder(
                           padding: const EdgeInsets.only(bottom: 24),
                           itemCount: itemAnalysis.length,
                           itemBuilder: (context, index) {
                             final item = itemAnalysis[index];
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 16,
+                              ),
                               decoration: BoxDecoration(
-                                border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: AppColors.border,
+                                    width: 0.5,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -1011,11 +1199,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
                                           color: AppColors.background,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: Text(
                                           '${index + 1}',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 12),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textPrimary,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1024,11 +1218,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                     flex: 2,
                                     child: Row(
                                       children: [
-                                        const Icon(FontAwesomeIcons.solidCircleCheck, color: AppColors.success, size: 10),
+                                        const Icon(
+                                          FontAwesomeIcons.solidCircleCheck,
+                                          color: AppColors.success,
+                                          size: 10,
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           '${item.correctCount}/${item.totalCount}',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: AppColors.textSecondary,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1036,22 +1238,42 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   Expanded(
                                     flex: 2,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           item.difficulty.toStringAsFixed(2),
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _difficultyColor(item.difficulty)),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: _difficultyColor(
+                                              item.difficulty,
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: _difficultyColor(item.difficulty).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: _difficultyColor(
+                                              item.difficulty,
+                                            ).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: Text(
                                             _difficultyLabel(item.difficulty),
-                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _difficultyColor(item.difficulty)),
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: _difficultyColor(
+                                                item.difficulty,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -1060,22 +1282,46 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   Expanded(
                                     flex: 2,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item.discrimination.toStringAsFixed(2),
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _discriminationColor(item.discrimination)),
+                                          item.discrimination.toStringAsFixed(
+                                            2,
+                                          ),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: _discriminationColor(
+                                              item.discrimination,
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(height: 2),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: _discriminationColor(item.discrimination).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: _discriminationColor(
+                                              item.discrimination,
+                                            ).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: Text(
-                                            _discriminationLabel(item.discrimination),
-                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: _discriminationColor(item.discrimination)),
+                                            _discriminationLabel(
+                                              item.discrimination,
+                                            ),
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: _discriminationColor(
+                                                item.discrimination,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],

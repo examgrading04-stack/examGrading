@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +9,6 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
-
 import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/student_model.dart';
@@ -20,13 +18,11 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 class AnswerSheetsScreen extends StatefulWidget {
   final ExamModel exam;
   final SubjectModel subject;
-
   const AnswerSheetsScreen({
     Key? key,
     required this.exam,
     required this.subject,
   }) : super(key: key);
-
   @override
   State<AnswerSheetsScreen> createState() => _AnswerSheetsScreenState();
 }
@@ -36,7 +32,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   List<StudentModel> _students = [];
   bool _isLoadingStudents = true;
   bool _isGenerating = false;
-
   @override
   void initState() {
     super.initState();
@@ -51,11 +46,9 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           .doc(_uid)
           .collection('students')
           .get();
-
       final all = snap.docs
           .map((d) => StudentModel.fromMap(d.id, d.data()))
           .toList();
-
       final filtered = all.where((s) {
         final classStr = s.className;
         final examSec = widget.exam.section?.toString() ?? '';
@@ -64,7 +57,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         }
         return classStr.startsWith('${widget.subject.code}_');
       }).toList();
-
       setState(() {
         _students = filtered.isNotEmpty ? filtered : all;
         _isLoadingStudents = false;
@@ -98,9 +90,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
       );
       return;
     }
-
     setState(() => _isGenerating = true);
-
     try {
       final response = await http
           .post(
@@ -119,14 +109,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
               'หมดเวลาเชื่อมต่อ Server: ${ApiConfig.baseUrl}',
             ),
           );
-
       if (response.statusCode == 200) {
         final file = await _savePdf(response.bodyBytes);
         final openResult = await OpenFilex.open(
           file.path,
           type: 'application/pdf',
         );
-
         if (!mounted) return;
         QuickAlert.show(
           context: context,
@@ -164,7 +152,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     if (!await outputDir.exists()) {
       await outputDir.create(recursive: true);
     }
-
     final examName = _safeFileName(
       widget.exam.name.isNotEmpty ? widget.exam.name : widget.exam.id,
     );
@@ -173,7 +160,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     final file = File(
       '${outputDir.path}/${examName}_${subjectCode}_answer_sheets_$timestamp.pdf',
     );
-
     return file.writeAsBytes(bytes, flush: true);
   }
 
@@ -192,7 +178,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         return body['detail'].toString();
       }
     } catch (_) {
-      // ignore
+      /* ignore */
     }
     return 'เกิดข้อผิดพลาด (${response.statusCode}): ${response.body}';
   }
@@ -202,7 +188,6 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     final exam = widget.exam;
     final subject = widget.subject;
     final templateColor = _templateColor();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -222,8 +207,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         children: [
           CustomScrollView(
             slivers: [
-              // Exam Info Card
-              SliverToBoxAdapter(
+              /* Exam Info Card */ SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.all(24),
                   padding: const EdgeInsets.all(20),
@@ -242,11 +226,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                             width: 52,
                             height: 52,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: AppColors.primaryGradient,
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                              color: AppColors.primary,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: AppColors.primaryShadow,
                             ),
@@ -346,9 +326,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                   ),
                 ),
               ),
-
-              // Student List Header
-              SliverToBoxAdapter(
+              /* Student List Header */ SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -376,14 +354,15 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-              // Student List
-              if (_isLoadingStudents)
+              /* Student List */ if (_isLoadingStudents)
                 const SliverToBoxAdapter(
                   child: Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
-                      child: SpinKitThreeBounce(color: AppColors.primary, size: 32),
+                      child: SpinKitThreeBounce(
+                        color: AppColors.primary,
+                        size: 32,
+                      ),
                     ),
                   ),
                 )
@@ -429,7 +408,10 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.border, width: 1.5),
+                          border: Border.all(
+                            color: AppColors.border,
+                            width: 1.5,
+                          ),
                           boxShadow: AppColors.softShadow,
                         ),
                         child: Row(
@@ -489,14 +471,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                     }, childCount: _students.length),
                   ),
                 ),
-
-              // Bottom Padding
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+              /* Bottom Padding */ const SliverToBoxAdapter(
+                child: SizedBox(height: 100),
+              ),
             ],
           ),
-
-          // Loading Overlay
-          if (_isGenerating)
+          /* Loading Overlay */ if (_isGenerating)
             Container(
               color: AppColors.surface.withValues(alpha: 0.8),
               child: const Center(
@@ -519,9 +499,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
             ),
         ],
       ),
-
-      // Download PDF Button
-      bottomNavigationBar: Container(
+      /* Download PDF Button */ bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -533,15 +511,8 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: _students.isEmpty
-                ? null
-                : const LinearGradient(
-                    colors: AppColors.primaryGradient,
-                  ),
-            color: _students.isEmpty ? AppColors.border : null,
-            boxShadow: _students.isEmpty
-                ? null
-                : AppColors.primaryShadow,
+            color: _students.isEmpty ? AppColors.border : AppColors.primary,
+            boxShadow: _students.isEmpty ? null : AppColors.primaryShadow,
           ),
           child: ElevatedButton.icon(
             onPressed: _isGenerating || _students.isEmpty ? null : _downloadPdf,
@@ -582,7 +553,11 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         Text(
           value,

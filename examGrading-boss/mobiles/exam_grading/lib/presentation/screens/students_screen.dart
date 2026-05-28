@@ -14,7 +14,6 @@ class SectionOption {
   final String sec;
   final String subjectId;
   final String sectionId;
-
   SectionOption(
     this.id,
     this.subjectCode,
@@ -22,13 +21,11 @@ class SectionOption {
     this.subjectId,
     this.sectionId,
   );
-
   String get displayName => '$subjectCode - Sec $sec';
 }
 
 class StudentsScreen extends StatefulWidget {
   const StudentsScreen({Key? key}) : super(key: key);
-
   @override
   State<StudentsScreen> createState() => _StudentsScreenState();
 }
@@ -39,7 +36,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
   List<SectionOption> _sections = [];
   String? _filterSubjectId;
   String? _filterSectionId;
-
   @override
   void initState() {
     super.initState();
@@ -49,18 +45,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
   Future<void> _fetchSections() async {
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
     if (email.isEmpty) return;
-
     try {
       final subjectsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(email)
           .collection('subjects')
           .get();
-
       List<SubjectModel> subjects = subjectsSnapshot.docs
           .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
           .toList();
-
       List<SectionOption> options = [];
       for (var subjectDoc in subjectsSnapshot.docs) {
         final subjectCode = subjectDoc.data()['code'] ?? '';
@@ -75,7 +68,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
           );
         }
       }
-
       if (!mounted) return;
       setState(() {
         _subjects = subjects;
@@ -98,7 +90,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
     final nameController = TextEditingController(text: student?.name);
     String? selectedSectionId = student?.className;
     final isEdit = student != null;
-
     if (_sections.isEmpty && !isEdit) {
       QuickAlert.show(
         context: context,
@@ -108,7 +99,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
       );
       return;
     }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -176,9 +166,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       height: 52,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        gradient: const LinearGradient(
-                          colors: AppColors.primaryGradient,
-                        ),
+                        color: AppColors.primary,
                         boxShadow: AppColors.primaryShadow,
                       ),
                       child: ElevatedButton(
@@ -194,13 +182,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             );
                             return;
                           }
-
                           final data = {
                             'code': codeController.text,
                             'name': nameController.text,
                             'class': selectedSectionId,
                           };
-
                           if (isEdit) {
                             await FirebaseFirestore.instance
                                 .collection('users')
@@ -218,7 +204,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 .set(data)
                                 .timeout(const Duration(seconds: 15));
                           }
-
                           if (!mounted) return;
                           Navigator.pop(context);
                           QuickAlert.show(
@@ -289,7 +274,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
           child: Icon(icon, color: AppColors.primary, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         filled: true,
         fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
@@ -311,6 +299,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
     ValueChanged<String?> onChanged,
   ) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       borderRadius: BorderRadius.circular(16),
       dropdownColor: Colors.white,
       decoration: InputDecoration(
@@ -324,10 +313,17 @@ class _StudentsScreenState extends State<StudentsScreen> {
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: const Padding(
           padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(FontAwesomeIcons.users, color: AppColors.primary, size: 13),
+          child: Icon(
+            FontAwesomeIcons.users,
+            color: AppColors.primary,
+            size: 13,
+          ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         filled: true,
         fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
@@ -356,7 +352,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
           )
           .toList(),
       onChanged: onChanged,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary, size: 20),
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppColors.primary,
+        size: 20,
+      ),
     );
   }
 
@@ -397,9 +397,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: AppColors.primaryGradient,
-          ),
+          color: AppColors.primary,
           boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
@@ -429,9 +427,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           SliverToBoxAdapter(
@@ -455,12 +451,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       Expanded(
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          padding: const EdgeInsets.only(left: 14, right: 4),
                           decoration: BoxDecoration(
-                            color: _filterSubjectId != null ? AppColors.primarySoft : Colors.white,
+                            color: _filterSubjectId != null
+                                ? AppColors.primarySoft
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: _filterSubjectId != null ? AppColors.primary : AppColors.border,
+                              color: _filterSubjectId != null
+                                  ? AppColors.primary
+                                  : AppColors.border,
                               width: _filterSubjectId != null ? 1.8 : 1.0,
                             ),
                           ),
@@ -471,18 +471,30 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               dropdownColor: Colors.white,
                               icon: Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                color: _filterSubjectId != null ? AppColors.primary : AppColors.textSecondary,
+                                color: _filterSubjectId != null
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
                                 size: 18,
                               ),
                               decoration: InputDecoration(
+                                filled: false,
                                 prefixIcon: Icon(
                                   FontAwesomeIcons.bookOpen,
-                                  color: _filterSubjectId != null ? AppColors.primary : AppColors.textSecondary,
+                                  color: _filterSubjectId != null
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                   size: 13,
                                 ),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 0),
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                prefixIconConstraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 0,
+                                ),
                               ),
                               value: _filterSubjectId,
                               items: [
@@ -491,7 +503,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   child: Text(
                                     'ทุกวิชาเรียน',
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
                                   ),
                                 ),
                                 ..._subjects.map(
@@ -500,7 +516,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     child: Text(
                                       s.name,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -510,9 +530,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 _filterSectionId = null;
                               }),
                               style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textPrimary,
-                                ),
+                                fontSize: 13,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
                         ),
@@ -522,12 +542,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         Expanded(
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            padding: const EdgeInsets.only(left: 14, right: 4),
                             decoration: BoxDecoration(
-                              color: _filterSectionId != null ? AppColors.primarySoft : Colors.white,
+                              color: _filterSectionId != null
+                                  ? AppColors.primarySoft
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: _filterSectionId != null ? AppColors.primary : AppColors.border,
+                                color: _filterSectionId != null
+                                    ? AppColors.primary
+                                    : AppColors.border,
                                 width: _filterSectionId != null ? 1.8 : 1.0,
                               ),
                             ),
@@ -538,18 +562,30 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 dropdownColor: Colors.white,
                                 icon: Icon(
                                   Icons.keyboard_arrow_down_rounded,
-                                  color: _filterSectionId != null ? AppColors.primary : AppColors.textSecondary,
+                                  color: _filterSectionId != null
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                   size: 18,
                                 ),
                                 decoration: InputDecoration(
+                                  filled: false,
                                   prefixIcon: Icon(
                                     FontAwesomeIcons.users,
-                                    color: _filterSectionId != null ? AppColors.primary : AppColors.textSecondary,
+                                    color: _filterSectionId != null
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
                                     size: 13,
                                   ),
                                   border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                                  prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 0),
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 28,
+                                    minHeight: 0,
+                                  ),
                                 ),
                                 value: _filterSectionId,
                                 items: [
@@ -558,18 +594,28 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     child: Text(
                                       'ทุกกลุ่มเรียน',
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
                                   ),
                                   ..._sections
-                                      .where((s) => s.subjectId == _filterSubjectId)
+                                      .where(
+                                        (s) => s.subjectId == _filterSubjectId,
+                                      )
                                       .map(
                                         (s) => DropdownMenuItem(
                                           value: s.id,
                                           child: Text(
                                             'Sec ${s.sec}',
                                             overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.textPrimary,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -615,7 +661,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverToBoxAdapter(child: ListSkeletonLoader());
               }
-
               var docs = snapshot.data?.docs ?? [];
               final students = docs
                   .map(
@@ -634,7 +679,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     return true;
                   })
                   .toList();
-
               if (students.isEmpty) {
                 return SliverFillRemaining(
                   child: Padding(
@@ -682,10 +726,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                   ),
                 );
               }
-
-              return SliverToBoxAdapter(
-                child: _buildStudentsList(students),
-              );
+              return SliverToBoxAdapter(child: _buildStudentsList(students));
             },
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -710,9 +751,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                 .firstWhere((s) => s.id == section.subjectId)
                 .name;
           } catch (e) {
-            // ignore
+            /* ignore */
           }
-
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
@@ -767,7 +807,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.primarySoft,
                                 borderRadius: BorderRadius.circular(8),

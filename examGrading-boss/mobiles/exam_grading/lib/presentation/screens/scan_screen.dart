@@ -393,14 +393,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                   Image.file(_image!, fit: BoxFit.cover),
                                   Container(
                                     decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.black.withValues(alpha: 0.55),
-                                        ],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                      ),
+                                      color: Colors.black.withValues(alpha: 0.3),
                                     ),
                                   ),
                                   Positioned(
@@ -500,11 +493,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     height: 54,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      gradient: LinearGradient(
-                        colors: _image == null
-                            ? [AppColors.border, Color(0xFFCBD5E1)]
-                            : AppColors.primaryGradient,
-                      ),
+                      color: _image == null ? AppColors.border : AppColors.primary,
                       boxShadow: [
                         if (_image != null)
                           ...AppColors.primaryShadow,

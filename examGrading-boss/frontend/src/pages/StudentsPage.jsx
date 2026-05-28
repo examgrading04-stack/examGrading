@@ -82,7 +82,7 @@ export function StudentsPage({ data, api, refresh }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xl font-extrabold">จัดการผู้เรียน</h3>
-            <p className="text-sm text-slate-500">เพิ่ม แก้ไข นำเข้า และจัดกลุ่มผู้เรียน</p>
+            <p className="text-sm text-zinc-500">เพิ่ม แก้ไข นำเข้า และจัดกลุ่มผู้เรียน</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-64">
@@ -118,7 +118,7 @@ export function StudentsPage({ data, api, refresh }) {
             <GhostButton variant="primary" onClick={() => setImportOpen(true)}><Icon name="fa-file-import" /> นำเข้า Excel</GhostButton>
           </div>
         </div>
-        <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white/95 backdrop-blur-sm">
           <DataTable
             columns={[
               { key: "code", label: "รหัสนักเรียน" },
@@ -145,7 +145,7 @@ export function StudentsPage({ data, api, refresh }) {
           />
         </div>
       </section>
-      <form onSubmit={saveStudent} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 h-fit">
+      <form onSubmit={saveStudent} className="bg-white/95 rounded-2xl border border-zinc-200 p-5 space-y-4 h-fit">
         <h4 className="font-extrabold">{form.id ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}</h4>
         <Field label="รหัสนักเรียน"><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="เช่น 6400123" required /></Field>
         <Field label="ชื่อ-นามสกุล"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น นายสมชาย รักเรียน" required /></Field>
@@ -158,12 +158,12 @@ export function StudentsPage({ data, api, refresh }) {
         <PrimaryButton className="w-full"><Icon name="fa-floppy-disk" /> บันทึกผู้เรียน</PrimaryButton>
       </form>
       {importOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl w-full max-w-lg space-y-5">
+        <div className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white/95 rounded-2xl border border-zinc-200 p-6 w-full max-w-lg space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="font-extrabold text-lg">นำเข้า Excel</h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-zinc-500 mt-1">
                   ไฟล์ต้องมีเฉพาะคอลัมน์รหัสนักเรียนและชื่อ-นามสกุล
                 </p>
               </div>
@@ -204,10 +204,10 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              <div className="font-bold text-slate-700 mb-2">รูปแบบไฟล์</div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+              <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
               <div>รหัสนักเรียน | ชื่อ-นามสกุล</div>
-              <div className="mt-1 text-slate-500">หรือใช้ชื่อคอลัมน์อังกฤษ: code | name</div>
+              <div className="mt-1 text-zinc-500">หรือใช้ชื่อคอลัมน์อังกฤษ: code | name</div>
             </div>
 
             <PrimaryButton
@@ -224,5 +224,6 @@ export function StudentsPage({ data, api, refresh }) {
     </div>
   );
 }
+
 
 

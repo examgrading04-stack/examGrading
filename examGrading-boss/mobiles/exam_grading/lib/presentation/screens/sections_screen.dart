@@ -10,20 +10,16 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class SectionsScreen extends StatefulWidget {
   final SubjectModel subject;
-
   const SectionsScreen({Key? key, required this.subject}) : super(key: key);
-
   @override
   State<SectionsScreen> createState() => _SectionsScreenState();
 }
 
 class _SectionsScreenState extends State<SectionsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
-
   void _showSectionDialog([SectionModel? section]) {
     final isEdit = section != null;
     final secController = TextEditingController(text: section?.sec);
-
     showDialog(
       context: context,
       barrierColor: Colors.black54,
@@ -100,9 +96,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          gradient: const LinearGradient(
-                            colors: AppColors.primaryGradient,
-                          ),
+                          color: AppColors.primary,
                         ),
                         child: ElevatedButton(
                           onPressed: () async {
@@ -115,12 +109,10 @@ class _SectionsScreenState extends State<SectionsScreen> {
                               );
                               return;
                             }
-
                             final data = {
                               'sec': secController.text.trim(),
                               'created_at': FieldValue.serverTimestamp(),
                             };
-
                             try {
                               if (isEdit) {
                                 await FirebaseFirestore.instance
@@ -143,7 +135,6 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                     .set(data)
                                     .timeout(const Duration(seconds: 15));
                               }
-
                               if (!mounted) return;
                               Navigator.pop(context);
                               QuickAlert.show(
@@ -280,9 +271,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: AppColors.primaryGradient,
-          ),
+          color: AppColors.primary,
           boxShadow: AppColors.primaryShadow,
         ),
         child: FloatingActionButton(
@@ -312,9 +301,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           StreamBuilder<QuerySnapshot>(
@@ -341,7 +328,6 @@ class _SectionsScreenState extends State<SectionsScreen> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverToBoxAdapter(child: ListSkeletonLoader());
               }
-
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
                 return SliverFillRemaining(
@@ -390,7 +376,6 @@ class _SectionsScreenState extends State<SectionsScreen> {
                   ),
                 );
               }
-
               final sections = docs
                   .map(
                     (doc) => SectionModel.fromMap(
@@ -399,7 +384,6 @@ class _SectionsScreenState extends State<SectionsScreen> {
                     ),
                   )
                   .toList();
-
               return SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -412,7 +396,10 @@ class _SectionsScreenState extends State<SectionsScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border, width: 1.5),
+                          border: Border.all(
+                            color: AppColors.border,
+                            width: 1.5,
+                          ),
                           boxShadow: AppColors.softShadow,
                         ),
                         child: Padding(

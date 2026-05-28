@@ -40,7 +40,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
   const badgeStyles = {
     emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
+    blue: "bg-indigo-50 text-indigo-600 border-indigo-100",
     amber: "bg-amber-50 text-amber-600 border-amber-100",
   };
 
@@ -137,8 +137,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
           <section className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-800">คลังข้อสอบทั้งหมด</h3>
-                <p className="text-sm text-slate-500">จัดการข้อสอบ แยกตามรหัสวิชาและกลุ่มเรียน</p>
+                <h3 className="text-xl font-extrabold text-zinc-900">คลังข้อสอบทั้งหมด</h3>
+                <p className="text-sm text-zinc-500">จัดการข้อสอบ แยกตามรหัสวิชาและกลุ่มเรียน</p>
               </div>
             </div>
 
@@ -152,14 +152,14 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     return (
                       <div className="flex flex-col py-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">{row.name}</span>
+                          <span className="font-bold text-zinc-900">{row.name}</span>
                           {row.section && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-black">
+                            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
                               {row.subject}_{row.section}
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-zinc-500">
                           {subj ? `${subj.code} · ${subj.name}` : row.subject}
                         </span>
                       </div>
@@ -188,13 +188,13 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   label: "",
                   render: (row) => (
                     <div className="flex justify-end gap-2 pr-2">
-                      <GhostButton className="p-2 rounded-xl text-blue-600 hover:bg-blue-50" onClick={() => navigate("results", { examId: row.id })} title="ดูผลการสอบ">
+                      <GhostButton variant="primary" className="p-2 rounded-xl" onClick={() => navigate("results", { examId: row.id })} title="ดูผลการสอบ">
                         <Icon name="fa-chart-column" />
                       </GhostButton>
-                      <GhostButton className="p-2 rounded-xl" onClick={() => openSheetModal(row)} title="เตรียมกระดาษคำตอบ">
+                      <GhostButton variant="success" className="p-2 rounded-xl" onClick={() => openSheetModal(row)} title="เตรียมกระดาษคำตอบ">
                         <Icon name="fa-users-viewfinder" />
                       </GhostButton>
-                      <GhostButton className="p-2 rounded-xl" onClick={() => navigate("answer-key", { examId: row.id })} title="แก้ไขเฉลย">
+                      <GhostButton className="p-2 rounded-xl !text-amber-600 !border-amber-200 hover:!bg-amber-50" onClick={() => navigate("answer-key", { examId: row.id })} title="แก้ไขเฉลย">
                         <Icon name="fa-key" />
                       </GhostButton>
                       <GhostButton variant="danger" className="p-2 rounded-xl" onClick={() => {
@@ -222,8 +222,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             />
           </section>
 
-          <form onSubmit={createExam} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 h-fit sticky top-8">
-            <h4 className="font-extrabold text-slate-800">สร้างข้อสอบใหม่</h4>
+          <form onSubmit={createExam} className="bg-white/95 rounded-2xl border border-zinc-200 p-6 space-y-4 h-fit sticky top-8">
+            <h4 className="font-extrabold text-zinc-900">สร้างข้อสอบใหม่</h4>
             <Field label="รายวิชาที่สอบ">
               <Select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, section: "" })} required>
                 <option value="">เลือกรายวิชา</option>
@@ -261,58 +261,58 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
       {sheetModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-hidden">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setSheetModal(null)} />
-          <div className="relative bg-white/90 backdrop-blur-md rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-white/20">
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="absolute inset-0 bg-zinc-950/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setSheetModal(null)} />
+          <div className="relative bg-white backdrop-blur-md rounded-[2rem] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-zinc-200/80">
+            <div className="px-8 py-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/70">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200">
+                <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl">
                   <Icon name="fa-users-rectangle" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-slate-800 tracking-tight">เตรียมกระดาษคำตอบ</h4>
+                  <h4 className="text-lg font-black text-zinc-900 tracking-tight">เตรียมกระดาษคำตอบ</h4>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-wider">{sheetModal.subject?.code}</span>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider">{sheetModal.subject?.code}</span>
                     {sheetModal.exam.section && (
-                       <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-black">
+                       <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
                          {sheetModal.subject?.code}_{sheetModal.exam.section}
                        </span>
                     )}
-                    <p className="text-xs text-slate-500 font-medium">{sheetModal.exam.name}</p>
+                    <p className="text-xs text-zinc-500 font-medium">{sheetModal.exam.name}</p>
                   </div>
                 </div>
               </div>
-              <button onClick={() => setSheetModal(null)} className="w-10 h-10 rounded-full hover:bg-rose-500 hover:text-white text-slate-300 transition-all flex items-center justify-center shadow-sm">
+              <button onClick={() => setSheetModal(null)} className="w-10 h-10 rounded-full hover:bg-rose-500 hover:text-white text-zinc-300 transition-all flex items-center justify-center">
                 <Icon name="fa-xmark" className="text-xl" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-600/5 p-4 rounded-3xl border border-blue-50 flex flex-col items-center justify-center text-center">
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">นักเรียน</p>
-                  <p className="text-2xl font-black text-slate-800">{sheetModal.students.length} <span className="text-xs font-normal text-slate-400 italic">คน</span></p>
+                <div className="bg-indigo-600/5 p-4 rounded-3xl border border-indigo-50 flex flex-col items-center justify-center text-center">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">นักเรียน</p>
+                  <p className="text-2xl font-black text-zinc-900">{sheetModal.students.length} <span className="text-xs font-normal text-slate-400 italic">คน</span></p>
                 </div>
                 <div className="bg-amber-600/5 p-4 rounded-3xl border border-amber-50 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">รูปแบบ</p>
-                  <p className="text-sm font-black text-slate-800">{getTemplateInfo(sheetModal.exam.questions).label}</p>
+                  <p className="text-sm font-black text-zinc-900">{getTemplateInfo(sheetModal.exam.questions).label}</p>
                 </div>
                 <div className="bg-indigo-600/5 p-4 rounded-3xl border border-indigo-50 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">จำนวนข้อ</p>
-                  <p className="text-2xl font-black text-slate-800">{sheetModal.exam.questions} <span className="text-xs font-normal text-slate-400 italic">ข้อ</span></p>
+                  <p className="text-2xl font-black text-zinc-900">{sheetModal.exam.questions} <span className="text-xs font-normal text-slate-400 italic">ข้อ</span></p>
                 </div>
               </div>
               <div className="space-y-3">
-                <h5 className="font-black text-slate-800 text-[11px] flex items-center gap-2 uppercase tracking-widest opacity-40 px-1">
+                <h5 className="font-black text-zinc-900 text-[11px] flex items-center gap-2 uppercase tracking-widest opacity-40 px-1">
                   <Icon name="fa-list-ul" /> ตรวจสอบรายชื่อในกลุ่มเรียน
                 </h5>
                 {sheetModal.students.length === 0 ? (
-                  <div className="text-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
-                    <p className="text-slate-400 text-sm font-bold">ไม่พบรายชื่อนักเรียนในกลุ่มเรียนนี้</p>
+                  <div className="text-center py-10 bg-zinc-50/70 rounded-2xl border border-dashed border-zinc-100">
+                    <p className="text-zinc-400 text-sm font-bold">ไม่พบรายชื่อนักเรียนในกลุ่มเรียนนี้</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {sheetModal.students.map((st, i) => (
-                      <div key={st.id} className="p-4 rounded-2xl bg-white border border-slate-100 flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-[11px] font-black text-slate-300">{i + 1}</div>
+                      <div key={st.id} className="p-4 rounded-2xl bg-white border border-zinc-100 flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center text-[11px] font-black text-zinc-300">{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-slate-700 text-sm leading-tight">{st.name}</p>
                           <p className="text-[11px] font-bold text-slate-400 mt-0.5 tracking-tight">ID: {st.code}</p>
@@ -323,7 +323,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 )}
               </div>
             </div>
-            <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100">
+              <div className="px-8 py-6 bg-zinc-50/70 border-t border-zinc-100">
               <PrimaryButton disabled={pdfLoading || sheetModal.students.length === 0} onClick={() => downloadPdf(sheetModal.exam, sheetModal.subject?.code)} className="w-full h-14 text-sm">
                 {pdfLoading ? <><Icon name="fa-spinner fa-spin" /> กำลังเตรียม PDF...</> : <><Icon name="fa-file-pdf" /> ดาวน์โหลดกระดาษคำตอบสำหรับทุกคน ({sheetModal.students.length} ชุด)</>}
               </PrimaryButton>
@@ -334,22 +334,22 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
       {preview && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setPreview(null)} />
-          <div className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+          <div className="absolute inset-0 bg-zinc-950/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setPreview(null)} />
+          <div className="relative bg-white rounded-[2rem] border border-zinc-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
             <div className="px-8 py-5 border-b flex justify-between items-center bg-white">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white text-lg shadow-lg shadow-amber-200">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white text-lg">
                   <Icon name="fa-magnifying-glass" />
                 </div>
-                <h4 className="text-lg font-black text-slate-800">ตรวจสอบความถูกต้องก่อนพิมพ์</h4>
+                <h4 className="text-lg font-black text-zinc-900">ตรวจสอบความถูกต้องก่อนพิมพ์</h4>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => window.print()} className="px-6 py-2.5 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-black transition-all flex items-center gap-2"><Icon name="fa-print" /> พิมพ์</button>
                 <button onClick={() => setPreview(null)} className="w-10 h-10 rounded-full border border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-center text-slate-400"><Icon name="fa-xmark" className="text-xl" /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto bg-slate-100 p-8 flex justify-center">
-              <div className="shadow-xl">
+            <div className="flex-1 overflow-auto bg-zinc-100 p-8 flex justify-center">
+              <div className="border border-zinc-200 rounded-xl overflow-hidden">
                 <AnswerSheet config={{ ...preview, sheetType: preview.questions <= 30 ? 30 : preview.questions <= 50 ? 50 : 100 }} hideToolbar />
               </div>
             </div>
@@ -359,3 +359,4 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     </>
   );
 }
+

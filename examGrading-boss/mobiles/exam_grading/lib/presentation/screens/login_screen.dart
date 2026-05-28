@@ -1,4 +1,4 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,10 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      ).timeout(const Duration(seconds: 20));
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password)
+          .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
       Navigator.pop(context); // ปิด loading
@@ -95,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // บังคับให้ลบ Session เก่าออกก่อน เพื่อให้หน้าต่างเลือก Email เด้งขึ้นมาทุกครั้ง
       final googleSignIn = GoogleSignIn();
       await googleSignIn.signOut();
-      
+
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         if (!mounted) return;
@@ -110,7 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential)
+      await FirebaseAuth.instance
+          .signInWithCredential(credential)
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -144,7 +144,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email)
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: email)
           .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       QuickAlert.show(
@@ -311,12 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 50,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF2563EB),
-                                    Color(0xFF1D4ED8),
-                                  ],
-                                ),
+                                color: const Color(0xFF2563EB),
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(

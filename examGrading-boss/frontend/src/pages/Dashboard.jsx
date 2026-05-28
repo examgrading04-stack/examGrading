@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { StatCard, pct, useChart } from "../ui.jsx";
 
 export function Dashboard({ data }) {
@@ -23,10 +23,23 @@ export function Dashboard({ data }) {
     {
       type: "bar",
       data: {
-        labels: averages.length ? averages.map((item) => item.subject) : ["ยังไม่มีข้อมูล"],
-        datasets: [{ label: "คะแนนเฉลี่ย (%)", data: averages.length ? averages.map((item) => item.average) : [0], backgroundColor: "#3b82f6", borderRadius: 8 }],
+        labels: averages.length
+          ? averages.map((item) => item.subject)
+          : ["ยังไม่มีข้อมูล"],
+        datasets: [
+          {
+            label: "คะแนนเฉลี่ย (%)",
+            data: averages.length ? averages.map((item) => item.average) : [0],
+            backgroundColor: "#3b82f6",
+            borderRadius: 8,
+          },
+        ],
       },
-      options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, max: 100 } },
+        plugins: { legend: { display: false } },
+      },
     },
     [averages],
   );
@@ -34,17 +47,35 @@ export function Dashboard({ data }) {
   return (
     <div className="page-enter space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard title="รายวิชาทั้งหมด" value={data.subjects.length} icon="fa-book" color="blue" />
-        <StatCard title="ผู้เรียนทั้งหมด" value={data.students.length} icon="fa-user-graduate" color="green" />
-        <StatCard title="ข้อสอบในระบบ" value={data.exams.length} icon="fa-file-pen" color="violet" />
-        <StatCard title="การสอบที่ประมวลผล" value={data.results.length} icon="fa-square-poll-vertical" color="amber" />
+        <StatCard
+          title="รายวิชาทั้งหมด"
+          value={data.subjects.length}
+          icon="fa-book"
+          color="blue"
+        />
+        <StatCard
+          title="ผู้เรียนทั้งหมด"
+          value={data.students.length}
+          icon="fa-user-graduate"
+          color="green"
+        />
+        <StatCard
+          title="ข้อสอบในระบบ"
+          value={data.exams.length}
+          icon="fa-file-pen"
+          color="violet"
+        />
+        <StatCard
+          title="การสอบที่ประมวลผล"
+          value={data.results.length}
+          icon="fa-square-poll-vertical"
+          color="amber"
+        />
       </div>
-      <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold mb-4">กราฟสรุปผลการสอบ</h3>
         <canvas ref={canvasRef} height="110" />
       </section>
     </div>
   );
 }
-
-

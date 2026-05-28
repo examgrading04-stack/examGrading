@@ -1,4 +1,4 @@
-﻿import 'dart:ui';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quickalert/quickalert.dart';
@@ -53,10 +53,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      ).timeout(const Duration(seconds: 20));
+      await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password)
+          .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
       Navigator.pop(context); // close loading
@@ -228,12 +227,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               height: 48,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(14),
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF2563EB),
-                                    Color(0xFF1D4ED8),
-                                  ],
-                                ),
+                                color: const Color(0xFF2563EB),
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(
