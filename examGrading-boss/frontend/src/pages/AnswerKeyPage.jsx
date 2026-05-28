@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Field, Icon, PrimaryButton, Select } from "../ui.jsx";
+import { Icon, PrimaryButton } from "../ui.jsx";
 
 export function AnswerKeyPage({ data, api, refresh, query }) {
   const [examId, setExamId] = useState(query.examId || data.exams[0]?.id || "");

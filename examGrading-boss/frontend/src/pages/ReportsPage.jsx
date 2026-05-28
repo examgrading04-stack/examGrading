@@ -1,6 +1,9 @@
-import { DataTable, GhostButton, Icon, Swal, StatCard } from "../ui.jsx";
+import { useState } from "react";
+import { DataTable, GhostButton, Icon, Select, Swal, StatCard } from "../ui.jsx";
 
 export function ReportsPage({ data }) {
+  const [selectedSubject, setSelectedSubject] = useState("");
+
   const rows = data.exams.map((exam) => {
     const subject = data.subjects?.find(
       (s) => s.id === exam.subject || s.code === exam.subject,
@@ -15,39 +18,47 @@ export function ReportsPage({ data }) {
       : 0;
     return {
       ...exam,
+      subjectKey: subject?.id || subject?.code || exam.subject || "",
       subjectName,
       participantCount: results.length,
       average,
     };
   });
 
-  const totalExams = rows.length;
-  const totalParticipants = rows.reduce(
+  const reportRows = selectedSubject
+    ? rows.filter((row) => row.subjectKey === selectedSubject)
+    : rows;
+
+  const totalExams = reportRows.length;
+  const totalParticipants = reportRows.reduce(
     (sum, r) => sum + r.participantCount,
     0,
   );
 
   function exportReport(format) {
-    if (!rows.length) {
+    if (!reportRows.length) {
       return Swal().fire(
         "ไม่มีข้อมูล",
-        "ยังไม่มีข้อมูลข้อสอบในระบบ",
+        selectedSubject
+          ? "ยังไม่มีข้อมูลข้อสอบของรายวิชาที่เลือก"
+          : "ยังไม่มีข้อมูลข้อสอบในระบบ",
         "warning",
       );
     }
-    const reportRows = rows.map((row, index) => ({
+    const exportRows = reportRows.map((row, index) => ({
       ลำดับ: index + 1,
       ข้อสอบ: row.name,
       รายวิชา: row.subjectName,
       จำนวนผู้สอบ: row.participantCount,
       คะแนนเฉลี่ย: row.average.toFixed(2),
     }));
-    const ws = window.XLSX.utils.json_to_sheet(reportRows);
+    const ws = window.XLSX.utils.json_to_sheet(exportRows);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "Report");
+    const subjectSuffix = selectedSubject ? `_${selectedSubject}` : "_all";
     window.XLSX.writeFile(
       wb,
-      `Exam_Report_${new Date().toISOString().split("T")[0]}.${format === "csv" ? "csv" : "xlsx"}`,
+      `Exam_Report${subjectSuffix}_${new Date().toISOString().split("T")[0]}.${format === "csv" ? "csv" : "xlsx"}`,
     );
   }
 
@@ -66,7 +77,24 @@ export function ReportsPage({ data }) {
             สรุปข้อมูลผู้เข้าสอบและคะแนนเฉลี่ยของทุกรายวิชา พร้อมส่งออกรายงาน
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="min-w-60">
+            <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
+              รายวิชาที่ต้องการส่งออก
+            </label>
+            <Select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value)}
+              className="w-full bg-white text-slate-900 border-slate-200"
+            >
+              <option value="">ทุกรายวิชา</option>
+              {data.subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.code} {subject.name}
+                </option>
+              ))}
+            </Select>
+          </div>
           <GhostButton variant="success" onClick={() => exportReport("xlsx")}>
             <Icon name="fa-file-excel" /> ส่งออก Excel
           </GhostButton>
@@ -147,8 +175,12 @@ export function ReportsPage({ data }) {
               ),
             },
           ]}
-          rows={rows}
-          emptyText="ยังไม่มีรายงานผลการตรวจ"
+          rows={reportRows}
+          emptyText={
+            selectedSubject
+              ? "ยังไม่มีรายงานผลการตรวจของรายวิชาที่เลือก"
+              : "ยังไม่มีรายงานผลการตรวจ"
+          }
         />
       </section>
     </div>

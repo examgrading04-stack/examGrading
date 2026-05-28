@@ -121,7 +121,6 @@ export function AdminPage({ firebase }) {
   });
   const [activePage, setActivePage] = useState("dashboard");
   const [loading, setLoading] = useState(false);
-  const [adminCollection, setAdminCollection] = useState(ADMIN_COLLECTIONS[0]);
   const [logCollection, setLogCollection] = useState(LOG_COLLECTIONS[0]);
   const [loginForm, setLoginForm] = useState({ aname: "", apassword: "" });
   const [userForm, setUserForm] = useState({
@@ -162,7 +161,6 @@ export function AdminPage({ firebase }) {
         getFirstExistingCollection(db, ADMIN_COLLECTIONS),
         getFirstExistingCollection(db, LOG_COLLECTIONS),
       ]);
-      setAdminCollection(adminsName);
       setLogCollection(logsName);
 
       const [admins, users, logs, discovered] = await Promise.all([
@@ -228,7 +226,6 @@ export function AdminPage({ firebase }) {
         db,
         ADMIN_COLLECTIONS,
       );
-      setAdminCollection(collectionName);
       const snapshot = await db
         .collection(collectionName)
         .where("aname", "==", loginForm.aname.trim())

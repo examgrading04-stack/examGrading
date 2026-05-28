@@ -220,8 +220,6 @@ export function DataTable({
   columns,
   rows,
   emptyText = "ไม่มีข้อมูล",
-  loading = false,
-  skeletonRows = 6,
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">

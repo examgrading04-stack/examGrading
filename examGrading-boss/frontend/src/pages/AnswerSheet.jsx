@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Field, Icon, Input, PrimaryButton, Select } from "../ui.jsx";
+import { Field, Icon, Input, PrimaryButton } from "../ui.jsx";
 
 export function AnswerSheet({ config, hideToolbar = false }) {
   const [sheet, setSheet] = useState(config || { questions: 50, subject: "INT101", examName: "สอบกลางภาค", sheetType: 50 });

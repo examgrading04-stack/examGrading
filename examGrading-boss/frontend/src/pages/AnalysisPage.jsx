@@ -1,11 +1,9 @@
 import { useRef, useState } from "react";
 import {
   DataTable,
-  Field,
   Select,
   StatCard,
   useChart,
-  Icon,
 } from "../ui.jsx";
 
 function itemLabel(value, type) {
@@ -46,64 +44,6 @@ function getCorrectAnswer(exam, question) {
   if (firstSet && typeof firstSet[question] === "string")
     return firstSet[question];
   return "-";
-}
-
-function GuidanceCard({ title, children }) {
-  const dGood = answeredItemAnalysis.filter(
-    (i) => i.discrimination >= 0.4,
-  ).length;
-  const dFair = answeredItemAnalysis.filter(
-    (i) => i.discrimination >= 0.2 && i.discrimination < 0.4,
-  ).length;
-  const dPoor = answeredItemAnalysis.filter(
-    (i) => i.discrimination < 0.2,
-  ).length;
-
-  useChart(
-    canvasRefPie,
-    {
-      type: "doughnut",
-      data: {
-        labels: [
-          "ดีมาก (คัดเลือกไว้ใช้)",
-          "พอใช้ (ควรพิจารณาปรับ)",
-          "ไม่ดี (ตัดทิ้ง)",
-        ],
-        datasets: [
-          {
-            data: [dGood, dFair, dPoor],
-            backgroundColor: ["#10B981", "#F59E0B", "#EF4444"],
-            borderWidth: 0,
-            hoverOffset: 4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } },
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => ` ${context.label}: ${context.raw} ข้อ`,
-            },
-          },
-        },
-        cutout: "75%",
-      },
-    },
-    [examId, data.results, data.exams],
-  );
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h4 className="mb-2 font-extrabold text-slate-800">{title}</h4>
-      <div className="text-sm text-slate-600 leading-6">{children}</div>
-    </div>
-  );
 }
 
 function calculateItemAnalysis(results, exam) {
@@ -191,13 +131,6 @@ export function AnalysisPage({ data }) {
     ? scores.length % 2
       ? scores[Math.floor(scores.length / 2)]
       : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2
-    : 0;
-  const sd = scores.length
-    ? Math.sqrt(
-        scores
-          .map((score) => (score - mean) ** 2)
-          .reduce((sum, value) => sum + value, 0) / scores.length,
-      )
     : 0;
   const itemAnalysis = calculateItemAnalysis(results, exam);
   const answeredItemAnalysis = itemAnalysis.filter((item) =>

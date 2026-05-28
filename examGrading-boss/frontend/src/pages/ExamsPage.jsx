@@ -12,23 +12,21 @@ import {
   Swal,
   formatThaiDate,
 } from "../ui.jsx";
-import { AnswerSheet } from "./AnswerSheet.jsx";
 
 export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   const [form, setForm] = useState({ subject: "", section: "", name: "", questions: 50 });
-  const [preview, setPreview] = useState(null);
   const [sheetModal, setSheetModal] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   // Lock body scroll when modal is open
   useEffect(() => {
-    if (sheetModal || preview) {
+    if (sheetModal) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
     }
     return () => { document.body.style.overflow = "unset"; };
-  }, [sheetModal, preview]);
+  }, [sheetModal]);
 
   // Template label logic
   function getTemplateInfo(q) {
@@ -332,30 +330,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
         </div>
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-950/40 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setPreview(null)} />
-          <div className="relative bg-white rounded-[2rem] border border-zinc-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-            <div className="px-8 py-5 border-b flex justify-between items-center bg-white">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white text-lg">
-                  <Icon name="fa-magnifying-glass" />
-                </div>
-                <h4 className="text-lg font-black text-zinc-900">ตรวจสอบความถูกต้องก่อนพิมพ์</h4>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => window.print()} className="px-6 py-2.5 bg-slate-900 text-white text-sm font-black rounded-xl hover:bg-black transition-all flex items-center gap-2"><Icon name="fa-print" /> พิมพ์</button>
-                <button onClick={() => setPreview(null)} className="w-10 h-10 rounded-full border border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-center text-slate-400"><Icon name="fa-xmark" className="text-xl" /></button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto bg-zinc-100 p-8 flex justify-center">
-              <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                <AnswerSheet config={{ ...preview, sheetType: preview.questions <= 30 ? 30 : preview.questions <= 50 ? 50 : 100 }} hideToolbar />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
