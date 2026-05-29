@@ -55,9 +55,7 @@ class ExamModel {
 
     // Check if it's a flat map (e.g., {"1": "A", "2": "B"})
     if (raw.isNotEmpty && raw.values.first is! Map) {
-      return {
-        '0': raw.map((k, v) => MapEntry(k.toString(), v.toString())),
-      };
+      return {'0': raw.map((k, v) => MapEntry(k.toString(), v.toString()))};
     }
 
     return raw.map((setIndex, answers) {

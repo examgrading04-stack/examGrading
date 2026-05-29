@@ -1,4 +1,4 @@
-import os
+﻿import os
 import tempfile
 from datetime import datetime
 from functools import lru_cache
@@ -196,25 +196,3 @@ def generate_pdf_for_students(
         append_images=pages[1:],
     )
     return str(output_path)
-
-
-def generate_pdf_for_all_students():
-    """Demo runner for local testing only."""
-    exam = {
-        "id": "demo-exam",
-        "name": "Midterm",
-        "subject": "CS101",
-        "subjectName": "วิทยาการคอมพิวเตอร์",
-        "questions": 50,
-        "date": "2026-05-15",
-    }
-    students = [
-        {"id": "s1", "code": "66010001", "name": "สมชาย ใจดี"},
-        {"id": "s2", "code": "66010002", "name": "สมหญิง รักเรียน"},
-    ]
-    pdf_path = generate_pdf_for_students(exam, students, "all_students_exam_sheets.pdf")
-    print(f"สร้าง PDF สำเร็จ: {pdf_path}")
-
-
-if __name__ == "__main__":
-    generate_pdf_for_all_students()

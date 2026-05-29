@@ -8,7 +8,6 @@ import 'package:exam_grading/presentation/screens/subjects_screen.dart';
 import 'package:exam_grading/presentation/screens/students_screen.dart';
 import 'package:exam_grading/presentation/screens/exams_screen.dart';
 import 'package:exam_grading/presentation/screens/analysis_screen.dart';
-import 'package:exam_grading/presentation/widgets/vector_logo.dart';
 import 'package:exam_grading/presentation/screens/profile_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
@@ -153,7 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _DashboardHome extends StatelessWidget {
   const _DashboardHome({Key? key, required this.onOpenProfile})
-      : super(key: key);
+    : super(key: key);
 
   final VoidCallback onOpenProfile;
 
@@ -238,7 +237,11 @@ class _DashboardHome extends StatelessWidget {
                             //     color: Colors.white.withValues(alpha: 0.1),
                             //   ),
                             // ),
-                            child: Image.asset('images/icon.png', width: 40, height: 40),
+                            child: Image.asset(
+                              'images/icon.png',
+                              width: 40,
+                              height: 40,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           const Text(
@@ -328,7 +331,8 @@ class _DashboardHome extends StatelessWidget {
                         : const Stream.empty(),
                     builder: (context, snapshot) {
                       String title = 'พร้อมสำหรับการตรวจ';
-                      String subtitle = 'เลือกเมนูด้านล่างเพื่อเริ่มต้นการใช้งาน';
+                      String subtitle =
+                          'เลือกเมนูด้านล่างเพื่อเริ่มต้นการใช้งาน';
                       if (snapshot.hasError) {
                         title = 'โหลดข้อมูลผลสอบไม่สำเร็จ';
                         subtitle = 'กรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง';
@@ -346,12 +350,15 @@ class _DashboardHome extends StatelessWidget {
                           if (bt == null) return -1;
                           return bt.compareTo(at);
                         });
-                        final latest = docs.first.data() as Map<String, dynamic>;
+                        final latest =
+                            docs.first.data() as Map<String, dynamic>;
                         final latestScore = latest['score'];
                         final latestTotal = latest['total'];
-                        final latestStudent = (latest['studentName'] ?? '').toString();
+                        final latestStudent = (latest['studentName'] ?? '')
+                            .toString();
                         if (latestScore != null && latestTotal != null) {
-                          title = 'ผลตรวจล่าสุด: $latestScore/$latestTotal คะแนน';
+                          title =
+                              'ผลตรวจล่าสุด: $latestScore/$latestTotal คะแนน';
                         } else {
                           title = 'มีผลสอบล่าสุดแล้ว';
                         }
@@ -434,7 +441,7 @@ class _DashboardHome extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -620,4 +627,3 @@ Widget _buildGridItem(
     ),
   );
 }
-

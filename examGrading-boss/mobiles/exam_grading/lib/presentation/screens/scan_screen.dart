@@ -120,10 +120,7 @@ class _ScanScreenState extends State<ScanScreen> {
             .post(
               ApiConfig.endpoint('/api/scan-cloudinary'),
               headers: {'Content-Type': 'application/json'},
-              body: json.encode({
-                'image_url': cloudUrl,
-                'user_email': uid,
-              }),
+              body: json.encode({'image_url': cloudUrl, 'user_email': uid}),
             )
             .timeout(
               const Duration(seconds: 90),
@@ -293,9 +290,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   fontSize: 16,
                 ),
               ),
-              background: Container(
-                color: AppColors.surface,
-              ),
+              background: Container(color: AppColors.surface),
             ),
           ),
           SliverToBoxAdapter(
@@ -363,15 +358,10 @@ class _ScanScreenState extends State<ScanScreen> {
                     child: Container(
                       height: 380,
                       decoration: BoxDecoration(
-                        color: _image != null
-                            ? Colors.black
-                            : Colors.white,
+                        color: _image != null ? Colors.black : Colors.white,
                         borderRadius: BorderRadius.circular(32),
                         border: _image == null
-                            ? Border.all(
-                                color: AppColors.border,
-                                width: 2,
-                              )
+                            ? Border.all(color: AppColors.border, width: 2)
                             : null,
                         boxShadow: [
                           if (_image != null)
@@ -380,8 +370,7 @@ class _ScanScreenState extends State<ScanScreen> {
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
-                          if (_image == null)
-                            ...AppColors.softShadow,
+                          if (_image == null) ...AppColors.softShadow,
                         ],
                       ),
                       child: _image != null
@@ -393,7 +382,9 @@ class _ScanScreenState extends State<ScanScreen> {
                                   Image.file(_image!, fit: BoxFit.cover),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.3),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.3,
+                                      ),
                                     ),
                                   ),
                                   Positioned(
@@ -407,10 +398,16 @@ class _ScanScreenState extends State<ScanScreen> {
                                           vertical: 8,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.45),
-                                          borderRadius: BorderRadius.circular(20),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.25),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.25,
+                                            ),
                                             width: 1,
                                           ),
                                         ),
@@ -449,7 +446,9 @@ class _ScanScreenState extends State<ScanScreen> {
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         blurRadius: 15,
                                         offset: const Offset(0, 6),
                                       ),
@@ -493,10 +492,11 @@ class _ScanScreenState extends State<ScanScreen> {
                     height: 54,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      color: _image == null ? AppColors.border : AppColors.primary,
+                      color: _image == null
+                          ? AppColors.border
+                          : AppColors.primary,
                       boxShadow: [
-                        if (_image != null)
-                          ...AppColors.primaryShadow,
+                        if (_image != null) ...AppColors.primaryShadow,
                       ],
                     ),
                     child: ElevatedButton(
@@ -521,7 +521,9 @@ class _ScanScreenState extends State<ScanScreen> {
                               'อัปโหลดและประมวลผล',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: _image == null ? AppColors.textMuted : Colors.white,
+                                color: _image == null
+                                    ? AppColors.textMuted
+                                    : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                               ),
@@ -935,7 +937,10 @@ class _AnswerSheetMaskPainter extends CustomPainter {
     const inset = 2.0;
 
     void drawCorner(Offset corner, double xSign, double ySign) {
-      final start = Offset(corner.dx + inset * xSign, corner.dy + inset * ySign);
+      final start = Offset(
+        corner.dx + inset * xSign,
+        corner.dy + inset * ySign,
+      );
       canvas.drawLine(
         start,
         start + Offset(cornerLength * xSign, 0),

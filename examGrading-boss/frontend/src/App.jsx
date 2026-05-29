@@ -651,7 +651,9 @@ export default function App() {
   if (loading || !firebase) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="loader"><span>Scan</span></p>
+        <p className="loader">
+          <span>Scan</span>
+        </p>
       </div>
     );
   }

@@ -1,10 +1,5 @@
 import { useRef, useState } from "react";
-import {
-  DataTable,
-  Select,
-  StatCard,
-  useChart,
-} from "../ui.jsx";
+import { DataTable, Select, StatCard, useChart } from "../ui.jsx";
 
 function itemLabel(value, type) {
   if (type === "difficulty") {
@@ -408,22 +403,26 @@ export function AnalysisPage({ data }) {
               </div>
             )}
           </div>
-          {answeredItemAnalysis.length > 0 && (() => {
-            const totalD = answeredItemAnalysis.length;
-            return (
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold">
-                <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100 whitespace-nowrap">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></div> ดีมาก {dGood} ข้อ ({Math.round((dGood * 100) / totalD)}%)
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100 whitespace-nowrap">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-200"></div> พอใช้ {dFair} ข้อ ({Math.round((dFair * 100) / totalD)}%)
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 text-rose-700 rounded-md border border-rose-100 whitespace-nowrap">
-                  <div className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-200"></div> ไม่ดี {dPoor} ข้อ ({Math.round((dPoor * 100) / totalD)}%)
-                </span>
-              </div>
-            );
-          })()}
+          {answeredItemAnalysis.length > 0 &&
+            (() => {
+              const totalD = answeredItemAnalysis.length;
+              return (
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold">
+                  <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100 whitespace-nowrap">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></div>{" "}
+                    ดีมาก {dGood} ข้อ ({Math.round((dGood * 100) / totalD)}%)
+                  </span>
+                  <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-md border border-amber-100 whitespace-nowrap">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-sm shadow-amber-200"></div>{" "}
+                    พอใช้ {dFair} ข้อ ({Math.round((dFair * 100) / totalD)}%)
+                  </span>
+                  <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 text-rose-700 rounded-md border border-rose-100 whitespace-nowrap">
+                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-200"></div>{" "}
+                    ไม่ดี {dPoor} ข้อ ({Math.round((dPoor * 100) / totalD)}%)
+                  </span>
+                </div>
+              );
+            })()}
         </div>
       </section>
 
@@ -514,7 +513,6 @@ export function AnalysisPage({ data }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm text-slate-500">
-
             <span className="rounded-full bg-slate-100 px-3 py-1">
               คะแนนเฉลี่ย {mean.toFixed(2)}
             </span>

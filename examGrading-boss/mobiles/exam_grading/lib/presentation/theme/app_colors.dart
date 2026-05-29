@@ -6,21 +6,21 @@ class AppColors {
   static const Color primaryDark = Color(0xFF005BBF); // Darker Blue
   static const Color secondary = Color(0xFF189448); // Forest Green
   static const Color secondaryDark = Color(0xFF187742); // Dark Forest Green
-  
+
   static const List<Color> primaryGradient = [primary, primaryDark];
-  
+
   // Backgrounds
   static const Color background = Color(0xFFFAFAF9);
   static const Color surface = Color(0xFFFFFFFF);
-  
+
   // Texts
   static const Color textPrimary = Color(0xFF18181B);
   static const Color textSecondary = Color(0xFF52525B);
   static const Color textMuted = Color(0xFF71717A);
-  
+
   // Borders & Dividers
   static const Color border = Color(0xFFE4E4E7);
-  
+
   // Semantic
   static const Color success = Color(0xFF166534); // Forest Green
   static const Color warning = Color(0xFFD97706);
@@ -33,7 +33,7 @@ class AppColors {
   static const Color warningSoft = Color(0xFFFFEDD5);
   static const Color errorSoft = Color(0xFFFEE2E2);
   static const Color infoSoft = Color(0xFFDBEAFE);
-  
+
   // Box Shadows
   static List<BoxShadow> get softShadow => [
     BoxShadow(
@@ -42,7 +42,7 @@ class AppColors {
       offset: const Offset(0, 4),
     ),
   ];
-  
+
   static List<BoxShadow> get primaryShadow => [
     BoxShadow(
       color: primary.withValues(alpha: 0.22),

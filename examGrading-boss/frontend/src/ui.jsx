@@ -216,11 +216,7 @@ export function StatCard({ title, value, icon, color }) {
   );
 }
 
-export function DataTable({
-  columns,
-  rows,
-  emptyText = "ไม่มีข้อมูล",
-}) {
+export function DataTable({ columns, rows, emptyText = "ไม่มีข้อมูล" }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm">
@@ -298,6 +294,6 @@ export function Modal({
         <div className="p-5 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

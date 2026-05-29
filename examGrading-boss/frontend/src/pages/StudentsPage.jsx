@@ -1,5 +1,15 @@
 import { useRef, useState } from "react";
-import { DataTable, Field, GhostButton, Icon, Input, PrimaryButton, Select, Swal, emptyForm } from "../ui.jsx";
+import {
+  DataTable,
+  Field,
+  GhostButton,
+  Icon,
+  Input,
+  PrimaryButton,
+  Select,
+  Swal,
+  emptyForm,
+} from "../ui.jsx";
 
 export function StudentsPage({ data, api, refresh }) {
   const [form, setForm] = useState(emptyForm(["id", "code", "name", "class"]));
@@ -22,7 +32,14 @@ export function StudentsPage({ data, api, refresh }) {
   }
 
   async function deleteStudent(row) {
-    const result = await Swal().fire({ title: "ลบผู้เรียน?", text: row.name, icon: "warning", showCancelButton: true, confirmButtonText: "ลบ", cancelButtonText: "ยกเลิก" });
+    const result = await Swal().fire({
+      title: "ลบผู้เรียน?",
+      text: row.name,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+    });
     if (!result.isConfirmed) return;
     await api.remove("students", row.id);
     await refresh("ลบผู้เรียนแล้ว");
@@ -33,19 +50,30 @@ export function StudentsPage({ data, api, refresh }) {
     if (!file || !window.XLSX) return;
     if (!importClass) {
       event.target.value = "";
-      Swal().fire("เลือกกลุ่มเรียนก่อน", "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้า Excel", "warning");
+      Swal().fire(
+        "เลือกกลุ่มเรียนก่อน",
+        "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้า Excel",
+        "warning",
+      );
       return;
     }
     const buffer = await file.arrayBuffer();
-    const workbook = window.XLSX.read(new Uint8Array(buffer), { type: "array" });
+    const workbook = window.XLSX.read(new Uint8Array(buffer), {
+      type: "array",
+    });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = window.XLSX.utils.sheet_to_json(sheet);
     let count = 0;
     for (const row of rows) {
-      const code = row["รหัสนักเรียน"] || row.ID || row.code || row["เลขประจำตัว"];
+      const code =
+        row["รหัสนักเรียน"] || row.ID || row.code || row["เลขประจำตัว"];
       const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
       if (code && name) {
-        const payload = { code: String(code), name: String(name), class: importClass };
+        const payload = {
+          code: String(code),
+          name: String(name),
+          class: importClass,
+        };
         await api.set(`students/${payload.code}`, payload);
         count += 1;
       }
@@ -67,11 +95,15 @@ export function StudentsPage({ data, api, refresh }) {
     const matchesSubject = filterSubject
       ? student.class && student.class.startsWith(filterSubject + "_")
       : true;
-    const matchesSection = filterSection ? student.class === filterSection : true;
+    const matchesSection = filterSection
+      ? student.class === filterSection
+      : true;
     const matchesSearch = normalizedSearch
       ? [student.code, student.name].some((value) =>
-        String(value || "").toLowerCase().includes(normalizedSearch),
-      )
+          String(value || "")
+            .toLowerCase()
+            .includes(normalizedSearch),
+        )
       : true;
     return matchesSubject && matchesSection && matchesSearch;
   });
@@ -82,7 +114,9 @@ export function StudentsPage({ data, api, refresh }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-xl font-extrabold">จัดการผู้เรียน</h3>
-            <p className="text-sm text-zinc-500">เพิ่ม แก้ไข นำเข้า และจัดกลุ่มผู้เรียน</p>
+            <p className="text-sm text-zinc-500">
+              เพิ่ม แก้ไข นำเข้า และจัดกลุ่มผู้เรียน
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-64">
@@ -101,11 +135,18 @@ export function StudentsPage({ data, api, refresh }) {
                 }}
               >
                 <option value="">ทุกวิชา</option>
-                {data.subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                {data.subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="min-w-40">
-              <Select value={filterSection} onChange={(event) => setFilterSection(event.target.value)}>
+              <Select
+                value={filterSection}
+                onChange={(event) => setFilterSection(event.target.value)}
+              >
                 <option value="">ทุกกลุ่มเรียน</option>
                 {filterSections.map((section) => (
                   <option key={section.id} value={section.id}>
@@ -114,8 +155,16 @@ export function StudentsPage({ data, api, refresh }) {
                 ))}
               </Select>
             </div>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={importExcel} className="hidden" />
-            <GhostButton variant="primary" onClick={() => setImportOpen(true)}><Icon name="fa-file-import" /> นำเข้า Excel</GhostButton>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={importExcel}
+              className="hidden"
+            />
+            <GhostButton variant="primary" onClick={() => setImportOpen(true)}>
+              <Icon name="fa-file-import" /> นำเข้า Excel
+            </GhostButton>
           </div>
         </div>
         <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white/95 backdrop-blur-sm">
@@ -124,19 +173,48 @@ export function StudentsPage({ data, api, refresh }) {
               { key: "code", label: "รหัสนักเรียน" },
               { key: "name", label: "ชื่อ-นามสกุล" },
               {
-                key: "subject", label: "รายวิชา", render: (row) => {
-                  const subjectId = row.class?.split('_')[0];
-                  return data.subjects.find(s => s.id === subjectId)?.name || subjectId || "-";
-                }
+                key: "subject",
+                label: "รายวิชา",
+                render: (row) => {
+                  const subjectId = row.class?.split("_")[0];
+                  return (
+                    data.subjects.find((s) => s.id === subjectId)?.name ||
+                    subjectId ||
+                    "-"
+                  );
+                },
               },
-              { key: "class", label: "กลุ่มเรียน", render: (row) => data.sections.find(s => s.id === row.class)?.sec || row.class || "ไม่ระบุ" },
+              {
+                key: "class",
+                label: "กลุ่มเรียน",
+                render: (row) =>
+                  data.sections.find((s) => s.id === row.class)?.sec ||
+                  row.class ||
+                  "ไม่ระบุ",
+              },
               {
                 key: "actions",
                 label: "",
                 render: (row) => (
                   <div className="flex justify-end gap-2">
-                    <GhostButton className="py-2 px-3" onClick={() => setForm({ ...emptyForm(["id", "code", "name", "class"]), ...row })}><Icon name="fa-pen" /></GhostButton>
-                    <GhostButton variant="danger" className="py-2 px-3" onClick={() => deleteStudent(row)}><Icon name="fa-trash" /></GhostButton>
+                    <GhostButton
+                      className="py-2 px-3"
+                      onClick={() =>
+                        setForm({
+                          ...emptyForm(["id", "code", "name", "class"]),
+                          ...row,
+                        })
+                      }
+                    >
+                      <Icon name="fa-pen" />
+                    </GhostButton>
+                    <GhostButton
+                      variant="danger"
+                      className="py-2 px-3"
+                      onClick={() => deleteStudent(row)}
+                    >
+                      <Icon name="fa-trash" />
+                    </GhostButton>
                   </div>
                 ),
               },
@@ -145,17 +223,45 @@ export function StudentsPage({ data, api, refresh }) {
           />
         </div>
       </section>
-      <form onSubmit={saveStudent} className="bg-white/95 rounded-2xl border border-zinc-200 p-5 space-y-4 h-fit">
-        <h4 className="font-extrabold">{form.id ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}</h4>
-        <Field label="รหัสนักเรียน"><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="เช่น 6400123" required /></Field>
-        <Field label="ชื่อ-นามสกุล"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น นายสมชาย รักเรียน" required /></Field>
+      <form
+        onSubmit={saveStudent}
+        className="bg-white/95 rounded-2xl border border-zinc-200 p-5 space-y-4 h-fit"
+      >
+        <h4 className="font-extrabold">
+          {form.id ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}
+        </h4>
+        <Field label="รหัสนักเรียน">
+          <Input
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            placeholder="เช่น 6400123"
+            required
+          />
+        </Field>
+        <Field label="ชื่อ-นามสกุล">
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="เช่น นายสมชาย รักเรียน"
+            required
+          />
+        </Field>
         <Field label="กลุ่มเรียน">
-          <Select value={form.class} onChange={(e) => setForm({ ...form, class: e.target.value })}>
+          <Select
+            value={form.class}
+            onChange={(e) => setForm({ ...form, class: e.target.value })}
+          >
             <option value="">ไม่ระบุ</option>
-            {data.sections.map((section) => <option key={section.id} value={section.id}>{section.sec} ({section.subject})</option>)}
+            {data.sections.map((section) => (
+              <option key={section.id} value={section.id}>
+                {section.sec} ({section.subject})
+              </option>
+            ))}
           </Select>
         </Field>
-        <PrimaryButton className="w-full"><Icon name="fa-floppy-disk" /> บันทึกผู้เรียน</PrimaryButton>
+        <PrimaryButton className="w-full">
+          <Icon name="fa-floppy-disk" /> บันทึกผู้เรียน
+        </PrimaryButton>
       </form>
       {importOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-sm flex items-center justify-center p-4">
@@ -167,7 +273,11 @@ export function StudentsPage({ data, api, refresh }) {
                   ไฟล์ต้องมีเฉพาะคอลัมน์รหัสนักเรียนและชื่อ-นามสกุล
                 </p>
               </div>
-              <GhostButton type="button" className="py-2 px-3" onClick={() => setImportOpen(false)}>
+              <GhostButton
+                type="button"
+                className="py-2 px-3"
+                onClick={() => setImportOpen(false)}
+              >
                 <Icon name="fa-xmark" />
               </GhostButton>
             </div>
@@ -207,7 +317,9 @@ export function StudentsPage({ data, api, refresh }) {
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
               <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
               <div>รหัสนักเรียน | ชื่อ-นามสกุล</div>
-              <div className="mt-1 text-zinc-500">หรือใช้ชื่อคอลัมน์อังกฤษ: code | name</div>
+              <div className="mt-1 text-zinc-500">
+                หรือใช้ชื่อคอลัมน์อังกฤษ: code | name
+              </div>
             </div>
 
             <PrimaryButton
@@ -224,6 +336,3 @@ export function StudentsPage({ data, api, refresh }) {
     </div>
   );
 }
-
-
-

@@ -187,9 +187,7 @@ export function ResultsPage({ data, api, refresh, query }) {
               label: "คะแนน",
               render: (row) => (
                 <div className="flex items-baseline gap-1 py-1">
-                  <span
-                    className="text-xl font-black text-blue-600"
-                  >
+                  <span className="text-xl font-black text-blue-600">
                     {row.score}
                   </span>
                   <span className="text-xs font-bold text-slate-400">
@@ -219,7 +217,9 @@ export function ResultsPage({ data, api, refresh, query }) {
               key: "wrongCount",
               label: "ข้อที่ผิด",
               render: (row) => (
-                <span className="font-bold text-rose-600">{row.wrongCount}</span>
+                <span className="font-bold text-rose-600">
+                  {row.wrongCount}
+                </span>
               ),
             },
             {

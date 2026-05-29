@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { DataTable, GhostButton, Icon, Select, Swal, StatCard } from "../ui.jsx";
+import {
+  DataTable,
+  GhostButton,
+  Icon,
+  Select,
+  Swal,
+  StatCard,
+} from "../ui.jsx";
 
 export function ReportsPage({ data }) {
   const [selectedSubject, setSelectedSubject] = useState("");
