@@ -1,4 +1,13 @@
-import { useEffect } from "react";
+﻿import {
+  Children,
+  createElement,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import iconImage from "../images/icon.png";
 
 export const Swal = () => window.Swal;
@@ -98,11 +107,86 @@ export function Input(props) {
 }
 
 export function Select(props) {
+  const {
+    value,
+    onChange,
+    children,
+    className = "",
+    disabled = false,
+    placeholder,
+  } = props;
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  const options = useMemo(
+    () =>
+      Children.toArray(children)
+        .filter(isValidElement)
+        .map((item) => ({
+          value: String(item.props.value ?? ""),
+          label: item.props.children,
+          disabled: Boolean(item.props.disabled),
+        })),
+    [children],
+  );
+
+  const selected = options.find((item) => item.value === String(value ?? ""));
+  const menuClass =
+    options.length > 5
+      ? "max-h-56 overflow-y-auto"
+      : "max-h-none overflow-visible";
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!wrapRef.current?.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function selectValue(nextValue) {
+    onChange?.({ target: { value: nextValue } });
+    setOpen(false);
+  }
+
   return (
-    <select
-      {...props}
-      className={`w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${props.className || ""}`}
-    />
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((state) => !state)}
+        className={`w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      >
+        <span className={selected ? "text-slate-800" : "text-slate-400"}>
+          {selected?.label || placeholder || "เลือกข้อมูล"}
+        </span>
+        <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+      </button>
+      {open && !disabled && (
+        <div
+          className={`absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg ${menuClass}`}
+        >
+          {options.map((item) => {
+            const isSelected = item.value === String(value ?? "");
+            return (
+              <button
+                key={item.value}
+                type="button"
+                disabled={item.disabled}
+                onClick={() => selectValue(item.value)}
+                className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+                  isSelected
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-50"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -216,53 +300,165 @@ export function StatCard({ title, value, icon, color }) {
   );
 }
 
-export function DataTable({ columns, rows, emptyText = "ไม่มีข้อมูล" }) {
+export function DataTable({
+  columns,
+  rows,
+  emptyText = "ไม่มีข้อมูล",
+  pageSize = 10,
+}) {
+  const [page, setPage] = useState(1);
+  const safePageSize = Math.max(Number(pageSize) || 10, 1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / safePageSize));
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  const visibleRows = useMemo(() => {
+    const start = (page - 1) * safePageSize;
+    return rows.slice(start, start + safePageSize);
+  }, [rows, page, safePageSize]);
+
+  const startItem = rows.length ? (page - 1) * safePageSize + 1 : 0;
+  const endItem = Math.min(page * safePageSize, rows.length);
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                className="px-4 py-3 text-left font-bold whitespace-nowrap"
-              >
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.length ? (
-            rows.map((row) => (
-              <tr
-                key={row.id || JSON.stringify(row)}
-                className="hover:bg-slate-50"
-              >
-                {columns.map((column) => (
-                  <td key={column.key} className="px-4 py-3 align-top">
-                    {column.render ? column.render(row) : row[column.key]}
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
             <tr>
-              <td
-                colSpan={columns.length}
-                className="px-4 py-10 text-center text-slate-500"
-              >
-                {emptyText}
-              </td>
+              {columns.map((column) => (
+                <th
+                  key={column.key}
+                  className="px-4 py-3 text-left font-bold whitespace-nowrap"
+                >
+                  {column.label}
+                </th>
+              ))}
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.length ? (
+              visibleRows.map((row) => (
+                <tr
+                  key={row.id || JSON.stringify(row)}
+                  className="hover:bg-slate-50"
+                >
+                  {columns.map((column) => (
+                    <td key={column.key} className="px-4 py-3 align-top">
+                      {column.render ? column.render(row) : row[column.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-10 text-center text-slate-500"
+                >
+                  {emptyText}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs sm:text-sm">
+          <span className="text-slate-500">
+            แสดง {startItem}-{endItem} จาก {rows.length} รายการ
+          </span>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            variant="outlined"
+            shape="rounded"
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-import { createPortal } from "react-dom";
+export function Pagination({
+  count,
+  page = 1,
+  onChange,
+  variant = "text",
+  shape = "rounded",
+}) {
+  const safeCount = Math.max(Number(count) || 1, 1);
+  const safePage = Math.min(Math.max(Number(page) || 1, 1), safeCount);
+  const baseClass =
+    shape === "rounded" ? "min-w-9 h-9 rounded-lg" : "min-w-9 h-9 rounded-full";
+  const normalClass =
+    variant === "outlined"
+      ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      : "border border-transparent bg-transparent text-slate-700 hover:bg-slate-100";
+  const activeClass =
+    variant === "outlined"
+      ? "border border-blue-600 bg-blue-600 text-white"
+      : "border border-transparent bg-blue-100 text-blue-700";
+  const navClass =
+    variant === "outlined"
+      ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      : "border border-transparent bg-transparent text-slate-700 hover:bg-slate-100";
+
+  function buildPages(total, current) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
+    if (current >= total - 3)
+      return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+    return [1, "...", current - 1, current, current + 1, "...", total];
+  }
+
+  const items = buildPages(safeCount, safePage);
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onChange?.(null, Math.max(safePage - 1, 1))}
+        disabled={safePage === 1}
+        className={`${baseClass} px-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${navClass}`}
+      >
+        ก่อนหน้า
+      </button>
+      {items.map((value, index) =>
+        value === "..." ? (
+          <span
+            key={`ellipsis-${index}`}
+            className="inline-flex min-w-8 items-center justify-center text-slate-400"
+          >
+            ...
+          </span>
+        ) : (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onChange?.(null, value)}
+            className={`${baseClass} px-2 text-sm font-semibold transition-colors ${value === safePage ? activeClass : normalClass}`}
+            aria-current={value === safePage ? "page" : undefined}
+          >
+            {value}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        onClick={() => onChange?.(null, Math.min(safePage + 1, safeCount))}
+        disabled={safePage >= safeCount}
+        className={`${baseClass} px-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${navClass}`}
+      >
+        ถัดไป
+      </button>
+    </div>
+  );
+}
 
 export function Modal({
   isOpen,

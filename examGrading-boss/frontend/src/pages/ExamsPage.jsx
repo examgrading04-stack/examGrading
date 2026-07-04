@@ -51,27 +51,38 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     amber: "bg-amber-50 text-amber-600 border-amber-100",
   };
 
-  function openSheetModal(exam) {
-    const subject = data.subjects.find(
-      (s) => s.id === exam.subject || s.code === exam.subject,
-    );
+  function getStudentsForExam(exam, subjectFromList = null) {
+    const subject =
+      subjectFromList ||
+      data.subjects.find(
+        (s) => s.id === exam.subject || s.code === exam.subject,
+      );
     const subjectCode = subject?.code || exam.subject || "";
     const examSection = String(exam.section || "");
 
-    const students = data.students.filter((s) => {
+    if (Array.isArray(exam.studentsSnapshot) && exam.studentsSnapshot.length) {
+      return exam.studentsSnapshot;
+    }
+
+    return data.students.filter((s) => {
       const studentClass = String(s.class || "");
       const fullFormat = `${subjectCode}_${examSection}`;
 
       if (examSection) {
-        // Match "1201411_1" OR if student just has "1" but we know it's this subject context
         return studentClass === fullFormat || studentClass === examSection;
       }
-      // If no section, match anything related to this subject
       return (
         studentClass.startsWith(`${subjectCode}_`) ||
         studentClass === subjectCode
       );
     });
+  }
+
+  function openSheetModal(exam) {
+    const subject = data.subjects.find(
+      (s) => s.id === exam.subject || s.code === exam.subject,
+    );
+    const students = getStudentsForExam(exam, subject);
 
     setSheetModal({ exam, subject, students: students.length ? students : [] });
   }
@@ -91,6 +102,15 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       questions,
       sheetType,
       answerKey: {},
+      studentsSnapshot: getStudentsForExam(
+        { subject: subject?.code || form.subject, section: form.section },
+        subject,
+      ).map((student) => ({
+        id: student.id || "",
+        code: student.code || "",
+        name: student.name || "",
+        class: student.class || "",
+      })),
       createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     };
 
@@ -108,17 +128,18 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     openSheetModal(exam);
   }
 
-  async function downloadPdf(exam, subjectCode) {
+  async function downloadPdf(exam, students) {
     setPdfLoading(true);
     try {
-      const response = await apiFetch("/api/sheets/pdf/by-subject/download", {
+      const response = await apiFetch("/api/sheets/pdf/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_email: userEmail,
           exam_id: exam.id,
-          subject_code: subjectCode || exam.subject,
-          section: exam.section || "",
+          student_ids: (students || []).map((s) => s.id).filter(Boolean),
+          students_snapshot: students || [],
+          upload_to_storage: false,
         }),
       });
       if (!response.ok) {
@@ -458,7 +479,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
               <PrimaryButton
                 disabled={pdfLoading || sheetModal.students.length === 0}
                 onClick={() =>
-                  downloadPdf(sheetModal.exam, sheetModal.subject?.code)
+                  downloadPdf(sheetModal.exam, sheetModal.students)
                 }
                 className="w-full h-14 text-sm"
               >

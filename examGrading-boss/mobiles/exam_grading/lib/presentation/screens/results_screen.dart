@@ -6,6 +6,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -15,6 +16,8 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
+  static const int _pageSize = 10;
+  int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
   DateTime? _readResultTime(Map<String, dynamic> data) {
     final dynamic createdAt = data['createdAt'];
@@ -108,7 +111,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'ผลคะแนนสอบ',
+                    'ผลการสอบ',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -117,7 +120,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'แสดงผลการตรวจข้อสอบล่าสุด',
+                    'ตรวจสอบคะแนนและรายละเอียดคำตอบ',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w500,
@@ -158,6 +161,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       if (newValue != null) {
                         setState(() {
                           _selectedSubject = newValue;
+                          _currentPage = 1;
                         });
                       }
                     },
@@ -167,9 +171,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       return DropdownMenuItem<String>(
                         value: value,
                         child: Text(
-                          value == 'ทั้งหมด'
-                              ? 'รายวิชาทั้งหมด'
-                              : 'วิชา: $value',
+                          value == 'ทั้งหมด' ? 'ทุกวิชา' : 'วิชา: $value',
                         ),
                       );
                     }).toList(),
@@ -278,185 +280,245 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   ),
                 );
               }
+              final totalPages = (filteredDocs.length / _pageSize).ceil().clamp(
+                1,
+                1000000,
+              );
+              final page = _currentPage.clamp(1, totalPages);
+              if (page != _currentPage) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _currentPage = page);
+                });
+              }
+              final start = (page - 1) * _pageSize;
+              final end = (start + _pageSize).clamp(0, filteredDocs.length);
+              final visibleDocs = filteredDocs.sublist(start, end);
               return SliverPadding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 80),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final data =
-                        filteredDocs[index].data() as Map<String, dynamic>;
-                    final examId = data['examId'] ?? 'ไม่ระบุ';
-                    final isPending = data['score'] == null;
-                    ExamModel? currentExam;
-                    try {
-                      currentExam = _exams.firstWhere((e) => e.id == examId);
-                    } catch (_) {}
-                    int dynamicScore =
-                        int.tryParse(data['score']?.toString() ?? '0') ?? 0;
-                    if (currentExam != null &&
-                        (data.containsKey('answers') ||
-                            data.containsKey('itemResults'))) {
-                      int calculatedScore = 0;
-                      final answers = data['answers'] as Map?;
-                      final itemResults = data['itemResults'] as Map?;
-                      final setIndex = data['set']?.toString();
-                      for (int i = 1; i <= currentExam.questions; i++) {
-                        final qStr = i.toString();
-                        final correctAns = _getCorrectAnswer(
-                          currentExam,
-                          qStr,
-                          setIndex,
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == visibleDocs.length) {
+                        return Column(
+                          children: [
+                            Text(
+                              'แสดง ${start + 1}-$end จาก ${filteredDocs.length} รายการ',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            PaginationBar(
+                              page: page,
+                              totalPages: totalPages,
+                              onPageChanged: (nextPage) {
+                                setState(() => _currentPage = nextPage);
+                              },
+                            ),
+                          ],
                         );
-                        if (answers != null && answers.containsKey(qStr)) {
-                          if (answers[qStr].toString() == correctAns &&
-                              correctAns != '-') {
-                            calculatedScore++;
-                          }
-                        } else if (itemResults != null &&
-                            itemResults.containsKey(qStr)) {
-                          if (itemResults[qStr] == true) {
-                            calculatedScore++;
+                      }
+                      final data =
+                          visibleDocs[index].data() as Map<String, dynamic>;
+                      final examId = data['examId'] ?? 'ไม่ระบุ';
+                      final isPending = data['score'] == null;
+                      ExamModel? currentExam;
+                      try {
+                        currentExam = _exams.firstWhere((e) => e.id == examId);
+                      } catch (_) {}
+                      int dynamicScore =
+                          int.tryParse(data['score']?.toString() ?? '0') ?? 0;
+                      if (currentExam != null &&
+                          (data.containsKey('answers') ||
+                              data.containsKey('itemResults'))) {
+                        int calculatedScore = 0;
+                        final answers = data['answers'] as Map?;
+                        final itemResults = data['itemResults'] as Map?;
+                        final setIndex = data['set']?.toString();
+                        for (int i = 1; i <= currentExam.questions; i++) {
+                          final qStr = i.toString();
+                          final correctAns = _getCorrectAnswer(
+                            currentExam,
+                            qStr,
+                            setIndex,
+                          );
+                          if (answers != null && answers.containsKey(qStr)) {
+                            if (answers[qStr].toString() == correctAns &&
+                                correctAns != '-') {
+                              calculatedScore++;
+                            }
+                          } else if (itemResults != null &&
+                              itemResults.containsKey(qStr)) {
+                            if (itemResults[qStr] == true) {
+                              calculatedScore++;
+                            }
                           }
                         }
+                        dynamicScore = calculatedScore;
                       }
-                      dynamicScore = calculatedScore;
-                    }
-                    final scoreStr = isPending
-                        ? 'กำลังประมวลผล...'
-                        : dynamicScore.toString();
-                    final readTime = _readResultTime(data);
-                    final dateString = readTime != null
-                        ? "${readTime.day}/${readTime.month}/${readTime.year} ${readTime.hour}:${readTime.minute.toString().padLeft(2, '0')} น."
-                        : 'ไม่ทราบเวลา'; /* Parse exam ID for a cleaner display */
-                    String subjectCode = '';
-                    String examName = examId;
-                    if (examId.contains('_')) {
-                      final parts = examId.split('_');
-                      subjectCode = parts[0];
-                      examName = parts
-                          .sublist(1)
-                          .join(' ')
-                          .replaceAll('_', ' ');
-                    }
-                    final studentName =
-                        data['studentName']?.toString() ??
-                        'นักเรียนไม่ทราบชื่อ';
-                    final studentCode = data['studentCode']?.toString() ?? '';
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: () {
-                            if (!isPending && currentExam != null) {
-                              _showAnswerDetails(
-                                context,
-                                data,
-                                currentExam,
-                                dynamicScore,
-                              );
-                            } else if (!isPending) {
-                              final exam = ExamModel(
-                                id: examId,
-                                name: examName,
-                                subject: subjectCode,
-                                date: '',
-                                questions: 0,
-                                options: 0,
-                                sets: 0,
-                                answerKey: {},
-                              );
-                              _showAnswerDetails(
-                                context,
-                                data,
-                                exam,
-                                dynamicScore,
-                              );
-                            }
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: AppColors.border,
-                                width: 1.5,
+                      final scoreStr = isPending
+                          ? 'กำลังประมวลผล...'
+                          : dynamicScore.toString();
+                      final readTime = _readResultTime(data);
+                      final dateString = readTime != null
+                          ? "${readTime.day}/${readTime.month}/${readTime.year} ${readTime.hour}:${readTime.minute.toString().padLeft(2, '0')} น."
+                          : 'ไม่ระบุเวลา'; /* Parse exam ID for a cleaner display */
+                      String subjectCode = '';
+                      String examName = examId;
+                      if (examId.contains('_')) {
+                        final parts = examId.split('_');
+                        subjectCode = parts[0];
+                        examName = parts
+                            .sublist(1)
+                            .join(' ')
+                            .replaceAll('_', ' ');
+                      }
+                      final studentName =
+                          data['studentName']?.toString() ??
+                          'ไม่พบชื่อนักเรียน';
+                      final studentCode = data['studentCode']?.toString() ?? '';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () {
+                              if (!isPending && currentExam != null) {
+                                _showAnswerDetails(
+                                  context,
+                                  data,
+                                  currentExam,
+                                  dynamicScore,
+                                );
+                              } else if (!isPending) {
+                                final exam = ExamModel(
+                                  id: examId,
+                                  name: examName,
+                                  subject: subjectCode,
+                                  date: '',
+                                  questions: 0,
+                                  options: 0,
+                                  sets: 0,
+                                  answerKey: {},
+                                );
+                                _showAnswerDetails(
+                                  context,
+                                  data,
+                                  exam,
+                                  dynamicScore,
+                                );
+                              }
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 1.5,
+                                ),
+                                boxShadow: AppColors.softShadow,
                               ),
-                              boxShadow: AppColors.softShadow,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 56,
-                                    height: 56,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(18),
-                                      boxShadow: [
-                                        if (!isPending)
-                                          ...AppColors.primaryShadow,
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Icon(
-                                        isPending
-                                            ? FontAwesomeIcons.clockRotateLeft
-                                            : FontAwesomeIcons.fileSignature,
-                                        color: Colors.white,
-                                        size: 20,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 56,
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(18),
+                                        boxShadow: [
+                                          if (!isPending)
+                                            ...AppColors.primaryShadow,
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Icon(
+                                          isPending
+                                              ? FontAwesomeIcons.clockRotateLeft
+                                              : FontAwesomeIcons.fileSignature,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          studentName,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: AppColors.textPrimary,
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            studentName,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            if (studentCode.isNotEmpty) ...[
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 3,
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              if (studentCode.isNotEmpty) ...[
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.surface,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    'รหัส: $studentCode',
+                                                    style: TextStyle(
+                                                      color:
+                                                          AppColors.textPrimary,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 9,
                                                     ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.surface,
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                                  ),
                                                 ),
+                                                const SizedBox(width: 6),
+                                              ],
+                                              Expanded(
                                                 child: Text(
-                                                  'รหัส: $studentCode',
+                                                  examName,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: TextStyle(
                                                     color:
-                                                        AppColors.textPrimary,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 9,
+                                                        AppColors.textSecondary,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 6),
                                             ],
-                                            Expanded(
-                                              child: Text(
-                                                examName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                FontAwesomeIcons.solidClock,
+                                                size: 10,
+                                                color: AppColors.textMuted,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                dateString,
                                                 style: TextStyle(
                                                   color:
                                                       AppColors.textSecondary,
@@ -464,70 +526,56 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                   fontWeight: FontWeight.w500,
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              FontAwesomeIcons.solidClock,
-                                              size: 10,
-                                              color: AppColors.textMuted,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              dateString,
-                                              style: TextStyle(
-                                                color: AppColors.textSecondary,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isPending
-                                          ? AppColors.surface
-                                          : AppColors.primarySoft,
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: isPending
-                                            ? AppColors.border
-                                            : AppColors.primary.withValues(
-                                                alpha: 0.2,
-                                              ),
-                                        width: 1.5,
+                                            ],
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Text(
-                                      isPending ? 'รอตรวจ' : '$scoreStr คะแนน',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                                    const SizedBox(width: 16),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: isPending
-                                            ? AppColors.textSecondary
-                                            : AppColors.primaryDark,
+                                            ? AppColors.surface
+                                            : AppColors.primarySoft,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: isPending
+                                              ? AppColors.border
+                                              : AppColors.primary.withValues(
+                                                  alpha: 0.2,
+                                                ),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isPending
+                                            ? 'รอตรวจ'
+                                            : '$scoreStr คะแนน',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: isPending
+                                              ? AppColors.textSecondary
+                                              : AppColors.primaryDark,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }, childCount: filteredDocs.length),
+                      );
+                    },
+                    childCount:
+                        visibleDocs.length +
+                        (filteredDocs.length > _pageSize ? 1 : 0),
+                  ),
                 ),
               );
             },
@@ -547,7 +595,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       QuickAlert.show(
         context: context,
         type: QuickAlertType.info,
-        text: 'ไม่มีข้อมูลคำตอบสำหรับผลสอบนี้',
+        text: 'ไม่พบข้อมูลคำตอบสำหรับผลสอบนี้',
         confirmBtnColor: AppColors.error,
       );
       return;
@@ -688,7 +736,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                             height: 220,
                                             child: Center(
                                               child: Text(
-                                                'โหลดรูปไม่สำเร็จ',
+                                                'โหลดรูปภาพไม่ได้',
                                                 style: TextStyle(
                                                   color: Colors.white,
                                                 ),
@@ -724,7 +772,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'รูปกระดาษคำตอบที่ตรวจ',
+                                'กระดาษคำตอบที่สแกน',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -761,7 +809,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                     color: AppColors.surface,
                                     alignment: Alignment.center,
                                     child: Text(
-                                      'โหลดรูปไม่สำเร็จ',
+                                      'โหลดรูปภาพไม่ได้',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                       ),
@@ -771,7 +819,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'แตะเพื่อดูรูปขนาดใหญ่',
+                                'แตะที่รูปเพื่อขยายดูเต็มหน้าจอ',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textMuted,
@@ -947,7 +995,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'ยังไม่มีประวัติการตรวจ',
+            'ยังไม่มีข้อมูลผลการสอบ',
             style: TextStyle(
               fontSize: 16,
               color: AppColors.textPrimary,
@@ -956,7 +1004,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'เริ่มสแกนกระดาษคำตอบของคุณเพื่อดูผลลัพธ์',
+            'เมื่อมีการสแกนและตรวจข้อสอบแล้ว ผลจะปรากฏที่หน้านี้',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),

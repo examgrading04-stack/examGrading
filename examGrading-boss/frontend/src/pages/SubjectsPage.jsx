@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   DataTable,
   Field,
@@ -39,18 +39,19 @@ export function SubjectsPage({ data, api, refresh }) {
     setSubjectForm(
       emptyForm(["id", "code", "name", "term", "year", "teacher"]),
     );
-    await refresh("บันทึกรายวิชาแล้ว");
+    await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
   }
 
   async function saveSection(event) {
     event.preventDefault();
     const subjectId = activeSubject || sectionForm.subject;
-    if (!subjectId)
+    if (!subjectId) {
       return Swal().fire(
         "กรุณาเลือกรายวิชา",
         "ต้องเลือกรายวิชาก่อนเพิ่มกลุ่มเรียน",
         "warning",
       );
+    }
     const id = sectionForm.id || sectionForm.sec;
     await api.set(`subjects/${subjectId}/sections/${id}`, {
       subject: subjectId,
@@ -58,13 +59,13 @@ export function SubjectsPage({ data, api, refresh }) {
       created_at: new Date().toISOString(),
     });
     setSectionForm(emptyForm(["id", "subject", "sec"]));
-    await refresh("บันทึกกลุ่มเรียนแล้ว");
+    await refresh("บันทึกกลุ่มเรียนเรียบร้อยแล้ว");
   }
 
   async function deleteSubject(subject) {
     const result = await Swal().fire({
       title: "ลบรายวิชา?",
-      text: subject.name,
+      text: `หากลบวิชา ${subject.name} ระบบจะลบกลุ่มเรียนและรายชื่อผู้เรียนในวิชานี้ด้วย`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "ลบ",
@@ -72,13 +73,13 @@ export function SubjectsPage({ data, api, refresh }) {
     });
     if (!result.isConfirmed) return;
     await api.remove("subjects", subject.id);
-    await refresh("ลบรายวิชาแล้ว");
+    await refresh("ลบรายวิชาเรียบร้อยแล้ว");
   }
 
   async function deleteSection(section) {
     const result = await Swal().fire({
       title: "ลบกลุ่มเรียน?",
-      text: section.sec,
+      text: `หากลบ ${section.sec} ระบบจะลบรายชื่อผู้เรียนของกลุ่มเรียนนี้ด้วย`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "ลบ",
@@ -89,9 +90,8 @@ export function SubjectsPage({ data, api, refresh }) {
       `subjects/${section.subject}/sections`,
       section.realId || section.id,
     );
-    await refresh("ลบกลุ่มเรียนแล้ว");
+    await refresh("ลบกลุ่มเรียนเรียบร้อยแล้ว");
   }
-
   return (
     <div className="page-enter grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
       <section className="space-y-6">

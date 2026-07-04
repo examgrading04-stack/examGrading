@@ -183,6 +183,22 @@ def get_students(db, user_email: str, student_ids: list[str] | None = None) -> l
     return students
 
 
+def normalize_students_snapshot(students_snapshot: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if not students_snapshot:
+        return []
+    students = []
+    for raw in students_snapshot:
+        student = {
+            "id": str(raw.get("id") or raw.get("studentId") or "").strip(),
+            "code": str(raw.get("code") or raw.get("studentCode") or "").strip(),
+            "name": str(raw.get("name") or raw.get("studentName") or "").strip(),
+            "class": str(raw.get("class") or raw.get("className") or "").strip(),
+        }
+        if student["id"] or student["code"] or student["name"]:
+            students.append(student)
+    return students
+
+
 def normalize_answer_key(exam: dict[str, Any], answer_set: str = "0") -> dict[int, str]:
     raw = exam.get("answerKey") or exam.get("answerKeys") or {}
     if answer_set in raw and isinstance(raw[answer_set], dict):
@@ -256,7 +272,9 @@ def create_answer_sheets_pdf(
 ):
     user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
     exam = get_exam(db, user_email, payload.exam_id)
-    students = get_students(db, user_email, payload.student_ids)
+    students = normalize_students_snapshot(payload.students_snapshot)
+    if not students:
+        students = get_students(db, user_email, payload.student_ids)
     if not students:
         raise HTTPException(status_code=400, detail="No students found for PDF generation")
 
@@ -375,7 +393,9 @@ def download_answer_sheets_pdf(
 ):
     user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
     exam = get_exam(db, user_email, payload.exam_id)
-    students = get_students(db, user_email, payload.student_ids)
+    students = normalize_students_snapshot(payload.students_snapshot)
+    if not students:
+        students = get_students(db, user_email, payload.student_ids)
     if not students:
         raise HTTPException(status_code=400, detail="No students found for PDF generation")
 

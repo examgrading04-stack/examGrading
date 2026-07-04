@@ -14,6 +14,7 @@ import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
 class AnswerSheetsScreen extends StatefulWidget {
   final ExamModel exam;
@@ -29,6 +30,8 @@ class AnswerSheetsScreen extends StatefulWidget {
 
 class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  static const int _pageSize = 10;
+  int _currentPage = 1;
   List<StudentModel> _students = [];
   bool _isLoadingStudents = true;
   bool _isGenerating = false;
@@ -40,6 +43,16 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
 
   Future<void> _fetchStudents() async {
     if (_uid.isEmpty) return;
+    if (widget.exam.studentsSnapshot.isNotEmpty) {
+      final snapStudents = widget.exam.studentsSnapshot
+          .map((raw) => StudentModel.fromMap((raw['id'] ?? '').toString(), raw))
+          .toList();
+      setState(() {
+        _students = snapStudents;
+        _isLoadingStudents = false;
+      });
+      return;
+    }
     try {
       final snap = await FirebaseFirestore.instance
           .collection('users')
@@ -99,6 +112,9 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
             body: json.encode({
               'exam_id': widget.exam.id,
               'student_ids': _students.map((student) => student.id).toList(),
+              'students_snapshot': _students
+                  .map((student) => student.toMap()..['id'] = student.id)
+                  .toList(),
               'user_email': _uid,
               'upload_to_storage': false,
             }),
@@ -400,75 +416,114 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final student = _students[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.border,
-                            width: 1.5,
-                          ),
-                          boxShadow: AppColors.softShadow,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySoft,
-                                shape: BoxShape.circle,
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final totalPages = (_students.length / _pageSize)
+                            .ceil()
+                            .clamp(1, 1000000);
+                        final page = _currentPage.clamp(1, totalPages);
+                        final start = (page - 1) * _pageSize;
+                        final end = (start + _pageSize).clamp(
+                          0,
+                          _students.length,
+                        );
+                        final visibleStudents = _students.sublist(start, end);
+                        if (index == visibleStudents.length) {
+                          return Column(
+                            children: [
+                              Text(
+                                'แสดง ${start + 1}-$end จาก ${_students.length} รายการ',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              child: Center(
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                              PaginationBar(
+                                page: page,
+                                totalPages: totalPages,
+                                onPageChanged: (nextPage) {
+                                  setState(() => _currentPage = nextPage);
+                                },
+                              ),
+                            ],
+                          );
+                        }
+                        final student = visibleStudents[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
+                            boxShadow: AppColors.softShadow,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primarySoft,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${start + index + 1}',
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    student.name,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      student.name,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'รหัส: ${student.code}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontFamily: 'monospace',
-                                      color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.bold,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'รหัส: ${student.code}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontFamily: 'monospace',
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            Icon(
-                              FontAwesomeIcons.qrcode,
-                              size: 16,
-                              color: AppColors.textMuted,
-                            ),
-                          ],
-                        ),
-                      );
-                    }, childCount: _students.length),
+                              Icon(
+                                FontAwesomeIcons.qrcode,
+                                size: 16,
+                                color: AppColors.textMuted,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      childCount: (_students.length > _pageSize
+                          ? ((_students.length -
+                                        ((_currentPage - 1) * _pageSize))
+                                    .clamp(0, _pageSize) +
+                                1)
+                          : _students.length),
+                    ),
                   ),
                 ),
               /* Bottom Padding */ const SliverToBoxAdapter(

@@ -1,5 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
-import { DataTable, Icon, Select, GhostButton, Swal, Modal } from "../ui.jsx";
+import {
+  DataTable,
+  Icon,
+  Select,
+  GhostButton,
+  Swal,
+  Modal,
+  Pagination,
+} from "../ui.jsx";
 
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
@@ -286,6 +294,8 @@ export function ResultsPage({ data, api, refresh, query }) {
 }
 
 function StudentAnswersView({ result, exam }) {
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   if (!exam) return null;
 
   const questionsCount = Number(exam.questions || result.totalQuestions || 0);
@@ -321,6 +331,16 @@ function StudentAnswersView({ result, exam }) {
       isSkipped,
     };
   });
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const visibleRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [result?.id, exam?.id, questionsCount]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   return (
     <div className="space-y-6">
@@ -388,7 +408,7 @@ function StudentAnswersView({ result, exam }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <tr key={row.question} className="hover:bg-slate-50">
                 <td className="px-4 py-3 font-bold text-slate-700">
                   {row.question}
@@ -428,6 +448,21 @@ function StudentAnswersView({ result, exam }) {
           </tbody>
         </table>
       </div>
+      {rows.length > 0 && (
+        <div className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-3 text-sm">
+          <span className="text-slate-500">
+            แสดง {(page - 1) * pageSize + 1}-
+            {Math.min(page * pageSize, rows.length)} จาก {rows.length} รายการ
+          </span>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            variant="outlined"
+            shape="rounded"
+          />
+        </div>
+      )}
     </div>
   );
 }

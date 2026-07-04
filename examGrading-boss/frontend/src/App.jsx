@@ -589,6 +589,99 @@ export default function App() {
 
     return {
       log,
+      async deleteQuerySnapshot(snapshot) {
+        if (snapshot.empty) return 0;
+        const chunks = [];
+        let current = [];
+        snapshot.docs.forEach((doc) => {
+          current.push(doc.ref);
+          if (current.length === 450) {
+            chunks.push(current);
+            current = [];
+          }
+        });
+        if (current.length) chunks.push(current);
+
+        let deleted = 0;
+        for (const refs of chunks) {
+          const batch = firebase.db.batch();
+          refs.forEach((ref) => batch.delete(ref));
+          await batch.commit();
+          deleted += refs.length;
+        }
+        return deleted;
+      },
+      async removeSubjectCascade(subjectId) {
+        const subjectDoc = await root
+          .collection("subjects")
+          .doc(subjectId)
+          .get();
+        const subjectCode = String(subjectDoc.data()?.code || subjectId);
+
+        const sectionSnapshot = await root
+          .collection("subjects")
+          .doc(subjectId)
+          .collection("sections")
+          .get();
+
+        const sectionIds = sectionSnapshot.docs.map(
+          (doc) => `${subjectId}_${doc.id}`,
+        );
+        await this.deleteQuerySnapshot(sectionSnapshot);
+
+        const studentsSnapshot = await root.collection("students").get();
+        const studentDocs = studentsSnapshot.docs.filter((doc) => {
+          const classId = String(doc.data()?.class || "");
+          return (
+            classId.startsWith(`${subjectId}_`) ||
+            classId.startsWith(`${subjectCode}_`) ||
+            classId === subjectId ||
+            classId === subjectCode ||
+            sectionIds.includes(classId)
+          );
+        });
+        if (studentDocs.length) {
+          await this.deleteQuerySnapshot({ docs: studentDocs, empty: false });
+        }
+
+        await root.collection("subjects").doc(subjectId).delete();
+      },
+      async removeSectionCascade(subjectId, sectionId) {
+        const subjectDoc = await root
+          .collection("subjects")
+          .doc(subjectId)
+          .get();
+        const subjectCode = String(subjectDoc.data()?.code || subjectId);
+        const sectionDoc = await root
+          .collection("subjects")
+          .doc(subjectId)
+          .collection("sections")
+          .doc(sectionId)
+          .get();
+        const sectionSec = String(sectionDoc.data()?.sec || sectionId);
+        const sectionFullId = `${subjectId}_${sectionId}`;
+        const legacySectionFullId = `${subjectCode}_${sectionSec}`;
+
+        const studentsSnapshot = await root.collection("students").get();
+        const studentDocs = studentsSnapshot.docs.filter((doc) => {
+          const classId = String(doc.data()?.class || "");
+          return (
+            classId === sectionFullId ||
+            classId === legacySectionFullId ||
+            classId === sectionSec
+          );
+        });
+        if (studentDocs.length) {
+          await this.deleteQuerySnapshot({ docs: studentDocs, empty: false });
+        }
+
+        await root
+          .collection("subjects")
+          .doc(subjectId)
+          .collection("sections")
+          .doc(sectionId)
+          .delete();
+      },
       async add(collectionPath, payload) {
         const docRef = await root.collection(collectionPath).add(payload);
         await log(`User added ${collectionPath}`, {
@@ -618,7 +711,18 @@ export default function App() {
         });
       },
       async remove(collectionPath, id) {
-        await root.collection(collectionPath).doc(id).delete();
+        if (collectionPath === "subjects") {
+          await this.removeSubjectCascade(id);
+        } else if (
+          collectionPath.startsWith("subjects/") &&
+          collectionPath.endsWith("/sections")
+        ) {
+          const parts = collectionPath.split("/");
+          const subjectId = parts[1];
+          await this.removeSectionCascade(subjectId, id);
+        } else {
+          await root.collection(collectionPath).doc(id).delete();
+        }
         await log(`User deleted ${collectionPath}/${id}`, {
           action: "remove",
           collectionPath,

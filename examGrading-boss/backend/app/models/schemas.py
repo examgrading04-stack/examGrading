@@ -5,6 +5,7 @@ class SheetPdfRequest(BaseModel):
     user_email: str | None = None
     exam_id: str
     student_ids: list[str] | None = None
+    students_snapshot: list[dict] | None = None
     upload_to_storage: bool = True
 
 

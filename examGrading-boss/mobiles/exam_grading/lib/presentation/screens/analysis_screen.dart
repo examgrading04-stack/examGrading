@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
 class _ItemAnalysis {
   const _ItemAnalysis({
@@ -28,6 +29,8 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  static const int _pageSize = 3;
+  int _currentPage = 1;
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   Map<String, String> _subjectNames = {};
@@ -288,10 +291,59 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
                       sliver: SliverList.separated(
-                        itemCount: _exams.length,
+                        itemCount: (() {
+                          final totalPages = (_exams.length / _pageSize)
+                              .ceil()
+                              .clamp(1, 1000000);
+                          final page = _currentPage.clamp(1, totalPages);
+                          final start = (page - 1) * _pageSize;
+                          final end = (start + _pageSize).clamp(
+                            0,
+                            _exams.length,
+                          );
+                          final visible = _exams.sublist(start, end);
+                          return visible.length +
+                              (_exams.length > _pageSize ? 1 : 0);
+                        })(),
                         separatorBuilder: (_, __) => const SizedBox(height: 16),
                         itemBuilder: (context, index) {
-                          final exam = _exams[index];
+                          final totalPages = (_exams.length / _pageSize)
+                              .ceil()
+                              .clamp(1, 1000000);
+                          final page = _currentPage.clamp(1, totalPages);
+                          if (page != _currentPage) {
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted) setState(() => _currentPage = page);
+                            });
+                          }
+                          final start = (page - 1) * _pageSize;
+                          final end = (start + _pageSize).clamp(
+                            0,
+                            _exams.length,
+                          );
+                          final visible = _exams.sublist(start, end);
+                          if (index == visible.length) {
+                            return Column(
+                              children: [
+                                Text(
+                                  'แสดง ${start + 1}-$end จาก ${_exams.length} รายการ',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                PaginationBar(
+                                  page: page,
+                                  totalPages: totalPages,
+                                  onPageChanged: (nextPage) {
+                                    setState(() => _currentPage = nextPage);
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+                          final exam = visible[index];
                           final results = _results
                               .where((result) => result['examId'] == exam.id)
                               .toList();

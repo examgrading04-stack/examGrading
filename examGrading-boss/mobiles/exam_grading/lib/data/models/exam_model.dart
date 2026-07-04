@@ -8,6 +8,7 @@ class ExamModel {
   int sets;
   String? section;
   Map<String, Map<String, String>> answerKey;
+  List<Map<String, dynamic>> studentsSnapshot;
 
   ExamModel({
     required this.id,
@@ -19,6 +20,7 @@ class ExamModel {
     required this.sets,
     this.section,
     required this.answerKey,
+    this.studentsSnapshot = const [],
   });
 
   factory ExamModel.fromMap(String id, Map<String, dynamic> map) {
@@ -34,6 +36,7 @@ class ExamModel {
       sets: int.tryParse(map['sets'].toString()) ?? 0,
       section: map['section']?.toString(),
       answerKey: _parseAnswerKey(rawAnswerKey),
+      studentsSnapshot: _parseStudentsSnapshot(map['studentsSnapshot']),
     );
   }
 
@@ -47,7 +50,23 @@ class ExamModel {
       'sets': sets,
       if (section != null) 'section': section,
       'answerKey': answerKey,
+      'studentsSnapshot': studentsSnapshot,
     };
+  }
+
+  static List<Map<String, dynamic>> _parseStudentsSnapshot(dynamic raw) {
+    if (raw is! List) return [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (item) => {
+            'id': (item['id'] ?? '').toString(),
+            'code': (item['code'] ?? '').toString(),
+            'name': (item['name'] ?? '').toString(),
+            'class': (item['class'] ?? '').toString(),
+          },
+        )
+        .toList();
   }
 
   static Map<String, Map<String, String>> _parseAnswerKey(dynamic raw) {

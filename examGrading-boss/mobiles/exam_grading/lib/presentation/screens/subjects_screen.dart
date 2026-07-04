@@ -5,41 +5,43 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/screens/sections_screen.dart';
-import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
+import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 
 class SubjectsScreen extends StatefulWidget {
   const SubjectsScreen({Key? key}) : super(key: key);
+
   @override
   State<SubjectsScreen> createState() => _SubjectsScreenState();
 }
 
 class _SubjectsScreenState extends State<SubjectsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  static const int _pageSize = 10;
+  int _currentPage = 1;
+
   CollectionReference<Map<String, dynamic>> get _subjectsRef =>
       FirebaseFirestore.instance
           .collection('users')
           .doc(_uid)
           .collection('subjects');
-  @override
-  void initState() {
-    super.initState();
-  }
 
   void _showSubjectDialog([SubjectModel? subject]) {
+    final isEdit = subject != null;
     final codeController = TextEditingController(text: subject?.code);
     final nameController = TextEditingController(text: subject?.name);
     final termController = TextEditingController(text: subject?.term);
     final yearController = TextEditingController(text: subject?.year);
     final teacherController = TextEditingController(text: subject?.teacher);
-    final isEdit = subject != null;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _SheetFrame(
-          title: isEdit ? 'แก้ไขข้อมูลรายวิชา' : 'เพิ่มรายวิชาใหม่',
+          title: isEdit ? 'แก้ไขข้อมูลรายวิชา' : 'เพิ่มข้อมูลรายวิชาใหม่',
           children: [
             _buildField('รหัสวิชา', codeController, FontAwesomeIcons.barcode),
             const SizedBox(height: 20),
@@ -68,25 +70,27 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
             const SizedBox(height: 20),
             _buildField(
-              'อาจารย์ผู้สอน',
+              'ชื่ออาจารย์ผู้สอน',
               teacherController,
               FontAwesomeIcons.userTie,
             ),
             const SizedBox(height: 36),
             _buildSubmitButton(
               onPressed: () async {
-                if (codeController.text.isEmpty ||
-                    nameController.text.isEmpty) {
-                  _warn('กรุณากรอกรหัสและชื่อวิชา');
+                if (codeController.text.trim().isEmpty ||
+                    nameController.text.trim().isEmpty) {
+                  _warn('กรุณากรอกรหัสวิชาและชื่อวิชา');
                   return;
                 }
+
                 final data = {
-                  'code': codeController.text,
-                  'name': nameController.text,
-                  'term': termController.text,
-                  'year': yearController.text,
-                  'teacher': teacherController.text,
+                  'code': codeController.text.trim(),
+                  'name': nameController.text.trim(),
+                  'term': termController.text.trim(),
+                  'year': yearController.text.trim(),
+                  'teacher': teacherController.text.trim(),
                 };
+
                 if (isEdit) {
                   await _subjectsRef
                       .doc(subject.id)
@@ -94,13 +98,18 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       .timeout(const Duration(seconds: 15));
                 } else {
                   await _subjectsRef
-                      .doc(codeController.text)
+                      .doc(codeController.text.trim())
                       .set(data)
                       .timeout(const Duration(seconds: 15));
                 }
+
                 if (!mounted) return;
                 Navigator.pop(context);
-                _success(isEdit ? 'แก้ไขรายวิชาสำเร็จ' : 'เพิ่มรายวิชาสำเร็จ');
+                _success(
+                  isEdit
+                      ? 'แก้ไขข้อมูลรายวิชาเรียบร้อย'
+                      : 'เพิ่มข้อมูลรายวิชาเรียบร้อย',
+                );
               },
             ),
           ],
@@ -187,23 +196,60 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     QuickAlert.show(
       context: context,
       type: QuickAlertType.warning,
-      title: 'ยืนยันการลบ',
+      title: 'ยืนยันการลบรายวิชา',
       text:
-          'คุณแน่ใจหรือไม่ที่จะลบรายวิชานี้? กลุ่มเรียนในวิชานี้จะถูกลบไปด้วย',
+          'การลบรายวิชาจะลบกลุ่มเรียนและรายชื่อผู้เรียนในรายวิชานี้ด้วย แต่ผลการสอบยังคงเก็บไว้',
       confirmBtnText: 'ลบ',
       cancelBtnText: 'ยกเลิก',
       showCancelBtn: true,
       confirmBtnColor: Colors.red,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
-        await _subjectsRef
-            .doc(id)
-            .delete()
-            .timeout(const Duration(seconds: 15));
+        await _deleteSubjectCascade(id);
         if (!mounted) return;
-        _success('ลบรายวิชาเรียบร้อยแล้ว');
+        _success('ลบรายวิชาเรียบร้อย');
       },
     );
+  }
+
+  Future<void> _deleteSubjectCascade(String subjectId) async {
+    final userRoot = FirebaseFirestore.instance.collection('users').doc(_uid);
+    final subjectRef = userRoot.collection('subjects').doc(subjectId);
+    final subjectSnap = await subjectRef.get();
+    final subjectCode = (subjectSnap.data()?['code'] ?? subjectId).toString();
+
+    final sectionsSnapshot = await subjectRef.collection('sections').get();
+    final sectionDocIds = sectionsSnapshot.docs.map((d) => d.id).toSet();
+    final sectionSecs = sectionsSnapshot.docs
+        .map((d) => (d.data()['sec'] ?? d.id).toString())
+        .toSet();
+    final sectionFullIds = sectionDocIds
+        .map((id) => '${subjectId}_$id')
+        .toSet();
+    final legacySectionFullIds = sectionSecs
+        .map((sec) => '${subjectCode}_$sec')
+        .toSet();
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final sectionDoc in sectionsSnapshot.docs) {
+      batch.delete(sectionDoc.reference);
+    }
+
+    final studentsSnapshot = await userRoot.collection('students').get();
+    for (final studentDoc in studentsSnapshot.docs) {
+      final classId = (studentDoc.data()['class'] ?? '').toString();
+      final shouldDelete =
+          classId.startsWith('${subjectId}_') ||
+          classId.startsWith('${subjectCode}_') ||
+          classId == subjectId ||
+          classId == subjectCode ||
+          sectionFullIds.contains(classId) ||
+          legacySectionFullIds.contains(classId);
+      if (shouldDelete) batch.delete(studentDoc.reference);
+    }
+
+    batch.delete(subjectRef);
+    await batch.commit().timeout(const Duration(seconds: 15));
   }
 
   void _warn(String text) {
@@ -263,7 +309,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
               child: Text(
-                'ข้อมูลรายวิชาของคุณ',
+                'จัดการข้อมูลรายวิชาและกลุ่มเรียน',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -332,7 +378,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเพิ่มวิชาแรกของคุณ',
+                      'เพิ่มรายวิชาและกลุ่มเรียนก่อน เพื่อเริ่มจัดการข้อมูลผู้เรียนและการสอบ',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textSecondary,
@@ -354,155 +400,186 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   }
 
   Widget _buildSubjectsList(List<SubjectModel> subjects) {
+    final totalPages = (subjects.length / _pageSize).ceil().clamp(1, 1000000);
+    final page = _currentPage.clamp(1, totalPages);
+    if (page != _currentPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _currentPage = page);
+      });
+    }
+    final start = (page - 1) * _pageSize;
+    final end = (start + _pageSize).clamp(0, subjects.length);
+    final visibleSubjects = subjects.sublist(start, end);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
-        children: subjects.map((subject) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border, width: 1.5),
-              boxShadow: AppColors.softShadow,
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SectionsScreen(subject: subject),
-                  ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          FontAwesomeIcons.book,
-                          color: AppColors.primary,
-                          size: 22,
+        children: [
+          ...visibleSubjects.map((subject) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border, width: 1.5),
+                boxShadow: AppColors.softShadow,
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SectionsScreen(subject: subject),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            FontAwesomeIcons.book,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                subject.code,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '${subject.year}/${subject.term}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  subject.code,
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppColors.primary,
                                   ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${subject.year}/${subject.term}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              subject.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (subject.teacher.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                subject.teacher,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            subject.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (subject.teacher.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              subject.teacher,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textMuted,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _showSubjectDialog(subject),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.infoSoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.solidPenToSquare,
+                                  color: AppColors.info,
+                                  size: 14,
+                                ),
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _deleteSubject(subject.id),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppColors.errorSoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.trash,
+                                  color: AppColors.error,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      children: [
-                        GestureDetector(
-                          onTap: () => _showSubjectDialog(subject),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.infoSoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.solidPenToSquare,
-                                color: AppColors.info,
-                                size: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () => _deleteSubject(subject.id),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.errorSoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.trash,
-                                color: AppColors.error,
-                                size: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+            );
+          }).toList(),
+          if (subjects.length > _pageSize) ...[
+            const SizedBox(height: 4),
+            Text(
+              'แสดง ${start + 1}-$end จาก ${subjects.length} รายการ',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          );
-        }).toList(),
+            PaginationBar(
+              page: page,
+              totalPages: totalPages,
+              onPageChanged: (nextPage) {
+                setState(() => _currentPage = nextPage);
+              },
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -511,7 +588,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 class _SheetFrame extends StatelessWidget {
   final String title;
   final List<Widget> children;
+
   const _SheetFrame({required this.title, required this.children});
+
   @override
   Widget build(BuildContext context) {
     return Container(

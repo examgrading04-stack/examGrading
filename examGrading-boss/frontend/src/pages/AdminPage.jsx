@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Field, Icon, Input, PrimaryButton, Swal, useChart } from "../ui.jsx";
+import {
+  Field,
+  Icon,
+  Input,
+  Pagination,
+  PrimaryButton,
+  Swal,
+  useChart,
+} from "../ui.jsx";
 
 const ADMIN_COLLECTIONS = ["Admin", "admins"];
 const LOG_COLLECTIONS = ["systemLogs", "logs", "ประวัติการใช้งานระบบ"];
@@ -131,6 +139,8 @@ export function AdminPage({ firebase }) {
   });
   const [editingUser, setEditingUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [usersPage, setUsersPage] = useState(1);
+  const [logsPage, setLogsPage] = useState(1);
   const [data, setData] = useState({
     admins: [],
     users: [],
@@ -367,6 +377,33 @@ export function AdminPage({ firebase }) {
         .some((value) => String(value).toLowerCase().includes(keyword)),
     );
   }, [data.users, search]);
+
+  const PAGE_SIZE = 10;
+  const usersTotalPages = Math.max(
+    1,
+    Math.ceil(filteredUsers.length / PAGE_SIZE),
+  );
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * PAGE_SIZE;
+    return filteredUsers.slice(start, start + PAGE_SIZE);
+  }, [filteredUsers, usersPage]);
+  const logsTotalPages = Math.max(1, Math.ceil(data.logs.length / PAGE_SIZE));
+  const paginatedLogs = useMemo(() => {
+    const start = (logsPage - 1) * PAGE_SIZE;
+    return data.logs.slice(start, start + PAGE_SIZE);
+  }, [data.logs, logsPage]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setUsersPage((page) => Math.min(page, usersTotalPages));
+  }, [usersTotalPages]);
+
+  useEffect(() => {
+    setLogsPage((page) => Math.min(page, logsTotalPages));
+  }, [logsTotalPages]);
 
   const monthlyStats = useMemo(() => {
     const months = ["ต.ค.", "พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค."];
@@ -656,7 +693,7 @@ export function AdminPage({ firebase }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <tr
                         key={user.id}
                         className={`hover:bg-zinc-50 ${user.status === "suspended" ? "bg-red-50" : ""}`}
@@ -731,6 +768,22 @@ export function AdminPage({ firebase }) {
                     )}
                   </tbody>
                 </table>
+                {filteredUsers.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 text-sm">
+                    <span className="text-zinc-500">
+                      แสดง {(usersPage - 1) * PAGE_SIZE + 1}-
+                      {Math.min(usersPage * PAGE_SIZE, filteredUsers.length)}{" "}
+                      จาก {filteredUsers.length} รายการ
+                    </span>
+                    <Pagination
+                      count={usersTotalPages}
+                      page={usersPage}
+                      onChange={(_, value) => setUsersPage(value)}
+                      variant="outlined"
+                      shape="rounded"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -756,7 +809,7 @@ export function AdminPage({ firebase }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.logs.map((log) => (
+                    {paginatedLogs.map((log) => (
                       <tr
                         key={log.id}
                         className="hover:bg-zinc-800 border-b border-zinc-800"
@@ -787,6 +840,22 @@ export function AdminPage({ firebase }) {
                     )}
                   </tbody>
                 </table>
+                {data.logs.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-700 px-4 py-3 text-sm">
+                    <span className="text-zinc-400">
+                      แสดง {(logsPage - 1) * PAGE_SIZE + 1}-
+                      {Math.min(logsPage * PAGE_SIZE, data.logs.length)} จาก{" "}
+                      {data.logs.length} รายการ
+                    </span>
+                    <Pagination
+                      count={logsTotalPages}
+                      page={logsPage}
+                      onChange={(_, value) => setLogsPage(value)}
+                      variant="outlined"
+                      shape="rounded"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

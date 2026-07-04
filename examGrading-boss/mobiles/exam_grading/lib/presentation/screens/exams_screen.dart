@@ -7,8 +7,10 @@ import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/screens/answer_key_screen.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/presentation/screens/answer_sheets_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/data/models/student_model.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({Key? key}) : super(key: key);
@@ -18,6 +20,8 @@ class ExamsScreen extends StatefulWidget {
 
 class _ExamsScreenState extends State<ExamsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  static const int _pageSize = 5;
+  int _currentPage = 1;
   List<SubjectModel> _subjects = [];
   @override
   void initState() {
@@ -37,6 +41,43 @@ class _ExamsScreenState extends State<ExamsScreen> {
           .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
           .toList();
     });
+  }
+
+  Future<List<Map<String, dynamic>>> _buildStudentsSnapshotForExam(
+    String subjectCode,
+    String? section,
+  ) async {
+    final studentsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_uid)
+        .collection('students')
+        .get();
+
+    final all = studentsSnapshot.docs
+        .map((doc) => StudentModel.fromMap(doc.id, doc.data()))
+        .toList();
+    final examSection = (section ?? '').trim();
+
+    final filtered = all.where((s) {
+      final classStr = s.className;
+      if (examSection.isNotEmpty) {
+        return classStr == '${subjectCode}_$examSection' ||
+            classStr == examSection;
+      }
+      return classStr == subjectCode || classStr.startsWith('${subjectCode}_');
+    }).toList();
+
+    final source = filtered.isNotEmpty ? filtered : all;
+    return source
+        .map(
+          (s) => {
+            'id': s.id,
+            'code': s.code,
+            'name': s.name,
+            'class': s.className,
+          },
+        )
+        .toList();
   }
 
   void _showExamDialog([ExamModel? exam]) {
@@ -148,14 +189,23 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             );
                             return;
                           }
+                          final subjectCode = selectedSubjectCode!;
+                          final examSection = '';
+                          final studentsSnapshot = isEdit
+                              ? exam.studentsSnapshot
+                              : await _buildStudentsSnapshotForExam(
+                                  subjectCode,
+                                  examSection,
+                                );
                           final data = {
                             'name': nameController.text.trim(),
-                            'subject': selectedSubjectCode,
+                            'subject': subjectCode,
                             'date': dateController.text,
                             'questions':
                                 int.tryParse(questionsController.text) ?? 100,
                             'options': 4,
                             'sets': 1,
+                            'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
                             await FirebaseFirestore.instance
@@ -181,21 +231,22 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           Navigator.pop(context);
                           if (!isEdit) {
                             final subjectObj = _subjects.firstWhere(
-                              (s) => s.code == selectedSubjectCode,
+                              (s) => s.code == subjectCode,
                               orElse: () => _subjects.first,
                             );
                             final examId =
-                                '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}';
+                                '${subjectCode}_${nameController.text.trim().replaceAll(' ', '_')}';
                             final newExam = ExamModel(
                               id: examId,
                               name: nameController.text.trim(),
-                              subject: selectedSubjectCode!,
+                              subject: subjectCode,
                               date: dateController.text,
                               questions:
                                   int.tryParse(questionsController.text) ?? 100,
                               options: 4,
                               sets: 1,
                               answerKey: {},
+                              studentsSnapshot: studentsSnapshot,
                             );
                             Navigator.push(
                               context,
@@ -591,16 +642,54 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 );
               }
               final docs = snapshot.data!.docs;
+              final totalPages = (docs.length / _pageSize).ceil().clamp(
+                1,
+                1000000,
+              );
+              final page = _currentPage.clamp(1, totalPages);
+              if (page != _currentPage) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _currentPage = page);
+                });
+              }
+              final start = (page - 1) * _pageSize;
+              final end = (start + _pageSize).clamp(0, docs.length);
+              final visibleDocs = docs.sublist(start, end);
               return SliverPadding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final exam = ExamModel.fromMap(
-                      docs[index].id,
-                      docs[index].data() as Map<String, dynamic>,
-                    );
-                    return _buildExamCard(exam);
-                  }, childCount: docs.length),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == visibleDocs.length) {
+                        return Column(
+                          children: [
+                            Text(
+                              'แสดง ${start + 1}-$end จาก ${docs.length} รายการ',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            PaginationBar(
+                              page: page,
+                              totalPages: totalPages,
+                              onPageChanged: (nextPage) {
+                                setState(() => _currentPage = nextPage);
+                              },
+                            ),
+                          ],
+                        );
+                      }
+                      final exam = ExamModel.fromMap(
+                        visibleDocs[index].id,
+                        visibleDocs[index].data() as Map<String, dynamic>,
+                      );
+                      return _buildExamCard(exam);
+                    },
+                    childCount:
+                        visibleDocs.length + (docs.length > _pageSize ? 1 : 0),
+                  ),
                 ),
               );
             },

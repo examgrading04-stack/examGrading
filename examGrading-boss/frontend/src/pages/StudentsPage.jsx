@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import {
   DataTable,
   Field,
@@ -14,13 +14,20 @@ import {
 export function StudentsPage({ data, api, refresh }) {
   const [form, setForm] = useState(emptyForm(["id", "code", "name", "class"]));
   const [importOpen, setImportOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [importSubject, setImportSubject] = useState("");
   const [importClass, setImportClass] = useState("");
   const [searchText, setSearchText] = useState("");
   const fileRef = useRef(null);
+
   const importSections = importSubject
     ? data.sections.filter((section) => section.subject === importSubject)
-    : [];
+    : data.sections;
+
+  const subjectById = new Map(data.subjects.map((s) => [String(s.id), s]));
+  const subjectByCode = new Map(
+    data.subjects.map((s) => [String(s.code || "").toLowerCase(), s]),
+  );
 
   async function saveStudent(event) {
     event.preventDefault();
@@ -45,44 +52,109 @@ export function StudentsPage({ data, api, refresh }) {
     await refresh("ลบผู้เรียนแล้ว");
   }
 
+  function getRowValue(row, keys) {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
+        return String(row[key]).trim();
+      }
+    }
+    return "";
+  }
+
+  function resolveSubjectId(rawSubject) {
+    if (!rawSubject) return "";
+    const normalized = String(rawSubject).trim();
+    if (subjectById.has(normalized)) return normalized;
+    const byCode = subjectByCode.get(normalized.toLowerCase());
+    return byCode?.id || "";
+  }
+
+  function resolveClassFromRow(row) {
+    const rawClass = getRowValue(row, [
+      "class",
+      "Class",
+      "sectionId",
+      "section_id",
+      "กลุ่มเรียน",
+    ]);
+
+    if (rawClass) {
+      const direct = data.sections.find(
+        (section) => section.id === rawClass || section.realId === rawClass,
+      );
+      if (direct) return direct.id;
+    }
+
+    const rawSection = getRowValue(row, ["section", "Section", "sec", "Sec"]);
+    const rawSubject = getRowValue(row, [
+      "subject",
+      "Subject",
+      "subjectCode",
+      "subject_code",
+      "วิชา",
+      "รหัสวิชา",
+    ]);
+
+    const subjectIdFromRow = resolveSubjectId(rawSubject);
+    const subjectIdForLookup = subjectIdFromRow || importSubject || "";
+
+    if (rawSection && subjectIdForLookup) {
+      const matched = data.sections.find(
+        (section) =>
+          section.subject === subjectIdForLookup &&
+          String(section.sec || "") === String(rawSection),
+      );
+      if (matched) return matched.id;
+    }
+
+    if (rawSection && !subjectIdForLookup) {
+      const bySec = data.sections.filter(
+        (section) => String(section.sec || "") === String(rawSection),
+      );
+      if (bySec.length === 1) return bySec[0].id;
+    }
+
+    return importClass || "";
+  }
+
   async function importExcel(event) {
     const file = event.target.files?.[0];
     if (!file || !window.XLSX) return;
-    if (!importClass) {
-      event.target.value = "";
-      Swal().fire(
-        "เลือกกลุ่มเรียนก่อน",
-        "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้า Excel",
-        "warning",
-      );
-      return;
-    }
-    const buffer = await file.arrayBuffer();
-    const workbook = window.XLSX.read(new Uint8Array(buffer), {
-      type: "array",
-    });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = window.XLSX.utils.sheet_to_json(sheet);
-    let count = 0;
-    for (const row of rows) {
-      const code =
-        row["รหัสนักเรียน"] || row.ID || row.code || row["เลขประจำตัว"];
-      const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
-      if (code && name) {
-        const payload = {
-          code: String(code),
-          name: String(name),
-          class: importClass,
-        };
-        await api.set(`students/${payload.code}`, payload);
-        count += 1;
+
+    setIsImporting(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = window.XLSX.read(new Uint8Array(buffer), {
+        type: "array",
+      });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = window.XLSX.utils.sheet_to_json(sheet);
+
+      let count = 0;
+      for (const row of rows) {
+        const code =
+          row["รหัสนักเรียน"] || row.ID || row.code || row["เลขประจำตัว"];
+        const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
+
+        if (code && name) {
+          const payload = {
+            code: String(code),
+            name: String(name),
+            class: resolveClassFromRow(row),
+          };
+          await api.set(`students/${payload.code}`, payload);
+          count += 1;
+        }
       }
+
+      event.target.value = "";
+      setImportOpen(false);
+      setImportSubject("");
+      setImportClass("");
+      await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
+    } finally {
+      setIsImporting(false);
     }
-    event.target.value = "";
-    setImportOpen(false);
-    setImportSubject("");
-    setImportClass("");
-    await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
   }
 
   const [filterSubject, setFilterSubject] = useState("");
@@ -142,19 +214,21 @@ export function StudentsPage({ data, api, refresh }) {
                 ))}
               </Select>
             </div>
-            <div className="min-w-40">
-              <Select
-                value={filterSection}
-                onChange={(event) => setFilterSection(event.target.value)}
-              >
-                <option value="">ทุกกลุ่มเรียน</option>
-                {filterSections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.sec} ({section.subject})
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {filterSubject && (
+              <div className="min-w-40">
+                <Select
+                  value={filterSection}
+                  onChange={(event) => setFilterSection(event.target.value)}
+                >
+                  <option value="">ทุกกลุ่มเรียน</option>
+                  {filterSections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.sec} ({section.subject})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -263,34 +337,37 @@ export function StudentsPage({ data, api, refresh }) {
           <Icon name="fa-floppy-disk" /> บันทึกผู้เรียน
         </PrimaryButton>
       </form>
+
       {importOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white/95 rounded-2xl border border-zinc-200 p-6 w-full max-w-lg space-y-5">
+          <div className="relative bg-white/95 rounded-2xl border border-zinc-200 p-6 w-full max-w-lg space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="font-extrabold text-lg">นำเข้า Excel</h3>
                 <p className="text-sm text-zinc-500 mt-1">
-                  ไฟล์ต้องมีเฉพาะคอลัมน์รหัสนักเรียนและชื่อ-นามสกุล
+                  รองรับการนำเข้าหลายวิชา/หลายกลุ่มเรียนในไฟล์เดียว
                 </p>
               </div>
               <GhostButton
                 type="button"
                 className="py-2 px-3"
+                disabled={isImporting}
                 onClick={() => setImportOpen(false)}
               >
                 <Icon name="fa-xmark" />
               </GhostButton>
             </div>
 
-            <Field label="รายวิชา">
+            <Field label="รายวิชา (ค่าเริ่มต้น)">
               <Select
                 value={importSubject}
+                disabled={isImporting}
                 onChange={(event) => {
                   setImportSubject(event.target.value);
                   setImportClass("");
                 }}
               >
-                <option value="">เลือกรายวิชา</option>
+                <option value="">(ไม่กำหนด)</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.code} - {subject.name}
@@ -299,13 +376,13 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <Field label="กลุ่มเรียน">
+            <Field label="กลุ่มเรียน (ค่าเริ่มต้น)">
               <Select
                 value={importClass}
+                disabled={isImporting}
                 onChange={(event) => setImportClass(event.target.value)}
-                disabled={!importSubject}
               >
-                <option value="">เลือกกลุ่มเรียน</option>
+                <option value="">(ไม่กำหนด)</option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}
@@ -318,18 +395,35 @@ export function StudentsPage({ data, api, refresh }) {
               <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
               <div>รหัสนักเรียน | ชื่อ-นามสกุล</div>
               <div className="mt-1 text-zinc-500">
-                หรือใช้ชื่อคอลัมน์อังกฤษ: code | name
+                รองรับคอลัมน์ภาษาอังกฤษ: code | name
+              </div>
+              <div className="mt-1 text-zinc-500">
+                ถ้าต้องการกำหนดหลายวิชา/หลายกลุ่มในไฟล์เดียว เพิ่มคอลัมน์:
+                subject (หรือ subjectCode/วิชา/รหัสวิชา) และ section (หรือ sec)
               </div>
             </div>
 
             <PrimaryButton
               type="button"
               className="w-full"
-              disabled={!importClass}
+              disabled={isImporting}
               onClick={() => fileRef.current?.click()}
             >
-              <Icon name="fa-file-import" /> เลือกไฟล์ Excel
+              <Icon
+                name={isImporting ? "fa-spinner fa-spin" : "fa-file-import"}
+              />{" "}
+              {isImporting ? "กำลังนำเข้าข้อมูล..." : "เลือกไฟล์ Excel"}
             </PrimaryButton>
+            {isImporting && (
+              <div className="absolute inset-0 rounded-2xl bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                <div className="loader" aria-live="polite" aria-busy="true">
+                  <span>LOADING</span>
+                </div>
+                <p className="text-sm font-medium text-slate-600">
+                  กำลังนำเข้ารายชื่อผู้เรียน...
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

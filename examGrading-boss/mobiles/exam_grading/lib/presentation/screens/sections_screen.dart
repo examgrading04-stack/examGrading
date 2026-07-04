@@ -1,25 +1,31 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
-import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
-import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/data/models/section_model.dart';
+import 'package:exam_grading/data/models/subject_model.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
+import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 
 class SectionsScreen extends StatefulWidget {
   final SubjectModel subject;
   const SectionsScreen({Key? key, required this.subject}) : super(key: key);
+
   @override
   State<SectionsScreen> createState() => _SectionsScreenState();
 }
 
 class _SectionsScreenState extends State<SectionsScreen> {
   final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  static const int _pageSize = 10;
+  int _currentPage = 1;
+
   void _showSectionDialog([SectionModel? section]) {
     final isEdit = section != null;
     final secController = TextEditingController(text: section?.sec);
+
     showDialog(
       context: context,
       barrierColor: Colors.black54,
@@ -54,7 +60,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      isEdit ? 'แก้ไขกลุ่มเรียน' : 'เพิ่มกลุ่มเรียนใหม่',
+                      isEdit ? 'แก้ไขกลุ่มเรียน' : 'เพิ่มกลุ่มเรียน',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -65,7 +71,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                 ),
                 const SizedBox(height: 28),
                 _buildPopupField(
-                  'ชื่อกลุ่มเรียน (Sec)',
+                  'รหัสกลุ่มเรียน (Sec)',
                   secController,
                   FontAwesomeIcons.users,
                 ),
@@ -104,15 +110,17 @@ class _SectionsScreenState extends State<SectionsScreen> {
                               QuickAlert.show(
                                 context: context,
                                 type: QuickAlertType.warning,
-                                text: 'กรุณากรอกข้อมูลกลุ่มเรียน',
+                                text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
                                 confirmBtnColor: AppColors.primary,
                               );
                               return;
                             }
+
                             final data = {
                               'sec': secController.text.trim(),
                               'created_at': FieldValue.serverTimestamp(),
                             };
+
                             try {
                               if (isEdit) {
                                 await FirebaseFirestore.instance
@@ -135,13 +143,14 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                     .set(data)
                                     .timeout(const Duration(seconds: 15));
                               }
+
                               if (!mounted) return;
                               Navigator.pop(context);
                               QuickAlert.show(
                                 context: context,
                                 type: QuickAlertType.success,
                                 text: isEdit
-                                    ? 'แก้ไขข้อมูลกลุ่มเรียนสำเร็จ'
+                                    ? 'แก้ไขกลุ่มเรียนสำเร็จ'
                                     : 'เพิ่มกลุ่มเรียนสำเร็จ',
                                 confirmBtnColor: AppColors.primary,
                               );
@@ -187,28 +196,21 @@ class _SectionsScreenState extends State<SectionsScreen> {
     QuickAlert.show(
       context: context,
       type: QuickAlertType.confirm,
-      title: 'ยืนยันการลบ',
-      text: 'คุณต้องการลบกลุ่มเรียนนี้ใช่หรือไม่?',
-      confirmBtnText: 'ใช่, ลบเลย',
+      title: 'ยืนยันการลบกลุ่มเรียน',
+      text:
+          'เมื่อลบกลุ่มเรียน รายชื่อผู้เรียนในกลุ่มนี้จะถูกลบออกด้วย แต่ผลสอบที่บันทึกไว้ยังคงอยู่',
+      confirmBtnText: 'ลบ',
       cancelBtnText: 'ยกเลิก',
       confirmBtnColor: AppColors.error,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
         try {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(_uid)
-              .collection('subjects')
-              .doc(widget.subject.id)
-              .collection('sections')
-              .doc(id)
-              .delete()
-              .timeout(const Duration(seconds: 15));
+          await _deleteSectionCascade(id);
           if (!mounted) return;
           QuickAlert.show(
             context: context,
             type: QuickAlertType.success,
-            text: 'ลบข้อมูลสำเร็จ',
+            text: 'ลบกลุ่มเรียนเรียบร้อยแล้ว',
             confirmBtnColor: AppColors.primary,
           );
         } catch (e) {
@@ -221,6 +223,33 @@ class _SectionsScreenState extends State<SectionsScreen> {
         }
       },
     );
+  }
+
+  Future<void> _deleteSectionCascade(String sectionId) async {
+    final userRoot = FirebaseFirestore.instance.collection('users').doc(_uid);
+    final subjectRef = userRoot.collection('subjects').doc(widget.subject.id);
+    final sectionRef = subjectRef.collection('sections').doc(sectionId);
+    final sectionSnap = await sectionRef.get();
+    final subjectCode = widget.subject.code;
+    final sectionSec = (sectionSnap.data()?['sec'] ?? sectionId).toString();
+    final sectionFullId = '${widget.subject.id}_$sectionId';
+    final legacySectionFullId = '${subjectCode}_$sectionSec';
+
+    final batch = FirebaseFirestore.instance.batch();
+
+    final studentsSnapshot = await userRoot.collection('students').get();
+    for (final studentDoc in studentsSnapshot.docs) {
+      final classId = (studentDoc.data()['class'] ?? '').toString();
+      final shouldDelete =
+          classId == sectionFullId ||
+          classId == legacySectionFullId ||
+          classId == sectionSec ||
+          classId == sectionId;
+      if (shouldDelete) batch.delete(studentDoc.reference);
+    }
+
+    batch.delete(sectionRef);
+    await batch.commit().timeout(const Duration(seconds: 15));
   }
 
   Widget _buildPopupField(
@@ -319,7 +348,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                 return SliverFillRemaining(
                   child: Center(
                     child: Text(
-                      'เกิดข้อผิดพลาด: ${snapshot.error}',
+                      'โหลดข้อมูลไม่สำเร็จ: ${snapshot.error}',
                       style: const TextStyle(color: Colors.red),
                     ),
                   ),
@@ -363,7 +392,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อสร้างกลุ่มเรียนใหม่',
+                            'กดปุ่ม + เพื่อเพิ่มกลุ่มเรียนแรกของวิชานี้',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: AppColors.textSecondary,
@@ -376,6 +405,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                   ),
                 );
               }
+
               final sections = docs
                   .map(
                     (doc) => SectionModel.fromMap(
@@ -384,118 +414,152 @@ class _SectionsScreenState extends State<SectionsScreen> {
                     ),
                   )
                   .toList();
+              final totalPages = (sections.length / _pageSize).ceil().clamp(
+                1,
+                1000000,
+              );
+              final page = _currentPage.clamp(1, totalPages);
+              if (page != _currentPage) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _currentPage = page);
+                });
+              }
+              final start = (page - 1) * _pageSize;
+              final end = (start + _pageSize).clamp(0, sections.length);
+              final visibleSections = sections.sublist(start, end);
               return SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
-                    children: sections.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final section = entry.value;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.border,
-                            width: 1.5,
+                    children: [
+                      ...visibleSections.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final section = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 1.5,
+                            ),
+                            boxShadow: AppColors.softShadow,
                           ),
-                          boxShadow: AppColors.softShadow,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primarySoft,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${start + index + 1}',
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'กลุ่มเรียน',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Sec ${section.sec}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      'กลุ่มเรียน',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.bold,
+                                    GestureDetector(
+                                      onTap: () => _showSectionDialog(section),
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.infoSoft,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            FontAwesomeIcons.solidPenToSquare,
+                                            color: AppColors.info,
+                                            size: 14,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Sec ${section.sec}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
+                                    const SizedBox(width: 10),
+                                    GestureDetector(
+                                      onTap: () => _deleteSection(section.id),
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.errorSoft,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: Icon(
+                                            FontAwesomeIcons.trash,
+                                            color: AppColors.error,
+                                            size: 14,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => _showSectionDialog(section),
-                                    child: Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.infoSoft,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          FontAwesomeIcons.solidPenToSquare,
-                                          color: AppColors.info,
-                                          size: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  GestureDetector(
-                                    onTap: () => _deleteSection(section.id),
-                                    child: Container(
-                                      width: 36,
-                                      height: 36,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.errorSoft,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Center(
-                                        child: Icon(
-                                          FontAwesomeIcons.trash,
-                                          color: AppColors.error,
-                                          size: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      if (sections.length > _pageSize) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'แสดง ${start + 1}-$end จาก ${sections.length} รายการ',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      );
-                    }).toList(),
+                        PaginationBar(
+                          page: page,
+                          totalPages: totalPages,
+                          onPageChanged: (nextPage) {
+                            setState(() => _currentPage = nextPage);
+                          },
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               );
