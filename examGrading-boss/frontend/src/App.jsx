@@ -576,6 +576,7 @@ export default function App() {
           logid: docRef.id,
           activity,
           datetime: window.firebase.firestore.FieldValue.serverTimestamp(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           user: user.email,
           userEmail: user.email,
           displayName: user.displayName || "",

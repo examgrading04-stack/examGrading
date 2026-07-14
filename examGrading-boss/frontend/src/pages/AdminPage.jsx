@@ -7,6 +7,7 @@ import {
   PrimaryButton,
   Swal,
   useChart,
+  apiFetch,
 } from "../ui.jsx";
 
 const ADMIN_COLLECTIONS = ["Admin", "admins"];
@@ -149,6 +150,60 @@ export function AdminPage({ firebase }) {
     results: [],
     students: [],
   });
+  const [storageData, setStorageData] = useState(null);
+  const [loadingStorage, setLoadingStorage] = useState(false);
+
+  useEffect(() => {
+    if (activePage === "storage" && !storageData) {
+      loadStorageData();
+    }
+  }, [activePage, storageData]);
+
+  async function loadStorageData() {
+    setLoadingStorage(true);
+    try {
+      const res = await apiFetch("/api/admin/storage");
+      if (!res.ok) {
+        throw new Error(`เซิร์ฟเวอร์ตอบกลับด้วยสถานะ ${res.status}`);
+      }
+      const json = await res.json();
+      setStorageData(json);
+    } catch (err) {
+      Swal().fire("โหลดข้อมูล Storage ไม่สำเร็จ", err.message, "error");
+      setStorageData(null);
+    } finally {
+      setLoadingStorage(false);
+    }
+  }
+
+  async function cleanOrphanedFiles() {
+    if (!(await Swal().fire({
+      title: "ยืนยันการล้างไฟล์ขยะ?",
+      text: "ระบบจะค้นหาและลบไฟล์กระดาษคำตอบ (PDF) ที่การสอบถูกลบไปแล้ว การกระทำนี้ไม่สามารถยกเลิกได้",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบไฟล์ขยะ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#EF4444"
+    })).isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังล้างไฟล์...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading()
+    });
+
+    try {
+      const res = await apiFetch("/api/admin/storage/clean", { method: "POST" });
+      const result = await res.json();
+      const mb = (result.freedBytes / (1024 * 1024)).toFixed(2);
+      await writeLog(`ล้างไฟล์ขยะ ${result.deletedCount} รายการ (${mb} MB)`);
+      Swal().fire("ล้างไฟล์ขยะสำเร็จ", `ลบไป ${result.deletedCount} ไฟล์\nคืนพื้นที่ได้ ${mb} MB`, "success");
+      loadStorageData();
+    } catch (err) {
+      Swal().fire("ทำรายการไม่สำเร็จ", err.message, "error");
+    }
+  }
 
   useEffect(() => {
     if (session) refresh();
@@ -160,6 +215,7 @@ export function AdminPage({ firebase }) {
       logid: docRef.id,
       activity,
       datetime: window.firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       admin: session?.aname || loginForm.aname || "Admin",
     });
   }
@@ -180,6 +236,29 @@ export function AdminPage({ firebase }) {
         loadUsersFromSubcollections(db),
       ]);
       const allUsers = mergeUsers(users, discovered.users);
+
+      const now = Date.now();
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const logsToKeep = [];
+      const logsToDelete = [];
+      logs.forEach((log) => {
+        const t = toDate(log.datetime)?.getTime();
+        if (t && now - t > SEVEN_DAYS) logsToDelete.push(log.id);
+        else logsToKeep.push(log);
+      });
+      if (logsToDelete.length > 0) {
+        try {
+          for (let i = 0; i < logsToDelete.length; i += 450) {
+            const batch = db.batch();
+            logsToDelete
+              .slice(i, i + 450)
+              .forEach((id) => batch.delete(db.collection(logsName).doc(id)));
+            await batch.commit();
+          }
+        } catch (e) {
+          console.warn("Could not delete old logs", e);
+        }
+      }
 
       const nested = await Promise.all(
         allUsers.map(async (user) => {
@@ -212,7 +291,7 @@ export function AdminPage({ firebase }) {
       setData({
         admins,
         users: allUsers,
-        logs: logs.sort(
+        logs: logsToKeep.sort(
           (a, b) =>
             (toDate(b.datetime)?.getTime() || 0) -
             (toDate(a.datetime)?.getTime() || 0),
@@ -406,17 +485,24 @@ export function AdminPage({ firebase }) {
   }, [logsTotalPages]);
 
   const monthlyStats = useMemo(() => {
-    const months = ["ต.ค.", "พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค."];
-    const counts = Object.fromEntries(months.map((month) => [month, 0]));
+    const labels = [];
+    const counts = {};
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
+      labels.push(label);
+      counts[label] = 0;
+    }
     data.results.forEach((result) => {
       const date = toDate(
         result.createdAt || result.datetime || result.date || result.timestamp,
       );
       if (!date) return;
-      const label = date.toLocaleDateString("th-TH", { month: "short" });
+      const label = date.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
       if (counts[label] !== undefined) counts[label] += 1;
     });
-    return { labels: months, values: months.map((month) => counts[month]) };
+    return { labels, values: labels.map((label) => counts[label]) };
   }, [data.results]);
 
   useChart(
@@ -511,6 +597,7 @@ export function AdminPage({ firebase }) {
             ["dashboard", "fa-chart-line", "ภาพรวมระบบ (Dashboard)"],
             ["users", "fa-users-gear", "จัดการผู้ใช้งาน"],
             ["logs", "fa-list-check", "ประวัติการใช้งาน"],
+            ["storage", "fa-hard-drive", "พื้นที่จัดเก็บ (Storage)"],
           ].map(([id, icon, label]) => (
             <button
               key={id}
@@ -537,6 +624,7 @@ export function AdminPage({ firebase }) {
             {activePage === "dashboard" && "ภาพรวมระบบ (Dashboard)"}
             {activePage === "users" && "จัดการผู้ใช้งาน"}
             {activePage === "logs" && "ประวัติการใช้งาน"}
+            {activePage === "storage" && "จัดการพื้นที่จัดเก็บข้อมูล"}
           </h2>
           <div className="flex items-center gap-4">
             <button
@@ -857,6 +945,100 @@ export function AdminPage({ firebase }) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activePage === "storage" && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-end">
+                <h3 className="text-lg font-bold text-zinc-700">
+                  <Icon name="fa-hard-drive" /> จัดการพื้นที่จัดเก็บข้อมูล (Firebase Storage)
+                </h3>
+              </div>
+              
+              {loadingStorage ? (
+                <div className="p-10 text-center text-zinc-500">
+                  <Icon name="fa-spinner" className="fa-spin text-2xl" />
+                  <div className="mt-2">กำลังโหลดข้อมูล...</div>
+                </div>
+              ) : storageData ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-6 flex items-center justify-between">
+                      <div>
+                        <div className="text-zinc-500 text-sm mb-1">พื้นที่ที่ใช้งานทั้งหมด</div>
+                        <div className="text-3xl font-bold text-zinc-800">
+                          {((storageData?.totalBytes || 0) / (1024 * 1024)).toFixed(2)} <span className="text-lg">MB</span>
+                        </div>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl">
+                        <Icon name="fa-server" />
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-6 flex items-center justify-between">
+                      <div>
+                        <div className="text-zinc-500 text-sm mb-1">จำนวนไฟล์ทั้งหมด</div>
+                        <div className="text-3xl font-bold text-zinc-800">
+                          {storageData?.fileCount || 0} <span className="text-lg">ไฟล์</span>
+                        </div>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 text-xl">
+                        <Icon name="fa-file-pdf" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h4 className="font-bold text-zinc-700">ลบไฟล์ขยะ (Orphaned Files)</h4>
+                      <PrimaryButton variant="danger" onClick={cleanOrphanedFiles}>
+                        <Icon name="fa-broom" /> ค้นหาและล้างไฟล์ขยะ
+                      </PrimaryButton>
+                    </div>
+                    <p className="text-sm text-zinc-500 mb-4">
+                      ระบบจะทำการตรวจสอบไฟล์กระดาษคำตอบ (PDF) ที่ค้างอยู่ในระบบ แต่ชุดข้อสอบถูกลบออกจากฐานข้อมูลไปแล้ว เพื่อประหยัดพื้นที่จัดเก็บและลดค่าใช้จ่าย
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-900 rounded-xl overflow-x-auto p-2">
+                    <table className="w-full text-left border-collapse text-sm text-zinc-300 font-mono">
+                      <thead>
+                        <tr className="border-b border-zinc-700 text-zinc-400">
+                          <th className="p-3">ชื่อไฟล์ (Path)</th>
+                          <th className="p-3">ขนาด (KB)</th>
+                          <th className="p-3">อัปเดตล่าสุด</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {storageData?.files?.map((file, i) => (
+                          <tr key={i} className="hover:bg-zinc-800 border-b border-zinc-800">
+                            <td className="p-3 text-emerald-300 truncate max-w-xl" title={file.name}>
+                              {file.name}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              {((file.size || 0) / 1024).toFixed(2)}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              {formatDateTime(file.updated)}
+                            </td>
+                          </tr>
+                        ))}
+                        {!storageData?.files?.length && (
+                          <tr>
+                            <td colSpan="3" className="p-8 text-center text-zinc-400">
+                              ไม่พบไฟล์ใดๆ
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="p-8 text-center text-red-500">
+                  เกิดข้อผิดพลาดในการโหลดข้อมูล
+                </div>
+              )}
             </div>
           )}
         </div>

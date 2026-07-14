@@ -1,4 +1,4 @@
-﻿import {
+import {
   Children,
   createElement,
   isValidElement,
@@ -42,7 +42,12 @@ export async function apiFetch(path, options) {
   }
   for (const baseUrl of baseUrls) {
     try {
-      return await fetch(`${baseUrl}${path}`, options);
+      const res = await fetch(`${baseUrl}${path}`, options);
+      if (res.status === 404) {
+        lastError = new Error(`404 Not Found from ${baseUrl}`);
+        continue;
+      }
+      return res;
     } catch (error) {
       lastError = error;
     }
