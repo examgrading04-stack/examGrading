@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: exam-grading-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FIREBASE_STORAGE_BUCKET
+        value: examgradings.firebasestorage.app
