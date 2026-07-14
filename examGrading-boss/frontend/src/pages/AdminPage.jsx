@@ -963,6 +963,18 @@ export function AdminPage({ firebase }) {
                 </div>
               ) : storageData ? (
                 <>
+                  {storageData?.error && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-sm flex items-start gap-3">
+                      <Icon name="fa-triangle-exclamation" className="mt-0.5 text-amber-500" />
+                      <div>
+                        <strong className="block mb-1">คำแนะนำระบบ:</strong>
+                        Firebase Storage Bucket ยังไม่ได้ถูกสร้างขึ้น หรือไม่ได้เปิดใช้งานในโครงการ Firebase ของคุณ
+                        <br />
+                        (หมายเหตุ: นี่เป็นสถานะปกติหากคุณยังไม่เคยเปิดใช้งาน Firebase Storage หรือยังไม่มีการอัปโหลดไฟล์ใดๆ ไปยังระบบ)
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-6 flex items-center justify-between">
                       <div>
