@@ -1,8 +1,10 @@
 import os
 import tempfile
+import uuid
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from pypdf import PdfWriter
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -176,11 +178,6 @@ def generate_pdf_for_students(
     if not students:
         raise ValueError("students is required")
 
-    pages = []
-    for student in students:
-        payload = build_sheet_payload(exam, student)
-        pages.append(create_single_sheet_image(payload))
-
     if output_path is None:
         safe_exam_id = exam.get("id") or exam.get("examId") or "exam"
         output_path = Path(tempfile.gettempdir()) / f"{safe_exam_id}_answer_sheets.pdf"
@@ -188,11 +185,32 @@ def generate_pdf_for_students(
         output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pages[0].save(
-        output_path,
-        "PDF",
-        resolution=100.0,
-        save_all=True,
-        append_images=pages[1:],
-    )
+
+    merger = PdfWriter()
+    temp_files = []
+
+    try:
+        for idx, student in enumerate(students):
+            payload = build_sheet_payload(exam, student)
+            img = create_single_sheet_image(payload)
+            
+            temp_pdf_path = output_path.parent / f"temp_page_{idx}_{uuid.uuid4().hex}.pdf"
+            img.save(temp_pdf_path, "PDF", resolution=100.0)
+            img.close()
+            
+            merger.append(temp_pdf_path)
+            temp_files.append(temp_pdf_path)
+
+        with open(output_path, "wb") as f:
+            merger.write(f)
+            
+    finally:
+        merger.close()
+        for temp_file in temp_files:
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+            except Exception:
+                pass
+
     return str(output_path)
