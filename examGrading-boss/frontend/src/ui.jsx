@@ -42,12 +42,7 @@ export async function apiFetch(path, options) {
   }
   for (const baseUrl of baseUrls) {
     try {
-      const res = await fetch(`${baseUrl}${path}`, options);
-      if (res.status === 404) {
-        lastError = new Error(`404 Not Found from ${baseUrl}`);
-        continue;
-      }
-      return res;
+      return await fetch(`${baseUrl}${path}`, options);
     } catch (error) {
       lastError = error;
     }
