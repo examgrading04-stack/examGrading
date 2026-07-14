@@ -96,7 +96,7 @@ def _draw_fitted_text(
     bbox = draw.textbbox((0, 0), text, font=font)
     text_height = bbox[3] - bbox[1]
     text_y = y + max_height - text_height - TEXT_BOTTOM_PADDING - bbox[1]
-    draw.text((x, text_y), text, font=font, fill=(0, 0, 0))
+    draw.text((x, text_y), text, font=font, fill=0)
 
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
