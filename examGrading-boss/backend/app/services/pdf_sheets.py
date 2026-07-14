@@ -1,4 +1,4 @@
-﻿import os
+import os
 import tempfile
 from datetime import datetime
 from functools import lru_cache
@@ -67,8 +67,8 @@ def _load_font_cached(size: int, font_path: str) -> ImageFont.FreeTypeFont | Ima
 
 
 @lru_cache(maxsize=8)
-def _load_template_rgb(template_path: str) -> Image.Image:
-    return Image.open(template_path).convert("RGB")
+def _load_template_grayscale(template_path: str) -> Image.Image:
+    return Image.open(template_path).convert("L")
 
 
 def _draw_fitted_text(
@@ -133,7 +133,7 @@ def create_single_sheet_image(
     if not resolved_template.exists():
         raise FileNotFoundError(f"Template not found: {resolved_template}")
 
-    template_img = _load_template_rgb(str(resolved_template)).copy()
+    template_img = _load_template_grayscale(str(resolved_template)).copy()
     payload_str = build_qr_payload(
         subject_code=sheet_payload.get("subject_code", ""),
         subject_name=sheet_payload.get("subject_name", ""),
@@ -146,7 +146,7 @@ def create_single_sheet_image(
     )
 
     qr_np_array = generate_qr_with_border(payload_str, target_px=180, border=8)
-    qr_img = Image.fromarray(qr_np_array.astype(np.uint8)).convert("RGB")
+    qr_img = Image.fromarray(qr_np_array.astype(np.uint8)).convert("L")
     qr_img = qr_img.resize((370, 370))
     template_img.paste(qr_img, qr_position)
 
