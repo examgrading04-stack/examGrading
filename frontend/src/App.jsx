@@ -467,6 +467,21 @@ export default function App() {
     const services = bootFirebase();
     setFirebase(services);
     const unsubscribe = services.auth.onAuthStateChanged(async (nextUser) => {
+      if (nextUser) {
+        try {
+          const userDoc = await services.db.collection("users").doc(nextUser.email).get();
+          if (userDoc.exists && userDoc.data().status === "suspended") {
+            await services.auth.signOut();
+            Swal().fire("เข้าสู่ระบบไม่สำเร็จ", "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ", "error");
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Error checking user status:", error);
+        }
+      }
       setUser(nextUser);
       setProfile(nextUser ? await loadProfile(services, nextUser) : null);
       setLoading(false);

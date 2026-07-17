@@ -758,14 +758,13 @@ def get_answer(answer_id: str, db=Depends(get_db)):
 
 @app.post("/api/answers")
 def create_answer(payload: dict = Body(...), db=Depends(get_db)):
-    """สร้างเฉลยใหม่ — ส่ง: answer_name, total_questions, total_score, structure_id"""
+    """สร้างเฉลยใหม่ — ส่ง: answer_name, total_questions, total_score"""
     answer_id = _short_id()
     db.set_doc("answer", answer_id, None, {
         "answer_id":       answer_id,
         "answer_name":     payload.get("answer_name", ""),
         "total_questions": payload.get("total_questions", 0),
         "total_score":     payload.get("total_score", 0.0),
-        "structure_id":    payload.get("structure_id", ""),
     })
     return {"answer_id": answer_id}
 

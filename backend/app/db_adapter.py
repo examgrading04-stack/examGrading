@@ -147,22 +147,12 @@ class SqlAdmin(Base):
     aname = Column(String(100))
     apassword = Column(String(100))
 
-class SqlSheetStructure(Base):
-    __tablename__ = "sheet_structure"
-    structure_id = Column(String(10), primary_key=True)
-    width        = Column(Float)
-    height       = Column(Float)
-    choice       = Column(Integer)
-    subject_id   = Column(String(10))
-    user_id      = Column(String(10))
-
 class SqlAnswer(Base):
     __tablename__ = "answer"
     answer_id       = Column(String(10), primary_key=True)
     answer_name     = Column("answer _name", String(100))  # column name has a space
     total_questions = Column(Integer)
     total_score     = Column(Float)
-    structure_id    = Column(String(10))
 
 class SqlAnswerDetail(Base):
     __tablename__ = "answer_detail"
@@ -225,7 +215,6 @@ def _get_model_class(collection: str):
         "results":         SqlResult,
         "systemLogs":      SqlSystemLog,
         "admins":          SqlAdmin,
-        "sheet_structure": SqlSheetStructure,
         "answer":          SqlAnswer,
         "answer_detail":   SqlAnswerDetail,
         "exam_result":     SqlExamResult,
