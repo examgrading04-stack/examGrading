@@ -74,19 +74,19 @@ class SqlExam(Base):
 
 class SqlStudent(Base):
     __tablename__ = "students"
-    id = Column(String(100), primary_key=True)
-    user_email = Column(String(100), primary_key=True)
-    code = Column(String(100))
-    name = Column(String(200))
+    id = Column("student_id", String(100), primary_key=True)
+    user_email = Column("user_id", String(100), primary_key=True)
+    code = Column("student_code", String(100))
+    name = Column("student_name", String(200))
     class_name = Column(String(100)) # class is reserved in Python
-    section = Column(String(100))
+    section = Column("section_id", String(100))
     subjectCode = Column(String(100))
 
 class SqlSubject(Base):
     __tablename__ = "subjects"
-    code = Column(String(100), primary_key=True)
-    user_email = Column(String(100), primary_key=True)
-    name = Column(String(200))
+    code = Column("subject_id", String(100), primary_key=True)
+    user_email = Column("user_id", String(100), primary_key=True)
+    name = Column("subject_name", String(200))
 
 class SqlResult(Base):
     __tablename__ = "results"
@@ -124,18 +124,18 @@ class SqlUser(Base):
 
 class SqlSection(Base):
     __tablename__ = "sections"
-    id = Column(String(100), primary_key=True)
-    user_email = Column(String(100), primary_key=True)
-    subject = Column(String(100))
-    sec = Column(String(100))
+    id = Column("section_id", String(100), primary_key=True)
+    user_email = Column("user_id", String(100), primary_key=True)
+    subject = Column("subject_id", String(100))
+    sec = Column("section_number", String(100))
     created_at = Column(String(100))
 
 class SqlSystemLog(Base):
     __tablename__ = "system_logs"
-    logid = Column(String(100), primary_key=True)
-    activity = Column(Text)
-    datetime = Column(DateTime, default=datetime.utcnow)
-    user = Column(String(100))
+    logid = Column("log_id", String(100), primary_key=True)
+    activity = Column("action", Text)
+    datetime = Column("action_time", DateTime, default=datetime.utcnow)
+    user = Column("user_id", String(100))
     userEmail = Column(String(100))
     displayName = Column(String(200))
     role = Column(String(100))
@@ -143,9 +143,9 @@ class SqlSystemLog(Base):
 
 class SqlAdmin(Base):
     __tablename__ = "admins"
-    id = Column(String(100), primary_key=True)
-    aname = Column(String(100))
-    apassword = Column(String(100))
+    id = Column("admin_id", String(100), primary_key=True)
+    aname = Column("admin_username", String(100))
+    apassword = Column("admin_password", String(100))
 
 class SqlAnswer(Base):
     __tablename__ = "answer"
