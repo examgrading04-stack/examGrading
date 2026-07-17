@@ -1,0 +1,71 @@
+# Node / npm
+**/node_modules/
+
+# Frontend build output
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+
+# Python
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Flutter / Dart
+mobiles/**/.dart_tool/
+mobiles/**/.flutter-plugins
+mobiles/**/.flutter-plugins-dependencies
+mobiles/**/build/
+mobiles/**/.pub-cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+**/serviceAccountKey.json
+mobiles/**/.env
+
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and generated temp files
+*.log
+npm-debug.log*
+pip-*.log
+tmp/
+
+# Test / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OMR debug images (generated)
+*_diag_*.jpg
+*_debug_*.jpg
+preview_*.png
