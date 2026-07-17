@@ -563,6 +563,9 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Missing email or password")
         
     user_doc = db.get_doc("users", email)
+    if user_doc and user_doc.get("status") == "suspended":
+        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+        
     import hashlib
     hashed_input = hashlib.sha256(password.encode()).hexdigest()
     if not user_doc or (user_doc.get("password") != password and user_doc.get("password") != hashed_input):
@@ -599,6 +602,9 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
         
     # Get or create user in local SQL
     user_doc = db.get_doc("users", email)
+    if user_doc and user_doc.get("status") == "suspended":
+        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+        
     if not user_doc:
         db.set_doc("users", email, None, {
             "email": email,
@@ -627,6 +633,9 @@ def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Missing email for mock login")
         
     user_doc = db.get_doc("users", email)
+    if user_doc and user_doc.get("status") == "suspended":
+        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+        
     if not user_doc:
         db.set_doc("users", email, None, {
             "email": email,
