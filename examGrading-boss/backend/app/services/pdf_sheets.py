@@ -169,6 +169,8 @@ def create_single_sheet_image(
     return template_img
 
 
+import concurrent.futures
+
 def generate_pdf_for_students(
     exam: dict,
     students: list[dict],
@@ -186,31 +188,25 @@ def generate_pdf_for_students(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    merger = PdfWriter()
-    temp_files = []
+    def process_student(student):
+        payload = build_sheet_payload(exam, student)
+        # Convert to RGB to ensure multi-page PDF saving works reliably in PIL
+        return create_single_sheet_image(payload).convert("RGB")
 
-    try:
-        for idx, student in enumerate(students):
-            payload = build_sheet_payload(exam, student)
-            img = create_single_sheet_image(payload)
-            
-            temp_pdf_path = output_path.parent / f"temp_page_{idx}_{uuid.uuid4().hex}.pdf"
-            img.save(temp_pdf_path, "PDF", resolution=100.0)
+    # Generate all images in parallel
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        images = list(executor.map(process_student, students))
+
+    if images:
+        # Save all images directly to a single PDF in memory (No PyPDF2 or temp files needed)
+        images[0].save(
+            output_path,
+            "PDF",
+            resolution=100.0,
+            save_all=True,
+            append_images=images[1:]
+        )
+        for img in images:
             img.close()
-            
-            merger.append(temp_pdf_path)
-            temp_files.append(temp_pdf_path)
-
-        with open(output_path, "wb") as f:
-            merger.write(f)
-            
-    finally:
-        merger.close()
-        for temp_file in temp_files:
-            try:
-                if temp_file.exists():
-                    temp_file.unlink()
-            except Exception:
-                pass
 
     return str(output_path)
