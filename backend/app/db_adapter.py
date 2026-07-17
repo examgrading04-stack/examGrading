@@ -237,7 +237,7 @@ class MySQLAdapter(BaseDBAdapter):
     def _to_dict(self, model_obj) -> dict[str, Any]:
         if not model_obj:
             return {}
-        d = {c.name: getattr(model_obj, c.name) for c in model_obj.__table__.columns}
+        d = {c.key: getattr(model_obj, c.key) for c in model_obj.__table__.columns}
         
         # Handle field mappings and JSON parsing
         if "class_name" in d:
