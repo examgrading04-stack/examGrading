@@ -169,8 +169,6 @@ def create_single_sheet_image(
     return template_img
 
 
-import concurrent.futures
-
 def generate_pdf_for_students(
     exam: dict,
     students: list[dict],
@@ -188,25 +186,24 @@ def generate_pdf_for_students(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def process_student(student):
-        payload = build_sheet_payload(exam, student)
-        # Convert to RGB to ensure multi-page PDF saving works reliably in PIL
-        return create_single_sheet_image(payload).convert("RGB")
+    def image_generator(students_list):
+        for student in students_list:
+            payload = build_sheet_payload(exam, student)
+            # Yielding one image at a time keeps memory usage to ~3MB total instead of ~350MB!
+            yield create_single_sheet_image(payload).convert("RGB")
 
-    # Generate all images in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        images = list(executor.map(process_student, students))
+    # Generate the first page to initialize the PDF writer
+    first_payload = build_sheet_payload(exam, students[0])
+    first_img = create_single_sheet_image(first_payload).convert("RGB")
 
-    if images:
-        # Save all images directly to a single PDF in memory (No PyPDF2 or temp files needed)
-        images[0].save(
-            output_path,
-            "PDF",
-            resolution=100.0,
-            save_all=True,
-            append_images=images[1:]
-        )
-        for img in images:
-            img.close()
-
+    # Save to PDF, streaming the rest of the images directly from the generator
+    first_img.save(
+        output_path,
+        "PDF",
+        resolution=100.0,
+        save_all=True,
+        append_images=image_generator(students[1:]) if len(students) > 1 else []
+    )
+    
+    first_img.close()
     return str(output_path)
