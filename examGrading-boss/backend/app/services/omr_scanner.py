@@ -77,6 +77,15 @@ def load_and_preprocess(path_or_img):
         if img is None: raise FileNotFoundError(f"ไม่พบ: {path_or_img}")
     else:
         img = path_or_img.copy()
+
+    # --- Extreme Speed Optimization: Resize huge images before processing ---
+    max_dim = 1600
+    h, w = img.shape[:2]
+    if max(h, w) > max_dim:
+        scale = max_dim / float(max(h, w))
+        new_w, new_h = int(w * scale), int(h * scale)
+        img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    # ------------------------------------------------------------------------
     gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     # เพิ่มความทนต่อแสง/เงา: CLAHE + adaptive threshold แบบ Gaussian
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
