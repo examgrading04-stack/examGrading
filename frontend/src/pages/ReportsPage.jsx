@@ -13,7 +13,13 @@ export function ReportsPage({ data }) {
 
   const rows = data.exams.map((exam) => {
     const subject = data.subjects?.find(
-      (s) => s.id === exam.subject || s.code === exam.subject,
+      (s) =>
+        s.id === exam.subjectCode ||
+        s.code === exam.subjectCode ||
+        s.id === exam.code ||
+        s.code === exam.code ||
+        s.id === exam.subject ||
+        s.code === exam.subject,
     );
     const subjectName = subject
       ? `${subject.code} ${subject.name}`
