@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  API_BASE_URL,
   Field,
   Icon,
   Input,
@@ -9,6 +10,7 @@ import {
   useChart,
 } from "../ui.jsx";
 
+const BASE_URL = API_BASE_URL || "http://127.0.0.1:8000";
 const ADMIN_COLLECTIONS = ["Admin", "admins"];
 const LOG_COLLECTIONS = ["systemLogs", "logs", "ประวัติการใช้งานระบบ"];
 const USER_SUBCOLLECTIONS = ["exams", "students", "results", "subjects"];
@@ -232,43 +234,21 @@ export function AdminPage({ firebase }) {
     event.preventDefault();
     setLoading(true);
     try {
-      const collectionName = await getFirstExistingCollection(
-        db,
-        ADMIN_COLLECTIONS,
-      );
-      const snapshot = await db
-        .collection(collectionName)
-        .where("aname", "==", loginForm.aname.trim())
-        .where("apassword", "==", loginForm.apassword)
-        .limit(1)
-        .get();
+      const res = await fetch(`${BASE_URL}/api/auth/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aname: loginForm.aname.trim(),
+          apassword: loginForm.apassword
+        })
+      });
 
-      let admin = snapshot.docs[0]
-        ? { id: snapshot.docs[0].id, ...snapshot.docs[0].data() }
-        : null;
-
-      if (!admin) {
-        const byId = await db
-          .collection(collectionName)
-          .doc(loginForm.aname.trim())
-          .get();
-        if (byId.exists && byId.data().apassword === loginForm.apassword) {
-          admin = { id: byId.id, ...byId.data() };
-        }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "เข้าสู่ระบบไม่สำเร็จ");
       }
 
-      if (!admin) {
-        await writeAnonymousLog(
-          `เข้าสู่ระบบ Admin ไม่สำเร็จ: ${loginForm.aname}`,
-        );
-        Swal().fire(
-          "เข้าสู่ระบบไม่สำเร็จ",
-          "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-          "error",
-        );
-        return;
-      }
-
+      const admin = await res.json();
       const nextSession = {
         aid: admin.aid || admin.id,
         aname: admin.aname || admin.id,
@@ -277,6 +257,7 @@ export function AdminPage({ firebase }) {
       setSession(nextSession);
       await writeAnonymousLog(`เข้าสู่ระบบ Admin สำเร็จ: ${nextSession.aname}`);
     } catch (error) {
+      await writeAnonymousLog(`เข้าสู่ระบบ Admin ไม่สำเร็จ: ${loginForm.aname}`);
       Swal().fire("เข้าสู่ระบบไม่สำเร็จ", error.message, "error");
     } finally {
       setLoading(false);

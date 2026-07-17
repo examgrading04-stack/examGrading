@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   DataTable,
   Field,
@@ -33,7 +33,7 @@ export function StudentsPage({ data, api, refresh }) {
     event.preventDefault();
     const payload = { code: form.code, name: form.name, class: form.class };
     if (form.id) await api.update("students", form.id, payload);
-    else await api.set(`students/${payload.code}`, payload);
+    else await api.set(`students/${payload.code}_${payload.class || "none"}`, payload);
     setForm(emptyForm(["id", "code", "name", "class"]));
     await refresh("บันทึกผู้เรียนแล้ว");
   }
@@ -142,7 +142,7 @@ export function StudentsPage({ data, api, refresh }) {
             name: String(name),
             class: resolveClassFromRow(row),
           };
-          await api.set(`students/${payload.code}`, payload);
+          await api.set(`students/${payload.code}_${payload.class || "none"}`, payload);
           count += 1;
         }
       }
@@ -165,7 +165,7 @@ export function StudentsPage({ data, api, refresh }) {
   const normalizedSearch = searchText.trim().toLowerCase();
   const filteredStudents = data.students.filter((student) => {
     const matchesSubject = filterSubject
-      ? student.class && student.class.startsWith(filterSubject + "_")
+      ? student.subjectCode === filterSubject || (student.class && (student.class.startsWith(filterSubject + "_") || student.class.includes(filterSubject)))
       : true;
     const matchesSection = filterSection
       ? student.class === filterSection
@@ -250,9 +250,9 @@ export function StudentsPage({ data, api, refresh }) {
                 key: "subject",
                 label: "รายวิชา",
                 render: (row) => {
-                  const subjectId = row.class?.split("_")[0];
+                  const subjectId = row.subjectCode || row.class?.split("_")[0];
                   return (
-                    data.subjects.find((s) => s.id === subjectId)?.name ||
+                    data.subjects.find((s) => s.id === subjectId || s.code === subjectId)?.name ||
                     subjectId ||
                     "-"
                   );

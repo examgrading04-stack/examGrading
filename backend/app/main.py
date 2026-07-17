@@ -2,15 +2,14 @@ import json
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional
 
-import firebase_admin
-from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from firebase_admin import auth, credentials, firestore, storage
 import requests
 
+from datetime import datetime
 from .models.schemas import (
     SheetPdfBySubjectRequest,
     SheetPdfRequest,
@@ -18,6 +17,7 @@ from .models.schemas import (
 from .services.diagnostics import diagnose
 from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_marks
 from .services.pdf_sheets import generate_pdf_for_students
+from .db_adapter import get_db_adapter
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -25,39 +25,6 @@ APP_ROOT = BACKEND_DIR.parent
 TMP_DIR = APP_ROOT / "tmp"
 TMP_DIR.mkdir(exist_ok=True)
 
-FIREBASE_SERVICE_ACCOUNT = os.getenv("FIREBASE_SERVICE_ACCOUNT", "")
-FIREBASE_SERVICE_ACCOUNT_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
-if not FIREBASE_SERVICE_ACCOUNT:
-    # 1. Check for explicit serviceAccountKey.json
-    # 2. Search for any file matching *firebase-adminsdk*.json (standard naming)
-    search_dirs = [BACKEND_DIR, APP_ROOT]
-    found = False
-    for d in search_dirs:
-        # Check standard name
-        p = d / "serviceAccountKey.json"
-        if p.exists():
-            FIREBASE_SERVICE_ACCOUNT = str(p)
-            found = True
-            break
-        # Search for pattern
-        try:
-            for f in d.glob("*.json"):
-                if "firebase-adminsdk" in f.name:
-                    FIREBASE_SERVICE_ACCOUNT = str(f)
-                    found = True
-                    break
-        except Exception:
-            pass
-        if found:
-            break
-    
-    if not found:
-        FIREBASE_SERVICE_ACCOUNT = str(APP_ROOT / "serviceAccountKey.json")
-
-FIREBASE_STORAGE_BUCKET = os.getenv(
-    "FIREBASE_STORAGE_BUCKET",
-    "examgradings.firebasestorage.app",
-)
 
 app = FastAPI(title="Exam Grading OMR API")
 app.add_middleware(
@@ -69,47 +36,24 @@ app.add_middleware(
 )
 
 
-def init_firebase() -> None:
-    if firebase_admin._apps:
-        return
-
-    if FIREBASE_SERVICE_ACCOUNT_JSON:
-        print("DEBUG: Using Firebase service account from environment JSON.")
-        cred = credentials.Certificate(json.loads(FIREBASE_SERVICE_ACCOUNT_JSON))
-    elif os.path.exists(FIREBASE_SERVICE_ACCOUNT):
-        print(f"DEBUG: Service account file found at: {FIREBASE_SERVICE_ACCOUNT}")
-        print("DEBUG: Service account file found.")
-        cred = credentials.Certificate(FIREBASE_SERVICE_ACCOUNT)
-    else:
-        print(f"DEBUG: Service account NOT found at {FIREBASE_SERVICE_ACCOUNT}, using ApplicationDefault.")
-        cred = credentials.ApplicationDefault()
-
-    firebase_admin.initialize_app(cred, {"storageBucket": FIREBASE_STORAGE_BUCKET})
-    print("DEBUG: Firebase initialized.")
 
 
 def get_db():
-    init_firebase()
-    return firestore.client()
+    return get_db_adapter()
 
 
 def get_user_email(
     authorization: str | None = None,
     user_email: str | None = None,
 ) -> str:
-    """Use Firebase ID token when supplied; fallback to user_email for local testing."""
-    if authorization and authorization.startswith("Bearer "):
-        init_firebase()
-        decoded = auth.verify_id_token(authorization.removeprefix("Bearer ").strip())
-        email = decoded.get("email")
-        if not email:
-            raise HTTPException(status_code=401, detail="Firebase token has no email")
-        return email
-
+    """Authentication helper without Firebase. Uses user_email or authorization header value as email."""
     if user_email:
         return user_email
-
-    raise HTTPException(status_code=401, detail="Missing Firebase token or user_email")
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        if "@" in token:
+            return token
+    raise HTTPException(status_code=401, detail="Missing user_email or authorization header")
 
 
 async def save_upload(file: UploadFile) -> str:
@@ -120,17 +64,8 @@ async def save_upload(file: UploadFile) -> str:
     return str(path)
 
 
-def user_root(db, user_email: str):
-    return db.collection("users").document(user_email)
-
-
 def get_exam(db, user_email: str, exam_id: str) -> dict[str, Any]:
-    doc = user_root(db, user_email).collection("exams").document(exam_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail=f"Exam not found: {exam_id}")
-    exam = doc.to_dict() or {}
-    exam["id"] = doc.id
-    return exam
+    return db.get_exam(user_email, exam_id)
 
 
 def find_exam_for_scan(db, user_email: str, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -138,9 +73,7 @@ def find_exam_for_scan(db, user_email: str, metadata: dict[str, Any]) -> dict[st
     subject_code = str(metadata.get("subjectCode") or "").strip()
     exams = []
 
-    for doc in user_root(db, user_email).collection("exams").stream():
-        exam = doc.to_dict() or {}
-        exam["id"] = doc.id
+    for exam in db.get_exams(user_email):
         exam_questions = int(exam.get("questions") or exam.get("total_questions") or 0)
         if total_questions and exam_questions and exam_questions != total_questions:
             continue
@@ -163,24 +96,7 @@ def find_exam_for_scan(db, user_email: str, metadata: dict[str, Any]) -> dict[st
 
 
 def get_students(db, user_email: str, student_ids: list[str] | None = None) -> list[dict[str, Any]]:
-    students_ref = user_root(db, user_email).collection("students")
-    if student_ids:
-        students = []
-        for student_id in student_ids:
-            doc = students_ref.document(student_id).get()
-            if doc.exists:
-                student = doc.to_dict() or {}
-                student["id"] = doc.id
-                students.append(student)
-        return students
-
-    docs = list(students_ref.stream())
-    students = []
-    for doc in docs:
-        student = doc.to_dict() or {}
-        student["id"] = doc.id
-        students.append(student)
-    return students
+    return db.get_students(user_email, student_ids)
 
 
 def normalize_students_snapshot(students_snapshot: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -283,22 +199,21 @@ def create_answer_sheets_pdf(
     public_url = None
 
     if payload.upload_to_storage:
-        bucket = storage.bucket()
+        # Firebase storage functionality is disabled
         storage_path = f"users/{user_email}/exams/{payload.exam_id}/answer_sheets.pdf"
-        blob = bucket.blob(storage_path)
-        blob.upload_from_filename(pdf_path, content_type="application/pdf")
-        public_url = f"gs://{bucket.name}/{storage_path}"
+        public_url = f"local://{storage_path}"
 
-        user_root(db, user_email).collection("exams").document(payload.exam_id).set(
+        db.update_exam(
+            user_email,
+            payload.exam_id,
             {
                 "answerSheets": {
                     "storagePath": storage_path,
                     "gsUrl": public_url,
                     "studentCount": len(students),
-                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                    "updatedAt": datetime.utcnow().isoformat(),
                 }
-            },
-            merge=True,
+            }
         )
 
     return {
@@ -314,36 +229,32 @@ def get_students_by_subject(
     db, user_email: str, subject_code: str, section: str | None = None
 ) -> list[dict[str, Any]]:
     """Fetch students for a subject, optionally restricted to one section."""
-    students_ref = user_root(db, user_email).collection("students")
-    docs = list(students_ref.stream())
-    students = []
+    students = db.get_students(user_email)
+    filtered_students = []
     target = str(subject_code).strip()
     target_section = str(section or "").strip()
     target_class = f"{target}_{target_section}" if target and target_section else ""
 
-    for doc in docs:
-        student = doc.to_dict() or {}
-        student["id"] = doc.id
-
+    for student in students:
         s_code = student.get("subject") or student.get("subjectCode")
         s_class = str(student.get("class") or "").strip()
 
         if target_section:
             if s_class in {target_class, target_section}:
-                students.append(student)
+                filtered_students.append(student)
                 continue
             if s_code == target and (
                 str(student.get("section") or "").strip() == target_section
                 or str(student.get("sectionId") or "").strip() == target_class
             ):
-                students.append(student)
+                filtered_students.append(student)
                 continue
             continue
 
         if s_code == target or s_class == target or s_class.startswith(target + "_"):
-            students.append(student)
+            filtered_students.append(student)
 
-    return students
+    return filtered_students
 
 
 @app.post("/api/sheets/pdf/by-subject/download")
@@ -367,15 +278,9 @@ def download_answer_sheets_by_subject(
         raise HTTPException(status_code=400, detail="ไม่พบรายชื่อผู้เรียนในวิชานี้")
 
     # Attach subject name to exam dict for sheet rendering
-    subject_doc = (
-        user_root(db, user_email)
-        .collection("subjects")
-        .document(payload.subject_code)
-        .get()
-    )
-    if subject_doc.exists:
-        subject_data = subject_doc.to_dict() or {}
-        exam.setdefault("subjectName", subject_data.get("name", ""))
+    subject_name = db.get_subject_name(user_email, payload.subject_code)
+    if subject_name:
+        exam.setdefault("subjectName", subject_name)
 
     pdf_path = generate_pdf_for_students(exam, students)
     return FileResponse(
@@ -451,14 +356,13 @@ async def scan_sheet(
         "skipped": score["skipped"],
         "summary": summary,
         "metadata": metadata,
-        "createdAt": firestore.SERVER_TIMESTAMP,
-        "timestamp": firestore.SERVER_TIMESTAMP,
+        "createdAt": datetime.utcnow(),
+        "timestamp": datetime.utcnow(),
     }
 
     result_id = None
     if save_result:
-        _, doc_ref = user_root(db, user_email).collection("results").add(payload)
-        result_id = doc_ref.id
+        result_id = db.save_result(user_email, payload)
 
     response_payload = dict(payload)
     response_payload["createdAt"] = None
@@ -575,14 +479,13 @@ async def scan_cloudinary(
         "summary": summary,
         "metadata": metadata,
         "imageUrl": image_url,
-        "createdAt": firestore.SERVER_TIMESTAMP,
-        "timestamp": firestore.SERVER_TIMESTAMP,
+        "createdAt": datetime.utcnow(),
+        "timestamp": datetime.utcnow(),
     }
 
     result_id = None
     if save_result:
-        _, doc_ref = user_root(db, user_email).collection("results").add(payload_to_save)
-        result_id = doc_ref.id
+        result_id = db.save_result(user_email, payload_to_save)
 
     response_payload = dict(payload_to_save)
     response_payload["createdAt"] = None
@@ -591,3 +494,540 @@ async def scan_cloudinary(
     response_payload["imagePath"] = local_path
     
     return response_payload
+
+
+# ----------------------------------------------------
+# Firebase Auth & Firestore Local Emulation Endpoints
+# ----------------------------------------------------
+def parse_db_path(path: str):
+    parts = [p for p in path.strip("/").split("/") if p]
+    result = {
+        "user_email": None,
+        "collection": None,
+        "doc_id": None,
+        "parent_doc_id": None,
+    }
+    if not parts:
+        return result
+    if parts[0] == "users":
+        if len(parts) > 1:
+            result["user_email"] = parts[1]
+            if len(parts) > 2:
+                result["collection"] = parts[2]
+                if len(parts) > 3:
+                    result["doc_id"] = parts[3]
+                    if len(parts) > 4:
+                        result["parent_doc_id"] = parts[3]
+                        result["collection"] = parts[4]
+                        if len(parts) > 5:
+                            result["doc_id"] = parts[5]
+                        else:
+                            result["doc_id"] = None
+            else:
+                result["collection"] = "users"
+                result["doc_id"] = parts[1]
+    else:
+        result["collection"] = parts[0]
+        if len(parts) > 1:
+            result["doc_id"] = parts[1]
+    return result
+
+@app.post("/api/auth/register")
+def auth_register(payload: dict = Body(...), db=Depends(get_db)):
+    email = payload.get("email")
+    password = payload.get("password")
+    displayName = payload.get("displayName", "")
+    photoURL = payload.get("photoURL", "")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Missing email or password")
+        
+    existing = db.get_doc("users", email)
+    if existing:
+        raise HTTPException(status_code=400, detail="อีเมลนี้ถูกใช้งานแล้ว")
+        
+    db.set_doc("users", email, None, {
+        "email": email,
+        "password": password,
+        "displayName": displayName,
+        "photoURL": photoURL
+    })
+    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+
+@app.post("/api/auth/login")
+def auth_login(payload: dict = Body(...), db=Depends(get_db)):
+    email = payload.get("email")
+    password = payload.get("password")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Missing email or password")
+        
+    user_doc = db.get_doc("users", email)
+    import hashlib
+    hashed_input = hashlib.sha256(password.encode()).hexdigest()
+    if not user_doc or (user_doc.get("password") != password and user_doc.get("password") != hashed_input):
+        raise HTTPException(status_code=401, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+        
+    return {
+        "email": user_doc.get("email"),
+        "displayName": user_doc.get("displayName") or "",
+        "photoURL": user_doc.get("photoURL") or ""
+    }
+
+@app.post("/api/auth/google")
+def auth_google(payload: dict = Body(...), db=Depends(get_db)):
+    access_token = payload.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="Missing Google access token")
+        
+    # Call Google API to verify access token and get profile info
+    google_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
+    try:
+        resp = requests.get(google_url, timeout=10)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Google authentication failed")
+        google_profile = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Failed to connect to Google API: {str(e)}")
+        
+    email = google_profile.get("email")
+    displayName = google_profile.get("name", "")
+    photoURL = google_profile.get("picture", "")
+    
+    if not email:
+        raise HTTPException(status_code=400, detail="Google profile did not contain email")
+        
+    # Get or create user in local SQL
+    user_doc = db.get_doc("users", email)
+    if not user_doc:
+        db.set_doc("users", email, None, {
+            "email": email,
+            "password": "",
+            "displayName": displayName,
+            "photoURL": photoURL
+        })
+    else:
+        # Update details if they have changed or are empty
+        updated = {}
+        if not user_doc.get("displayName") and displayName:
+            updated["displayName"] = displayName
+        if not user_doc.get("photoURL") and photoURL:
+            updated["photoURL"] = photoURL
+        if updated:
+            db.update_doc("users", email, None, updated)
+            
+    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+
+@app.post("/api/auth/google-mock")
+def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
+    email = payload.get("email")
+    displayName = payload.get("displayName", "Google Mock User")
+    photoURL = payload.get("photoURL", "https://img.icons8.com/color/96/000000/google-logo.png")
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing email for mock login")
+        
+    user_doc = db.get_doc("users", email)
+    if not user_doc:
+        db.set_doc("users", email, None, {
+            "email": email,
+            "password": "",
+            "displayName": displayName,
+            "photoURL": photoURL
+        })
+        
+    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+
+
+@app.get("/api/db/{path:path}")
+def db_get(path: str, request: Request, db=Depends(get_db)):
+    parsed = parse_db_path(path)
+    collection = parsed["collection"]
+    doc_id = parsed["doc_id"]
+    user_email = parsed["user_email"]
+    parent_doc_id = parsed["parent_doc_id"]
+    
+    if not collection:
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    if doc_id:
+        doc = db.get_doc(collection, doc_id, user_email)
+        if doc is None:
+            return None
+        return doc
+    else:
+        items = db.get_collection(collection, user_email, parent_doc_id)
+        for k, v in request.query_params.items():
+            if k == "limit":
+                continue
+            items = [item for item in items if str(item.get(k)) == str(v)]
+            
+        if "limit" in request.query_params:
+            try:
+                limit_val = int(request.query_params["limit"])
+                items = items[:limit_val]
+            except ValueError:
+                pass
+        return items
+
+@app.post("/api/db/{path:path}")
+def db_post(path: str, payload: dict = Body(...), db=Depends(get_db)):
+    parsed = parse_db_path(path)
+    collection = parsed["collection"]
+    user_email = parsed["user_email"]
+    if not collection:
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    doc_id = db.add_doc(collection, user_email, payload)
+    return {"id": doc_id}
+
+@app.put("/api/db/{path:path}")
+def db_put(path: str, payload: dict = Body(...), db=Depends(get_db)):
+    parsed = parse_db_path(path)
+    collection = parsed["collection"]
+    doc_id = parsed["doc_id"]
+    user_email = parsed["user_email"]
+    if not collection or not doc_id:
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    db.set_doc(collection, doc_id, user_email, payload)
+    return {"ok": True}
+
+@app.patch("/api/db/{path:path}")
+def db_patch(path: str, payload: dict = Body(...), db=Depends(get_db)):
+    parsed = parse_db_path(path)
+    collection = parsed["collection"]
+    doc_id = parsed["doc_id"]
+    user_email = parsed["user_email"]
+    if not collection or not doc_id:
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    db.update_doc(collection, doc_id, user_email, payload)
+    return {"ok": True}
+
+@app.delete("/api/db/{path:path}")
+def db_delete(path: str, db=Depends(get_db)):
+    parsed = parse_db_path(path)
+    collection = parsed["collection"]
+    doc_id = parsed["doc_id"]
+    user_email = parsed["user_email"]
+    if not collection or not doc_id:
+        raise HTTPException(status_code=400, detail="Invalid path")
+        
+    db.delete_doc(collection, doc_id, user_email)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helper: แปลง user_email → user_id ในตาราง users
+# ─────────────────────────────────────────────────────────────────────────────
+def _get_user_id_by_email(email: str, db) -> str:
+    user = db.get_doc("users", email)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้งาน email: {email}")
+    return user.get("user_id", "")
+
+def _short_id() -> str:
+    """สร้าง ID สั้น 10 ตัวอักษร"""
+    return str(uuid.uuid4().int)[:10]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Answer (เฉลยข้อสอบ)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/answers")
+def get_answers(db=Depends(get_db)):
+    """ดึงรายการเฉลยทั้งหมด"""
+    return db.get_collection("answer", None)
+
+@app.get("/api/answers/{answer_id}")
+def get_answer(answer_id: str, db=Depends(get_db)):
+    """ดึงเฉลยตาม ID"""
+    doc = db.get_doc("answer", answer_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเฉลย")
+    return doc
+
+@app.post("/api/answers")
+def create_answer(payload: dict = Body(...), db=Depends(get_db)):
+    """สร้างเฉลยใหม่ — ส่ง: answer_name, total_questions, total_score, structure_id"""
+    answer_id = _short_id()
+    db.set_doc("answer", answer_id, None, {
+        "answer_id":       answer_id,
+        "answer_name":     payload.get("answer_name", ""),
+        "total_questions": payload.get("total_questions", 0),
+        "total_score":     payload.get("total_score", 0.0),
+        "structure_id":    payload.get("structure_id", ""),
+    })
+    return {"answer_id": answer_id}
+
+@app.put("/api/answers/{answer_id}")
+def update_answer(answer_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    """อัปเดตเฉลย"""
+    db.update_doc("answer", answer_id, None, payload)
+    return {"ok": True}
+
+@app.delete("/api/answers/{answer_id}")
+def delete_answer(answer_id: str, db=Depends(get_db)):
+    """ลบเฉลย"""
+    db.delete_doc("answer", answer_id, None)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Answer Detail (รายละเอียดเฉลยรายข้อ)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/answers/{answer_id}/details")
+def get_answer_details(answer_id: str, db=Depends(get_db)):
+    """ดึงรายละเอียดเฉลยทุกข้อของ answer_id นั้น"""
+    items = db.get_collection("answer_detail", None)
+    return [i for i in items if i.get("answer_id") == answer_id]
+
+@app.post("/api/answers/{answer_id}/details")
+def create_answer_detail(answer_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    """เพิ่มรายละเอียดเฉลยรายข้อ — ส่ง: question_no, correct_answer, weight"""
+    detail_id = _short_id()
+    db.set_doc("answer_detail", detail_id, None, {
+        "answer_detail_id": detail_id,
+        "question_no":      payload.get("question_no", 1),
+        "correct_answer":   payload.get("correct_answer", ""),
+        "weight":           payload.get("weight", 1.0),
+        "answer_id":        answer_id,
+    })
+    return {"answer_detail_id": detail_id}
+
+@app.put("/api/answers/details/{detail_id}")
+def update_answer_detail(detail_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    db.update_doc("answer_detail", detail_id, None, payload)
+    return {"ok": True}
+
+@app.delete("/api/answers/details/{detail_id}")
+def delete_answer_detail(detail_id: str, db=Depends(get_db)):
+    db.delete_doc("answer_detail", detail_id, None)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exam Result (ผลสอบ)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/exam-results")
+def get_exam_results(user_email: Optional[str] = None, db=Depends(get_db)):
+    """ดึงผลสอบทั้งหมด หรือกรองด้วย ?user_email=..."""
+    items = db.get_collection("exam_result", None)
+    if user_email:
+        user_id = _get_user_id_by_email(user_email, db)
+        items = [i for i in items if i.get("user_id") == user_id]
+    return items
+
+@app.get("/api/exam-results/{exam_result_id}")
+def get_exam_result(exam_result_id: str, db=Depends(get_db)):
+    """ดึงผลสอบตาม ID"""
+    doc = db.get_doc("exam_result", exam_result_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบผลสอบ")
+    return doc
+
+@app.post("/api/exam-results")
+def create_exam_result(payload: dict = Body(...), db=Depends(get_db)):
+    """
+    บันทึกผลสอบใหม่
+    ส่ง: score, max_score, exam_date (YYYY-MM-DD), student_id, answer_id, user_email
+    """
+    user_email = payload.get("user_email", "")
+    user_id = _get_user_id_by_email(user_email, db) if user_email else payload.get("user_id", "")
+    
+    result_id = _short_id()
+    db.set_doc("exam_result", result_id, None, {
+        "exam_result_id": result_id,
+        "score":          payload.get("score", 0.0),
+        "max_score":      payload.get("max_score", 0.0),
+        "exam_date":      payload.get("exam_date", datetime.utcnow().date().isoformat()),
+        "student_id":     payload.get("student_id", ""),
+        "answer_id":      payload.get("answer_id", ""),
+        "user_id":        user_id,
+    })
+    return {"exam_result_id": result_id}
+
+@app.put("/api/exam-results/{exam_result_id}")
+def update_exam_result(exam_result_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    db.update_doc("exam_result", exam_result_id, None, payload)
+    return {"ok": True}
+
+@app.delete("/api/exam-results/{exam_result_id}")
+def delete_exam_result(exam_result_id: str, db=Depends(get_db)):
+    db.delete_doc("exam_result", exam_result_id, None)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exam Detail (ผลสอบรายข้อ)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/exam-results/{exam_result_id}/details")
+def get_exam_details(exam_result_id: str, db=Depends(get_db)):
+    """ดึงผลสอบรายข้อของผลสอบ exam_result_id"""
+    items = db.get_collection("exam_detail", None)
+    return [i for i in items if i.get("exam_result_id") == exam_result_id]
+
+@app.post("/api/exam-results/{exam_result_id}/details")
+def create_exam_detail(exam_result_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    """
+    บันทึกผลรายข้อ
+    ส่ง: answer_status (0=ผิด/1=ถูก), student_answer, correct_answer, score_per_item
+    """
+    detail_id = _short_id()
+    db.set_doc("exam_detail", detail_id, None, {
+        "exam_detail_id": detail_id,
+        "answer_status":  payload.get("answer_status", 0),
+        "student_answer": payload.get("student_answer", ""),
+        "correct_answer": payload.get("correct_answer", ""),
+        "score_per_item": payload.get("score_per_item", 0.0),
+        "exam_result_id": exam_result_id,
+    })
+    return {"exam_detail_id": detail_id}
+
+@app.post("/api/exam-results/{exam_result_id}/details/bulk")
+def create_exam_details_bulk(exam_result_id: str, payload: List[dict] = Body(...), db=Depends(get_db)):
+    """บันทึกผลรายข้อหลายข้อพร้อมกัน (ส่ง array)"""
+    ids = []
+    for item in payload:
+        detail_id = _short_id()
+        db.set_doc("exam_detail", detail_id, None, {
+            "exam_detail_id": detail_id,
+            "answer_status":  item.get("answer_status", 0),
+            "student_answer": item.get("student_answer", ""),
+            "correct_answer": item.get("correct_answer", ""),
+            "score_per_item": item.get("score_per_item", 0.0),
+            "exam_result_id": exam_result_id,
+        })
+        ids.append(detail_id)
+    return {"created": ids}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exam Analysis (วิเคราะห์ข้อสอบรายข้อ)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/exam-analysis")
+def get_exam_analyses(exam_detail_id: Optional[str] = None, db=Depends(get_db)):
+    """ดึงการวิเคราะห์ข้อสอบ กรองด้วย ?exam_detail_id=... ได้"""
+    items = db.get_collection("exam_analysis", None)
+    if exam_detail_id:
+        items = [i for i in items if i.get("exam_detail_id") == exam_detail_id]
+    return items
+
+@app.get("/api/exam-analysis/{exam_analysis_id}")
+def get_exam_analysis(exam_analysis_id: str, db=Depends(get_db)):
+    doc = db.get_doc("exam_analysis", exam_analysis_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลวิเคราะห์")
+    return doc
+
+@app.post("/api/exam-analysis")
+def create_exam_analysis(payload: dict = Body(...), db=Depends(get_db)):
+    """
+    บันทึกการวิเคราะห์ข้อสอบ
+    ส่ง: difficult_index, discrimination_index, total_student, total_blank,
+          total_correct, total_wrong, exam_detail_id
+    """
+    analysis_id = _short_id()
+    db.set_doc("exam_analysis", analysis_id, None, {
+        "exam_analysis_id":      analysis_id,
+        "difficult_index":       payload.get("difficult_index", 0.0),
+        "discrimination_index":  payload.get("discrimination_index", 0.0),
+        "total_student":         payload.get("total_student", 0),
+        "total_blank":           payload.get("total_blank", 0),
+        "total_correct":         payload.get("total_correct", 0),
+        "total_wrong":           payload.get("total_wrong", 0),
+        "exam_detail_id":        payload.get("exam_detail_id", ""),
+    })
+    return {"exam_analysis_id": analysis_id}
+
+@app.put("/api/exam-analysis/{exam_analysis_id}")
+def update_exam_analysis(exam_analysis_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    db.update_doc("exam_analysis", exam_analysis_id, None, payload)
+    return {"ok": True}
+
+@app.delete("/api/exam-analysis/{exam_analysis_id}")
+def delete_exam_analysis(exam_analysis_id: str, db=Depends(get_db)):
+    db.delete_doc("exam_analysis", exam_analysis_id, None)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Result Analysis (วิเคราะห์ผลรวมภาพรวม)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/api/result-analysis")
+def get_result_analyses(subject_id: Optional[str] = None, section_id: Optional[str] = None, db=Depends(get_db)):
+    """ดึงการวิเคราะห์ผลรวม กรองด้วย ?subject_id=... หรือ ?section_id=... ได้"""
+    items = db.get_collection("result_analysis", None)
+    if subject_id:
+        items = [i for i in items if i.get("subject_id") == subject_id]
+    if section_id:
+        items = [i for i in items if i.get("section_id") == section_id]
+    return items
+
+@app.get("/api/result-analysis/{analysis_id}")
+def get_result_analysis(analysis_id: str, db=Depends(get_db)):
+    doc = db.get_doc("result_analysis", analysis_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลวิเคราะห์ผลรวม")
+    return doc
+
+@app.post("/api/result-analysis")
+def create_result_analysis(payload: dict = Body(...), db=Depends(get_db)):
+    """
+    บันทึกการวิเคราะห์ผลรวม
+    ส่ง: mean, max_score, min_score, median, std_dev, mode, subject_id, section_id
+    """
+    analysis_id = _short_id()
+    db.set_doc("result_analysis", analysis_id, None, {
+        "analysis_id": analysis_id,
+        "mean":        payload.get("mean", 0.0),
+        "max_score":   payload.get("max_score", 0.0),
+        "min_score":   payload.get("min_score", 0.0),
+        "median":      payload.get("median", 0.0),
+        "std_dev":     payload.get("std_dev", 0.0),
+        "mode":        payload.get("mode", 0.0),
+        "subject_id":  payload.get("subject_id", ""),
+        "section_id":  payload.get("section_id", ""),
+    })
+    return {"analysis_id": analysis_id}
+
+@app.put("/api/result-analysis/{analysis_id}")
+def update_result_analysis(analysis_id: str, payload: dict = Body(...), db=Depends(get_db)):
+    db.update_doc("result_analysis", analysis_id, None, payload)
+    return {"ok": True}
+
+@app.delete("/api/result-analysis/{analysis_id}")
+def delete_result_analysis(analysis_id: str, db=Depends(get_db)):
+    db.delete_doc("result_analysis", analysis_id, None)
+    return {"ok": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin Login Authentication (ขอบเขต 1.3.1.1)
+# ─────────────────────────────────────────────────────────────────────────────
+@app.post("/api/auth/admin/login")
+def admin_login(payload: dict = Body(...), db=Depends(get_db)):
+    aname = payload.get("aname")
+    apassword = payload.get("apassword")
+    if not aname or not apassword:
+        raise HTTPException(status_code=400, detail="กรุณากรอกชื่อผู้ใช้และรหัสผ่าน")
+        
+    import hashlib
+    # ตรวจสอบว่าในตาราง admins มีผู้ใช้งานอยู่หรือไม่ ถ้าไม่มีให้สร้าง default admin
+    admins = db.get_collection("admins")
+    if not admins:
+        default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
+        db.set_doc("admins", "admin", None, {
+            "id": "admin",
+            "aname": "admin",
+            "apassword": default_hash
+        })
+        admins = db.get_collection("admins")
+        
+    hashed_input = hashlib.sha256(apassword.encode()).hexdigest()
+    
+    for admin in admins:
+        admin_name = admin.get("aname") or admin.get("id")
+        admin_pass = admin.get("apassword")
+        if admin_name == aname and admin_pass == hashed_input:
+            return admin
+            
+    raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")

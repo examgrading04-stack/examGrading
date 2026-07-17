@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-firebase-admin
 python-multipart
 opencv-python-headless
 numpy
@@ -8,3 +7,6 @@ pillow
 scikit-learn
 pyzbar
 requests
+sqlalchemy
+pymysql
+cryptography
