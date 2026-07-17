@@ -235,6 +235,9 @@ class MockDocReference {
     this.path = path;
     this.firestore = firestore;
   }
+  get id() {
+    return this.path.at(-1);
+  }
   collection(name) {
     return new MockCollectionReference([...this.path, name], this.firestore);
   }
@@ -285,6 +288,9 @@ class MockCollectionReference {
     this.firestore = firestore;
     this.filters = [];
     this.limitVal = null;
+  }
+  get id() {
+    return this.path.at(-1);
   }
   doc(id) {
     const docId = id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));

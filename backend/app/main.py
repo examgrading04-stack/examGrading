@@ -526,6 +526,8 @@ def parse_db_path(path: str):
             else:
                 result["collection"] = "users"
                 result["doc_id"] = parts[1]
+        else:
+            result["collection"] = "users"
     else:
         result["collection"] = parts[0]
         if len(parts) > 1:
