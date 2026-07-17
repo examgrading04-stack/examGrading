@@ -139,6 +139,23 @@ export function AnalysisPage({ data }) {
     ? answeredItemAnalysis.reduce((sum, item) => sum + item.discrimination, 0) /
       answeredItemAnalysis.length
     : 0;
+
+  const maxScore = scores.length ? scores[scores.length - 1] : 0;
+  const minScore = scores.length ? scores[0] : 0;
+
+  const scoreCounts = {};
+  let maxCount = 0;
+  let modeArr = [];
+  scores.forEach((s) => {
+    scoreCounts[s] = (scoreCounts[s] || 0) + 1;
+    if (scoreCounts[s] > maxCount) {
+      maxCount = scoreCounts[s];
+      modeArr = [s];
+    } else if (scoreCounts[s] === maxCount) {
+      if (!modeArr.includes(s)) modeArr.push(s);
+    }
+  });
+  const modeDisplay = scores.length ? modeArr.join(", ") : "0";
   const chartLabels = answeredItemAnalysis.map(
     (item) => `ข้อ ${item.question}`,
   );
@@ -282,7 +299,7 @@ export function AnalysisPage({ data }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         <StatCard
           title="จำนวนผลการตรวจ"
           value={results.length}
@@ -290,28 +307,34 @@ export function AnalysisPage({ data }) {
           color="blue"
         />
         <StatCard
-          title="คะแนนเฉลี่ย"
-          value={mean.toFixed(2)}
-          icon="fa-chart-simple"
+          title="คะแนนสูงสุด"
+          value={maxScore.toFixed(2)}
+          icon="fa-arrow-up"
           color="green"
         />
         <StatCard
-          title="มัธยฐาน"
+          title="คะแนนต่ำสุด"
+          value={minScore.toFixed(2)}
+          icon="fa-arrow-down"
+          color="rose"
+        />
+        <StatCard
+          title="คะแนนเฉลี่ย"
+          value={mean.toFixed(2)}
+          icon="fa-chart-simple"
+          color="amber"
+        />
+        <StatCard
+          title="มัธยฐาน (Median)"
           value={median.toFixed(2)}
           icon="fa-scale-balanced"
           color="violet"
         />
         <StatCard
-          title="p เฉลี่ย"
-          value={avgDifficulty.toFixed(2)}
-          icon="fa-percent"
-          color="amber"
-        />
-        <StatCard
-          title="D เฉลี่ย"
-          value={avgDiscrimination.toFixed(2)}
-          icon="fa-bullseye"
-          color="green"
+          title="ฐานนิยม (Mode)"
+          value={modeDisplay}
+          icon="fa-ranking-star"
+          color="indigo"
         />
       </div>
 
