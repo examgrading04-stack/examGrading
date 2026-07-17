@@ -112,11 +112,11 @@ def get_user_email(
     raise HTTPException(status_code=401, detail="Missing Firebase token or user_email")
 
 
-async def save_upload(file: UploadFile) -> str:
+def save_upload_sync(file: UploadFile) -> str:
     suffix = Path(file.filename or "sheet.jpg").suffix or ".jpg"
     path = TMP_DIR / f"{uuid.uuid4().hex}{suffix}"
     with open(path, "wb") as out:
-        out.write(await file.read())
+        out.write(file.file.read())
     return str(path)
 
 
@@ -408,7 +408,7 @@ def download_answer_sheets_pdf(
 
 
 @app.post("/api/scan")
-async def scan_sheet(
+def scan_sheet(
     file: UploadFile = File(...),
     user_email: str | None = Form(None),
     exam_id: str = Form(...),
@@ -420,7 +420,7 @@ async def scan_sheet(
 ):
     user_email = get_user_email(authorization=authorization, user_email=user_email)
     exam = get_exam(db, user_email, exam_id)
-    image_path = await save_upload(file)
+    image_path = save_upload_sync(file)
     result = scan_answer_sheet(
         image_path,
         force_questions=int(exam.get("questions") or 0),
@@ -469,11 +469,11 @@ async def scan_sheet(
 
 
 @app.post("/api/diagnose")
-async def diagnose_sheet(
+def diagnose_sheet(
     file: UploadFile = File(...),
     force_questions: int = Form(0),
 ):
-    image_path = await save_upload(file)
+    image_path = save_upload_sync(file)
     report = diagnose(image_path, force_q=force_questions)
     return {
         "path": report.path,
@@ -507,7 +507,7 @@ def download_image(url: str) -> str:
 
 
 @app.post("/api/scan-cloudinary")
-async def scan_cloudinary(
+def scan_cloudinary(
     payload: dict[str, Any] = Body(...),
     authorization: str | None = Header(None),
     db=Depends(get_db),
