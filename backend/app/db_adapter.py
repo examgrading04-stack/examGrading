@@ -455,7 +455,7 @@ class MySQLAdapter(BaseDBAdapter):
                 if hasattr(model_cls, "user_email") and user_email:
                     mapped_data["user_email"] = user_email
                     
-                valid_cols = {c.name for c in model_cls.__table__.columns}
+                valid_cols = {c.key for c in model_cls.__table__.columns}
                 cleaned_data = {}
                 for k, v in mapped_data.items():
                     if k in valid_cols:
