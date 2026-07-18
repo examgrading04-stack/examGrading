@@ -97,14 +97,6 @@ export function SubjectsPage({ data, api, refresh }) {
       <section className="space-y-6">
         {!activeSubject ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-extrabold">รายวิชาทั้งหมด</h3>
-                <p className="text-sm text-zinc-500">
-                  จัดการรายวิชา เทอม และปีการศึกษา
-                </p>
-              </div>
-            </div>
             <DataTable
               columns={[
                 { key: "code", label: "รหัสวิชา" },

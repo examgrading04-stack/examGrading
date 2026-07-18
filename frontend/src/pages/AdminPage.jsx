@@ -113,7 +113,7 @@ function mergeUsers(primaryUsers, discoveredUsers) {
       ...usersById.get(user.id),
       ...user,
       email: user.email || usersById.get(user.id)?.email || user.id,
-      role: user.role || usersById.get(user.id)?.role || "Teacher",
+      role: user.role || usersById.get(user.id)?.role || "user",
       status: user.status || usersById.get(user.id)?.status || "active",
     });
   });
@@ -121,23 +121,26 @@ function mergeUsers(primaryUsers, discoveredUsers) {
     displayUserName(a).localeCompare(displayUserName(b), "th"),
   );
 }
-
-export function AdminPage({ firebase }) {
+export function AdminPage({ firebase, user, signOut, navigate }) {
   const db = firebase.db;
   const chartRef = useRef(null);
   const [session, setSession] = useState(() => {
+    if (user?.role === "admin") {
+      return { aid: user.id, aname: user.displayName || user.email };
+    }
     const raw = sessionStorage.getItem("examAdminSession");
     return raw ? JSON.parse(raw) : null;
   });
   const [activePage, setActivePage] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [logCollection, setLogCollection] = useState(LOG_COLLECTIONS[0]);
+  const [selectedLogs, setSelectedLogs] = useState(new Set());
   const [loginForm, setLoginForm] = useState({ aname: "", apassword: "" });
   const [userForm, setUserForm] = useState({
     id: "",
     displayName: "",
     email: "",
-    role: "Teacher",
+    role: "user",
   });
   const [editingUser, setEditingUser] = useState(null);
   const [search, setSearch] = useState("");
@@ -211,10 +214,30 @@ export function AdminPage({ firebase }) {
         }),
       );
 
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const freshLogs = [];
+      const oldLogIds = [];
+      for (const log of logs) {
+        const date = toDate(log.datetime);
+        if (date && date < sevenDaysAgo) {
+          oldLogIds.push(log.id);
+        } else {
+          freshLogs.push(log);
+        }
+      }
+
+      if (oldLogIds.length > 0) {
+        Promise.all(
+          oldLogIds.map((id) => db.collection(logsName).doc(id).delete()),
+        ).catch(console.error);
+      }
+
       setData({
         admins,
         users: allUsers,
-        logs: logs.sort(
+        logs: freshLogs.sort(
           (a, b) =>
             (toDate(b.datetime)?.getTime() || 0) -
             (toDate(a.datetime)?.getTime() || 0),
@@ -230,6 +253,58 @@ export function AdminPage({ firebase }) {
     }
   }
 
+  async function deleteLog(id) {
+    const res = await Swal().fire({
+      title: "ยืนยันการลบ Log?",
+      text: "คุณต้องการลบประวัติการใช้งานนี้ใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+    if (res.isConfirmed) {
+      setLoading(true);
+      try {
+        await db.collection(logCollection).doc(id).delete();
+        await refresh();
+      } catch (error) {
+        Swal().fire("ลบไม่สำเร็จ", error.message, "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  async function deleteSelectedLogs() {
+    if (selectedLogs.size === 0) return;
+    const res = await Swal().fire({
+      title: "ยืนยันการลบ Log จำนวนหลายรายการ?",
+      text: `คุณต้องการลบประวัติการใช้งานจำนวน ${selectedLogs.size} รายการใช่หรือไม่`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+    if (res.isConfirmed) {
+      setLoading(true);
+      try {
+        await Promise.all(
+          Array.from(selectedLogs).map((id) =>
+            db.collection(logCollection).doc(id).delete(),
+          ),
+        );
+        setSelectedLogs(new Set());
+        await refresh();
+      } catch (error) {
+        Swal().fire("ลบไม่สำเร็จ", error.message, "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
   async function login(event) {
     event.preventDefault();
     setLoading(true);
@@ -239,8 +314,8 @@ export function AdminPage({ firebase }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           aname: loginForm.aname.trim(),
-          apassword: loginForm.apassword
-        })
+          apassword: loginForm.apassword,
+        }),
       });
 
       if (!res.ok) {
@@ -257,7 +332,9 @@ export function AdminPage({ firebase }) {
       setSession(nextSession);
       await writeAnonymousLog(`เข้าสู่ระบบ Admin สำเร็จ: ${nextSession.aname}`);
     } catch (error) {
-      await writeAnonymousLog(`เข้าสู่ระบบ Admin ไม่สำเร็จ: ${loginForm.aname}`);
+      await writeAnonymousLog(
+        `เข้าสู่ระบบ Admin ไม่สำเร็จ: ${loginForm.aname}`,
+      );
       Swal().fire("เข้าสู่ระบบไม่สำเร็จ", error.message, "error");
     } finally {
       setLoading(false);
@@ -278,10 +355,11 @@ export function AdminPage({ firebase }) {
     });
   }
 
-  function logout() {
-    sessionStorage.removeItem("examAdminSession");
-    setSession(null);
-    setActivePage("dashboard");
+  async function logout() {
+    if (signOut) {
+      await signOut();
+    }
+    window.location.href = "/";
   }
 
   async function saveUser(event) {
@@ -303,7 +381,7 @@ export function AdminPage({ firebase }) {
       );
     await writeLog(`${editingUser ? "แก้ไข" : "เพิ่ม"}ข้อมูลผู้ใช้งาน: ${id}`);
     setEditingUser(null);
-    setUserForm({ id: "", displayName: "", email: "", role: "Teacher" });
+    setUserForm({ id: "", displayName: "", email: "", role: "user" });
     await refresh();
     Swal().fire("สำเร็จ", "บันทึกข้อมูลผู้ใช้งานเรียบร้อย", "success");
   }
@@ -345,7 +423,7 @@ export function AdminPage({ firebase }) {
       id: user.id,
       displayName: displayUserName(user),
       email: user.email || user.id,
-      role: user.role || "Teacher",
+      role: user.role || "user",
     });
   }
 
@@ -476,6 +554,13 @@ export function AdminPage({ firebase }) {
             </PrimaryButton>
           </div>
         </form>
+        {loading && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+            <p className="loader">
+              <span>Scan</span>
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -502,7 +587,19 @@ export function AdminPage({ firebase }) {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-zinc-700">
+        <div className="p-4 border-t border-zinc-700 space-y-2">
+          <button
+            onClick={() => {
+              if (navigate) {
+                navigate("dashboard");
+              } else {
+                window.location.href = "/dashboard";
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 text-blue-300 hover:bg-zinc-800 py-2 rounded-xl transition"
+          >
+            <Icon name="fa-desktop" /> โหมดผู้ใช้งาน
+          </button>
           <button
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 text-red-300 hover:bg-zinc-800 py-2 rounded-xl transition"
@@ -528,7 +625,7 @@ export function AdminPage({ firebase }) {
               <Icon name="fa-rotate" /> รีเฟรช
             </button>
             <span className="hidden sm:inline text-zinc-600 font-medium">
-              สิทธิ์: ผู้ดูแลระบบ
+              สิทธิ์: {session.aname}
             </span>
             <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-800 font-bold border-2 border-emerald-500">
               <Icon name="fa-user-tie" />
@@ -613,9 +710,8 @@ export function AdminPage({ firebase }) {
                     }
                     className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option>Teacher</option>
-                    <option>Admin</option>
-                    <option>Staff</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </Field>
                 <div className="flex gap-2">
@@ -638,7 +734,7 @@ export function AdminPage({ firebase }) {
                           id: "",
                           displayName: "",
                           email: "",
-                          role: "Teacher",
+                          role: "user",
                         });
                       }}
                       className="px-4 rounded-xl border border-zinc-200 bg-white"
@@ -690,9 +786,9 @@ export function AdminPage({ firebase }) {
                         </td>
                         <td className="p-4 border-b text-center">
                           <span
-                            className={`${user.role === "Admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"} px-3 py-1 rounded-full text-xs font-bold`}
+                            className={`${user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"} px-3 py-1 rounded-full text-xs font-bold`}
                           >
-                            {user.role || "Teacher"}
+                            {user.role || "user"}
                           </span>
                         </td>
                         <td className="p-4 border-b text-center">
@@ -775,18 +871,51 @@ export function AdminPage({ firebase }) {
                 <h3 className="text-lg font-bold text-zinc-800">
                   ประวัติการใช้งานระบบ
                 </h3>
-                <span className="text-sm text-zinc-500">
-                  Collection: {logCollection}
-                </span>
+                <div className="flex gap-4 items-center min-h-[36px]">
+                  <button
+                    onClick={deleteSelectedLogs}
+                    className={`bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm ${
+                      selectedLogs.size > 0
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    }`}
+                  >
+                    <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedLogs.size}
+                    )
+                  </button>
+                  <span className="text-sm text-zinc-500">
+                    Collection: {logCollection}
+                  </span>
+                </div>
               </div>
               <div className="bg-zinc-900 rounded-xl  overflow-x-auto p-2">
                 <table className="w-full text-left border-collapse text-sm text-zinc-300 font-mono">
                   <thead>
                     <tr className="border-b border-zinc-700 text-zinc-400">
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedLogs.size > 0 &&
+                            selectedLogs.size === data.logs.length
+                          }
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLogs(
+                                new Set(data.logs.map((l) => l.id)),
+                              );
+                            } else {
+                              setSelectedLogs(new Set());
+                            }
+                          }}
+                          className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"
+                        />
+                      </th>
                       <th className="p-3">วัน-เวลา</th>
                       <th className="p-3">ผู้ใช้งาน</th>
                       <th className="p-3">Log ID</th>
                       <th className="p-3">กิจกรรม</th>
+                      <th className="p-3 text-center">จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -795,6 +924,19 @@ export function AdminPage({ firebase }) {
                         key={log.id}
                         className="hover:bg-zinc-800 border-b border-zinc-800"
                       >
+                        <td className="p-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedLogs.has(log.id)}
+                            onChange={(e) => {
+                              const newSet = new Set(selectedLogs);
+                              if (e.target.checked) newSet.add(log.id);
+                              else newSet.delete(log.id);
+                              setSelectedLogs(newSet);
+                            }}
+                            className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"
+                          />
+                        </td>
                         <td className="p-3 whitespace-nowrap">
                           {formatDateTime(log.datetime)}
                         </td>
@@ -807,12 +949,21 @@ export function AdminPage({ firebase }) {
                         <td className="p-3 text-emerald-300">
                           {log.activity || "-"}
                         </td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => deleteLog(log.id)}
+                            className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-zinc-800 transition"
+                            title="ลบข้อมูล"
+                          >
+                            <Icon name="fa-trash-can" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {!data.logs.length && (
                       <tr>
                         <td
-                          colSpan="4"
+                          colSpan="6"
                           className="p-8 text-center text-zinc-400"
                         >
                           ยังไม่มีประวัติการใช้งาน
@@ -842,6 +993,14 @@ export function AdminPage({ firebase }) {
           )}
         </div>
       </main>
+
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+          <p className="loader">
+            <span>Scan</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

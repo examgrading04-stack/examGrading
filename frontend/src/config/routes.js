@@ -7,6 +7,15 @@ export const routes = [
     icon: "fa-chart-pie",
   },
   {
+    id: "admin",
+    path: "/admin",
+    file: "admin",
+    label: "ผู้ดูแลระบบ",
+    icon: "fa-user-shield",
+    adminOnly: true,
+    hidden: true,
+  },
+  {
     id: "subjects",
     path: "/subjects",
     file: "subjects.html",

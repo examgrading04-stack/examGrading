@@ -81,11 +81,13 @@ export function ResultsPage({ data, api, refresh, query }) {
         totalQuestions: questionsCount,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
-        examSection: exam?.section || "",
-        studentSec: student?.sec || student?.section || "",
+        examSection: data.sections?.find(s => String(s.id) === String(exam?.section))?.sec || exam?.section || "",
+        studentSec: data.sections?.find(s => String(s.id) === String(student?.section))?.sec || student?.section || "",
+        studentName: student?.name || row.studentName || "",
+        studentCode: student?.id || student?.code || row.studentCode || "",
       };
     });
-  }, [data.results, data.exams, data.students, selectedExamId]);
+  }, [data.results, data.exams, data.students, data.sections, selectedExamId]);
 
   // Summary Statistics
   const stats = useMemo(() => {

@@ -55,9 +55,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     const subject =
       subjectFromList ||
       data.subjects.find(
-        (s) => s.id === exam.subject || s.code === exam.subject,
+        (s) => s.id === exam.subject_id || s.code === exam.subject_id,
       );
-    const subjectCode = subject?.code || exam.subject || "";
+    const subjectCode = subject?.code || exam.subject_id || "";
     const examSection = String(exam.section || "");
 
     if (Array.isArray(exam.studentsSnapshot) && exam.studentsSnapshot.length) {
@@ -65,22 +65,24 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     }
 
     return data.students.filter((s) => {
-      const studentClass = String(s.class || "");
-      const fullFormat = `${subjectCode}_${examSection}`;
+      const sSection = String(s.section || "");
+      const sSubject = String(s.subjectCode || "");
 
-      if (examSection) {
-        return studentClass === fullFormat || studentClass === examSection;
+      if (examSection && examSection !== "All Section") {
+        const matchedSection = data.sections?.find(
+          (sec) => String(sec.realId) === sSection && sec.subject === sSubject
+        );
+        const sSectionName = String(matchedSection?.sec || sSection);
+        
+        return sSubject === subjectCode && (sSection === examSection || sSectionName === examSection);
       }
-      return (
-        studentClass.startsWith(`${subjectCode}_`) ||
-        studentClass === subjectCode
-      );
+      return sSubject === subjectCode;
     });
   }
 
   function openSheetModal(exam) {
     const subject = data.subjects.find(
-      (s) => s.id === exam.subject || s.code === exam.subject,
+      (s) => s.id === exam.subject_id || s.code === exam.subject_id,
     );
     const students = getStudentsForExam(exam, subject);
 
@@ -95,28 +97,28 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
     const payload = {
       name: form.name,
-      subject: subject?.code || form.subject,
+      subject_id: subject?.code || form.subject,
       subjectName: subject?.name || "",
-      section: form.section,
+      section: form.section || "All Section",
       date: formatThaiDate(),
       questions,
       sheetType,
       answerKey: {},
       studentsSnapshot: getStudentsForExam(
-        { subject: subject?.code || form.subject, section: form.section },
+        { subject_id: subject?.code || form.subject, section: form.section },
         subject,
       ).map((student) => ({
         id: student.id || "",
-        code: student.code || "",
+        code: student.code || student.id || "",
         name: student.name || "",
-        class: student.class || "",
+        section: student.section || "",
       })),
       createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     };
 
     // Format ID: SUBJECT_SECTION_NAME
     const id =
-      `${payload.subject}${payload.section ? "_" + payload.section : ""}_${payload.name}`.replace(
+      `${payload.subject_id}${payload.section ? "_" + payload.section : ""}_${payload.name}`.replace(
         /\s+/g,
         "_",
       );
@@ -174,17 +176,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4">
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8 items-start">
           <section className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-extrabold text-zinc-900">
-                  คลังข้อสอบทั้งหมด
-                </h3>
-                <p className="text-sm text-zinc-500">
-                  จัดการข้อสอบ แยกตามรหัสวิชาและกลุ่มเรียน
-                </p>
-              </div>
-            </div>
-
             <DataTable
               columns={[
                 {
@@ -192,7 +183,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   label: "ชื่อข้อสอบ / รายวิชา",
                   render: (row) => {
                     const subj = data.subjects.find(
-                      (s) => s.code === row.subject || s.id === row.subject,
+                      (s) =>
+                        s.code === row.subject_id || s.id === row.subject_id,
                     );
                     return (
                       <div className="flex flex-col py-1">
@@ -200,14 +192,16 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                           <span className="font-bold text-zinc-900">
                             {row.name}
                           </span>
-                          {row.section && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
-                              {row.subject}_{row.section}
-                            </span>
-                          )}
+                          <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
+                            {row.section === "All Section" || !row.section
+                              ? "All Section"
+                              : `Sec ${data.sections.find((s) => String(s.id) === String(row.section))?.sec || row.section}`}
+                          </span>
                         </div>
                         <span className="text-xs text-zinc-500">
-                          {subj ? `${subj.code} · ${subj.name}` : row.subject}
+                          {subj
+                            ? `${subj.code} · ${subj.name}`
+                            : row.subject_id}
                         </span>
                       </div>
                     );
@@ -232,9 +226,10 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 {
                   key: "date",
                   label: "วันที่สร้าง",
-                  render: (row) => (
-                    <span className="text-slate-600 text-sm">{row.date}</span>
-                  ),
+                  render: (row) => {
+                    const displayDate = row.date || (row.createdAt ? formatThaiDate(new Date(row.createdAt)) : "-");
+                    return <span className="text-slate-600 text-sm">{displayDate}</span>;
+                  },
                 },
                 {
                   key: "actions",
@@ -301,7 +296,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             onSubmit={createExam}
             className="bg-white/95 rounded-2xl border border-zinc-200 p-6 space-y-4 h-fit sticky top-8"
           >
-            <h4 className="font-extrabold text-zinc-900">สร้างข้อสอบใหม่</h4>
+            <h4 className="font-extrabold text-zinc-900">
+              สร้างกระดาษคำตอบใหม่
+            </h4>
             <Field label="รายวิชาที่สอบ">
               <Select
                 value={form.subject}
@@ -390,11 +387,12 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
                       {sheetModal.subject?.code}
                     </span>
-                    {sheetModal.exam.section && (
-                      <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
-                        {sheetModal.subject?.code}_{sheetModal.exam.section}
-                      </span>
-                    )}
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
+                      {sheetModal.exam.section === "All Section" ||
+                      !sheetModal.exam.section
+                        ? "All Section"
+                        : `Sec ${data.sections.find((s) => String(s.id) === String(sheetModal.exam.section))?.sec || sheetModal.exam.section}`}
+                    </span>
                     <p className="text-xs text-zinc-500 font-medium">
                       {sheetModal.exam.name}
                     </p>

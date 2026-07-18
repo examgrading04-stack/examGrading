@@ -7,6 +7,7 @@
 body {
   font-family: "Inter", "IBM Plex Sans Thai", sans-serif;
   background-color: #f8fafc;
+  /* overflow-y: scroll; */
 }
 
 button,

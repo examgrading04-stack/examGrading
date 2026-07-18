@@ -146,9 +146,9 @@ function AuthCard({ mode, setMode, auth }) {
         </div>
 
         <form className="space-y-4" onSubmit={submit}>
-          <Field label="อีเมล (Email)">
+          <Field label="ชื่อผู้ใช้ หรือ อีเมล (Username / Email)">
             <Input
-              type="email"
+              type="text"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="example@email.com"
@@ -378,6 +378,7 @@ function Shell({
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
           {routes
             .filter((item) => !item.hidden)
+            .filter((item) => !item.adminOnly || user?.role === "admin")
             .map((item) => (
               <button
                 key={item.id}
@@ -393,9 +394,15 @@ function Shell({
             ))}
         </nav>
         <div className="p-4 border-t border-slate-100">
-          <GhostButton variant="danger" onClick={signOut} className="w-full">
-            <Icon name="fa-right-from-bracket" /> ออกจากระบบ
-          </GhostButton>
+          {user?.role === "admin" ? (
+            <GhostButton variant="primary" onClick={() => navigate("admin")} className="w-full">
+              <Icon name="fa-user-shield" /> โหมดผู้ดูแลระบบ
+            </GhostButton>
+          ) : (
+            <GhostButton variant="danger" onClick={signOut} className="w-full">
+              <Icon name="fa-right-from-bracket" /> ออกจากระบบ
+            </GhostButton>
+          )}
         </div>
       </aside>
       <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
@@ -462,6 +469,7 @@ export default function App() {
     exams: [],
     results: [],
   });
+  const [initialLoginHandled, setInitialLoginHandled] = useState(false);
 
   useEffect(() => {
     const services = bootFirebase();
@@ -469,26 +477,48 @@ export default function App() {
     const unsubscribe = services.auth.onAuthStateChanged(async (nextUser) => {
       if (nextUser) {
         try {
-          const userDoc = await services.db.collection("users").doc(nextUser.email).get();
+          const userDoc = await services.db
+            .collection("users")
+            .doc(nextUser.email)
+            .get();
           if (userDoc.exists && userDoc.data().status === "suspended") {
             await services.auth.signOut();
-            Swal().fire("เข้าสู่ระบบไม่สำเร็จ", "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ", "error");
+            Swal().fire(
+              "เข้าสู่ระบบไม่สำเร็จ",
+              "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+              "error",
+            );
             setUser(null);
             setProfile(null);
             setLoading(false);
             return;
           }
+          const userData = { ...nextUser, role: userDoc.data()?.role };
+          setUser(userData);
+          setProfile(await loadProfile(services, userData));
+          await loadData(services, userData);
         } catch (error) {
           console.error("Error checking user status:", error);
         }
+      } else {
+        setUser(null);
+        setProfile(null);
       }
-      setUser(nextUser);
-      setProfile(nextUser ? await loadProfile(services, nextUser) : null);
       setLoading(false);
       if (nextUser) await loadData(services, nextUser);
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (user && !initialLoginHandled) {
+      setInitialLoginHandled(true);
+      if (user.role === "admin" && routeId === "dashboard" && window.location.pathname === "/") {
+        setRouteId("admin");
+        window.history.replaceState({}, "", "/admin");
+      }
+    }
+  }, [user, initialLoginHandled, routeId]);
 
   useEffect(() => {
     const handler = () => {
@@ -778,16 +808,28 @@ export default function App() {
   }
 
   if (!user) {
-    if (routeId === "admin") {
-      return <AdminPage firebase={firebase} />;
-    }
     return (
       <AuthCard mode={authMode} setMode={setAuthMode} auth={firebase.auth} />
     );
   }
 
+  async function signOut() {
+    await api?.log("User signed out");
+    await firebase.auth.signOut();
+  }
+
   if (routeId === "admin") {
-    return <AdminPage firebase={firebase} />;
+    if (user.role === "admin") {
+      return <AdminPage firebase={firebase} user={user} signOut={signOut} navigate={navigate} />;
+    }
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
+        <Icon name="fa-shield-halved" className="text-5xl text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold mb-4">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</h2>
+        <p className="mb-6 text-slate-500">หน้านี้สงวนไว้สำหรับผู้ดูแลระบบเท่านั้น</p>
+        <PrimaryButton onClick={() => navigate("/")}>กลับสู่หน้าหลัก</PrimaryButton>
+      </div>
+    );
   }
 
   return (

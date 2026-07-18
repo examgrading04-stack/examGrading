@@ -12,7 +12,7 @@ import {
 } from "../ui.jsx";
 
 export function StudentsPage({ data, api, refresh }) {
-  const [form, setForm] = useState(emptyForm(["id", "code", "name", "class"]));
+  const [form, setForm] = useState(emptyForm(["id", "name", "section"]));
   const [importOpen, setImportOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importSubject, setImportSubject] = useState("");
@@ -31,10 +31,14 @@ export function StudentsPage({ data, api, refresh }) {
 
   async function saveStudent(event) {
     event.preventDefault();
-    const payload = { code: form.code, name: form.name, class: form.class };
-    if (form.id) await api.update("students", form.id, payload);
-    else await api.set(`students/${payload.code}_${payload.class || "none"}`, payload);
-    setForm(emptyForm(["id", "code", "name", "class"]));
+    const payload = {
+      id: form.id,
+      name: form.name,
+      section: form.section,
+      subjectCode: importSubject || "",
+    };
+    await api.set(`students/${payload.id}`, payload);
+    setForm(emptyForm(["id", "name", "section"]));
     await refresh("บันทึกผู้เรียนแล้ว");
   }
 
@@ -137,12 +141,25 @@ export function StudentsPage({ data, api, refresh }) {
         const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
 
         if (code && name) {
+          const section_id = resolveClassFromRow(row);
+
+          const rawSubject = getRowValue(row, [
+            "subject",
+            "Subject",
+            "subjectCode",
+            "subject_code",
+            "วิชา",
+            "รหัสวิชา",
+          ]);
+          const subject_code = resolveSubjectId(rawSubject);
+
           const payload = {
-            code: String(code),
+            id: String(code),
             name: String(name),
-            class: resolveClassFromRow(row),
+            section: section_id,
+            subjectCode: subject_code,
           };
-          await api.set(`students/${payload.code}_${payload.class || "none"}`, payload);
+          await api.set(`students/${payload.id}`, payload);
           count += 1;
         }
       }
@@ -165,13 +182,16 @@ export function StudentsPage({ data, api, refresh }) {
   const normalizedSearch = searchText.trim().toLowerCase();
   const filteredStudents = data.students.filter((student) => {
     const matchesSubject = filterSubject
-      ? student.subjectCode === filterSubject || (student.class && (student.class.startsWith(filterSubject + "_") || student.class.includes(filterSubject)))
+      ? student.subjectCode === filterSubject ||
+        (student.section &&
+          (String(student.section).startsWith(filterSubject + "_") ||
+            String(student.section).includes(filterSubject)))
       : true;
     const matchesSection = filterSection
-      ? student.class === filterSection
+      ? String(student.section) === String(filterSection)
       : true;
     const matchesSearch = normalizedSearch
-      ? [student.code, student.name].some((value) =>
+      ? [student.id, student.name].some((value) =>
           String(value || "")
             .toLowerCase()
             .includes(normalizedSearch),
@@ -183,13 +203,7 @@ export function StudentsPage({ data, api, refresh }) {
   return (
     <div className="page-enter grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
       <section className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-extrabold">จัดการผู้เรียน</h3>
-            <p className="text-sm text-zinc-500">
-              เพิ่ม แก้ไข นำเข้า และจัดกลุ่มผู้เรียน
-            </p>
-          </div>
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-64">
               <Input
@@ -244,26 +258,31 @@ export function StudentsPage({ data, api, refresh }) {
         <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white/95 backdrop-blur-sm">
           <DataTable
             columns={[
-              { key: "code", label: "รหัสนักเรียน" },
+              { key: "id", label: "รหัสนักเรียน" },
               { key: "name", label: "ชื่อ-นามสกุล" },
               {
                 key: "subject",
                 label: "รายวิชา",
                 render: (row) => {
-                  const subjectId = row.subjectCode || row.class?.split("_")[0];
+                  const subjectId =
+                    row.subjectCode || row.section?.split("_")[0];
                   return (
-                    data.subjects.find((s) => s.id === subjectId || s.code === subjectId)?.name ||
+                    data.subjects.find(
+                      (s) => s.id === subjectId || s.code === subjectId,
+                    )?.name ||
                     subjectId ||
                     "-"
                   );
                 },
               },
               {
-                key: "class",
+                key: "section",
                 label: "กลุ่มเรียน",
                 render: (row) =>
-                  data.sections.find((s) => s.id === row.class)?.sec ||
-                  row.class ||
+                  data.sections.find(
+                    (s) => String(s.id) === String(row.section),
+                  )?.sec ||
+                  row.section ||
                   "ไม่ระบุ",
               },
               {
@@ -275,7 +294,7 @@ export function StudentsPage({ data, api, refresh }) {
                       className="py-2 px-3"
                       onClick={() =>
                         setForm({
-                          ...emptyForm(["id", "code", "name", "class"]),
+                          ...emptyForm(["id", "name", "section"]),
                           ...row,
                         })
                       }
@@ -306,8 +325,8 @@ export function StudentsPage({ data, api, refresh }) {
         </h4>
         <Field label="รหัสนักเรียน">
           <Input
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            value={form.id || ""}
+            onChange={(e) => setForm({ ...form, id: e.target.value })}
             placeholder="เช่น 6400123"
             required
           />
@@ -322,8 +341,8 @@ export function StudentsPage({ data, api, refresh }) {
         </Field>
         <Field label="กลุ่มเรียน">
           <Select
-            value={form.class}
-            onChange={(e) => setForm({ ...form, class: e.target.value })}
+            value={form.section}
+            onChange={(e) => setForm({ ...form, section: e.target.value })}
           >
             <option value="">ไม่ระบุ</option>
             {data.sections.map((section) => (

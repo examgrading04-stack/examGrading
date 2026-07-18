@@ -4,9 +4,14 @@ import uuid
 from pathlib import Path
 from typing import Any, List, Optional
 
+# pyrefly: ignore [missing-import]
 from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from fastapi.responses import FileResponse
+# pyrefly: ignore [missing-import]
+from fastapi.staticfiles import StaticFiles
 import requests
 
 from datetime import datetime
@@ -25,8 +30,14 @@ APP_ROOT = BACKEND_DIR.parent
 TMP_DIR = APP_ROOT / "tmp"
 TMP_DIR.mkdir(exist_ok=True)
 
+STATIC_DIR = Path(__file__).parent / "static"
+STATIC_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR = STATIC_DIR / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+
 
 app = FastAPI(title="Exam Grading OMR API")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Simplified for debugging
@@ -34,7 +45,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 
@@ -534,6 +544,18 @@ def parse_db_path(path: str):
             result["doc_id"] = parts[1]
     return result
 
+@app.post("/api/upload-profile-picture")
+async def upload_profile_picture(
+    file: UploadFile = File(...),
+    user_email: str = Form(...)
+):
+    suffix = Path(file.filename or "profile.jpg").suffix or ".jpg"
+    file_name = f"{user_email}_{uuid.uuid4().hex[:8]}{suffix}"
+    path = UPLOADS_DIR / file_name
+    with open(path, "wb") as out:
+        out.write(await file.read())
+    return {"url": f"http://localhost:8000/static/uploads/{file_name}"}
+
 @app.post("/api/auth/register")
 def auth_register(payload: dict = Body(...), db=Depends(get_db)):
     email = payload.get("email")
@@ -551,9 +573,10 @@ def auth_register(payload: dict = Body(...), db=Depends(get_db)):
         "email": email,
         "password": password,
         "displayName": displayName,
-        "photoURL": photoURL
+        "photoURL": photoURL,
+        "role": "user"
     })
-    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+    return {"success": True, "email": email, "displayName": displayName, "photoURL": photoURL}
 
 @app.post("/api/auth/login")
 def auth_login(payload: dict = Body(...), db=Depends(get_db)):
@@ -574,7 +597,8 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
     return {
         "email": user_doc.get("email"),
         "displayName": user_doc.get("displayName") or "",
-        "photoURL": user_doc.get("photoURL") or ""
+        "photoURL": user_doc.get("photoURL") or "",
+        "role": user_doc.get("role") or "user"
     }
 
 @app.post("/api/auth/google")
@@ -610,8 +634,10 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
             "email": email,
             "password": "",
             "displayName": displayName,
-            "photoURL": photoURL
+            "photoURL": photoURL,
+            "role": "user"
         })
+        user_doc = {"email": email, "displayName": displayName, "photoURL": photoURL, "role": "user"}
     else:
         # Update details if they have changed or are empty
         updated = {}
@@ -622,7 +648,12 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
         if updated:
             db.update_doc("users", email, None, updated)
             
-    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+    return {
+        "email": user_doc.get("email"),
+        "displayName": user_doc.get("displayName") or "",
+        "photoURL": user_doc.get("photoURL") or "",
+        "role": user_doc.get("role") or "user"
+    }
 
 @app.post("/api/auth/google-mock")
 def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
@@ -641,10 +672,17 @@ def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
             "email": email,
             "password": "",
             "displayName": displayName,
-            "photoURL": photoURL
+            "photoURL": photoURL,
+            "role": "user"
         })
+        user_doc = {"email": email, "displayName": displayName, "photoURL": photoURL, "role": "user"}
         
-    return {"email": email, "displayName": displayName, "photoURL": photoURL}
+    return {
+        "email": user_doc.get("email"),
+        "displayName": user_doc.get("displayName") or "",
+        "photoURL": user_doc.get("photoURL") or "",
+        "role": user_doc.get("role") or "user"
+    }
 
 
 @app.get("/api/db/{path:path}")
@@ -743,274 +781,6 @@ def _short_id() -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Answer (เฉลยข้อสอบ)
 # ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/answers")
-def get_answers(db=Depends(get_db)):
-    """ดึงรายการเฉลยทั้งหมด"""
-    return db.get_collection("answer", None)
-
-@app.get("/api/answers/{answer_id}")
-def get_answer(answer_id: str, db=Depends(get_db)):
-    """ดึงเฉลยตาม ID"""
-    doc = db.get_doc("answer", answer_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="ไม่พบเฉลย")
-    return doc
-
-@app.post("/api/answers")
-def create_answer(payload: dict = Body(...), db=Depends(get_db)):
-    """สร้างเฉลยใหม่ — ส่ง: answer_name, total_questions, total_score"""
-    answer_id = _short_id()
-    db.set_doc("answer", answer_id, None, {
-        "answer_id":       answer_id,
-        "answer_name":     payload.get("answer_name", ""),
-        "total_questions": payload.get("total_questions", 0),
-        "total_score":     payload.get("total_score", 0.0),
-    })
-    return {"answer_id": answer_id}
-
-@app.put("/api/answers/{answer_id}")
-def update_answer(answer_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    """อัปเดตเฉลย"""
-    db.update_doc("answer", answer_id, None, payload)
-    return {"ok": True}
-
-@app.delete("/api/answers/{answer_id}")
-def delete_answer(answer_id: str, db=Depends(get_db)):
-    """ลบเฉลย"""
-    db.delete_doc("answer", answer_id, None)
-    return {"ok": True}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Answer Detail (รายละเอียดเฉลยรายข้อ)
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/answers/{answer_id}/details")
-def get_answer_details(answer_id: str, db=Depends(get_db)):
-    """ดึงรายละเอียดเฉลยทุกข้อของ answer_id นั้น"""
-    items = db.get_collection("answer_detail", None)
-    return [i for i in items if i.get("answer_id") == answer_id]
-
-@app.post("/api/answers/{answer_id}/details")
-def create_answer_detail(answer_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    """เพิ่มรายละเอียดเฉลยรายข้อ — ส่ง: question_no, correct_answer, weight"""
-    detail_id = _short_id()
-    db.set_doc("answer_detail", detail_id, None, {
-        "answer_detail_id": detail_id,
-        "question_no":      payload.get("question_no", 1),
-        "correct_answer":   payload.get("correct_answer", ""),
-        "weight":           payload.get("weight", 1.0),
-        "answer_id":        answer_id,
-    })
-    return {"answer_detail_id": detail_id}
-
-@app.put("/api/answers/details/{detail_id}")
-def update_answer_detail(detail_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    db.update_doc("answer_detail", detail_id, None, payload)
-    return {"ok": True}
-
-@app.delete("/api/answers/details/{detail_id}")
-def delete_answer_detail(detail_id: str, db=Depends(get_db)):
-    db.delete_doc("answer_detail", detail_id, None)
-    return {"ok": True}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Exam Result (ผลสอบ)
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/exam-results")
-def get_exam_results(user_email: Optional[str] = None, db=Depends(get_db)):
-    """ดึงผลสอบทั้งหมด หรือกรองด้วย ?user_email=..."""
-    items = db.get_collection("exam_result", None)
-    if user_email:
-        user_id = _get_user_id_by_email(user_email, db)
-        items = [i for i in items if i.get("user_id") == user_id]
-    return items
-
-@app.get("/api/exam-results/{exam_result_id}")
-def get_exam_result(exam_result_id: str, db=Depends(get_db)):
-    """ดึงผลสอบตาม ID"""
-    doc = db.get_doc("exam_result", exam_result_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="ไม่พบผลสอบ")
-    return doc
-
-@app.post("/api/exam-results")
-def create_exam_result(payload: dict = Body(...), db=Depends(get_db)):
-    """
-    บันทึกผลสอบใหม่
-    ส่ง: score, max_score, exam_date (YYYY-MM-DD), student_id, answer_id, user_email
-    """
-    user_email = payload.get("user_email", "")
-    user_id = _get_user_id_by_email(user_email, db) if user_email else payload.get("user_id", "")
-    
-    result_id = _short_id()
-    db.set_doc("exam_result", result_id, None, {
-        "exam_result_id": result_id,
-        "score":          payload.get("score", 0.0),
-        "max_score":      payload.get("max_score", 0.0),
-        "exam_date":      payload.get("exam_date", datetime.utcnow().date().isoformat()),
-        "student_id":     payload.get("student_id", ""),
-        "answer_id":      payload.get("answer_id", ""),
-        "user_id":        user_id,
-    })
-    return {"exam_result_id": result_id}
-
-@app.put("/api/exam-results/{exam_result_id}")
-def update_exam_result(exam_result_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    db.update_doc("exam_result", exam_result_id, None, payload)
-    return {"ok": True}
-
-@app.delete("/api/exam-results/{exam_result_id}")
-def delete_exam_result(exam_result_id: str, db=Depends(get_db)):
-    db.delete_doc("exam_result", exam_result_id, None)
-    return {"ok": True}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Exam Detail (ผลสอบรายข้อ)
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/exam-results/{exam_result_id}/details")
-def get_exam_details(exam_result_id: str, db=Depends(get_db)):
-    """ดึงผลสอบรายข้อของผลสอบ exam_result_id"""
-    items = db.get_collection("exam_detail", None)
-    return [i for i in items if i.get("exam_result_id") == exam_result_id]
-
-@app.post("/api/exam-results/{exam_result_id}/details")
-def create_exam_detail(exam_result_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    """
-    บันทึกผลรายข้อ
-    ส่ง: answer_status (0=ผิด/1=ถูก), student_answer, correct_answer, score_per_item
-    """
-    detail_id = _short_id()
-    db.set_doc("exam_detail", detail_id, None, {
-        "exam_detail_id": detail_id,
-        "answer_status":  payload.get("answer_status", 0),
-        "student_answer": payload.get("student_answer", ""),
-        "correct_answer": payload.get("correct_answer", ""),
-        "score_per_item": payload.get("score_per_item", 0.0),
-        "exam_result_id": exam_result_id,
-    })
-    return {"exam_detail_id": detail_id}
-
-@app.post("/api/exam-results/{exam_result_id}/details/bulk")
-def create_exam_details_bulk(exam_result_id: str, payload: List[dict] = Body(...), db=Depends(get_db)):
-    """บันทึกผลรายข้อหลายข้อพร้อมกัน (ส่ง array)"""
-    ids = []
-    for item in payload:
-        detail_id = _short_id()
-        db.set_doc("exam_detail", detail_id, None, {
-            "exam_detail_id": detail_id,
-            "answer_status":  item.get("answer_status", 0),
-            "student_answer": item.get("student_answer", ""),
-            "correct_answer": item.get("correct_answer", ""),
-            "score_per_item": item.get("score_per_item", 0.0),
-            "exam_result_id": exam_result_id,
-        })
-        ids.append(detail_id)
-    return {"created": ids}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Exam Analysis (วิเคราะห์ข้อสอบรายข้อ)
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/exam-analysis")
-def get_exam_analyses(exam_detail_id: Optional[str] = None, db=Depends(get_db)):
-    """ดึงการวิเคราะห์ข้อสอบ กรองด้วย ?exam_detail_id=... ได้"""
-    items = db.get_collection("exam_analysis", None)
-    if exam_detail_id:
-        items = [i for i in items if i.get("exam_detail_id") == exam_detail_id]
-    return items
-
-@app.get("/api/exam-analysis/{exam_analysis_id}")
-def get_exam_analysis(exam_analysis_id: str, db=Depends(get_db)):
-    doc = db.get_doc("exam_analysis", exam_analysis_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลวิเคราะห์")
-    return doc
-
-@app.post("/api/exam-analysis")
-def create_exam_analysis(payload: dict = Body(...), db=Depends(get_db)):
-    """
-    บันทึกการวิเคราะห์ข้อสอบ
-    ส่ง: difficult_index, discrimination_index, total_student, total_blank,
-          total_correct, total_wrong, exam_detail_id
-    """
-    analysis_id = _short_id()
-    db.set_doc("exam_analysis", analysis_id, None, {
-        "exam_analysis_id":      analysis_id,
-        "difficult_index":       payload.get("difficult_index", 0.0),
-        "discrimination_index":  payload.get("discrimination_index", 0.0),
-        "total_student":         payload.get("total_student", 0),
-        "total_blank":           payload.get("total_blank", 0),
-        "total_correct":         payload.get("total_correct", 0),
-        "total_wrong":           payload.get("total_wrong", 0),
-        "exam_detail_id":        payload.get("exam_detail_id", ""),
-    })
-    return {"exam_analysis_id": analysis_id}
-
-@app.put("/api/exam-analysis/{exam_analysis_id}")
-def update_exam_analysis(exam_analysis_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    db.update_doc("exam_analysis", exam_analysis_id, None, payload)
-    return {"ok": True}
-
-@app.delete("/api/exam-analysis/{exam_analysis_id}")
-def delete_exam_analysis(exam_analysis_id: str, db=Depends(get_db)):
-    db.delete_doc("exam_analysis", exam_analysis_id, None)
-    return {"ok": True}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Result Analysis (วิเคราะห์ผลรวมภาพรวม)
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/api/result-analysis")
-def get_result_analyses(subject_id: Optional[str] = None, section_id: Optional[str] = None, db=Depends(get_db)):
-    """ดึงการวิเคราะห์ผลรวม กรองด้วย ?subject_id=... หรือ ?section_id=... ได้"""
-    items = db.get_collection("result_analysis", None)
-    if subject_id:
-        items = [i for i in items if i.get("subject_id") == subject_id]
-    if section_id:
-        items = [i for i in items if i.get("section_id") == section_id]
-    return items
-
-@app.get("/api/result-analysis/{analysis_id}")
-def get_result_analysis(analysis_id: str, db=Depends(get_db)):
-    doc = db.get_doc("result_analysis", analysis_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลวิเคราะห์ผลรวม")
-    return doc
-
-@app.post("/api/result-analysis")
-def create_result_analysis(payload: dict = Body(...), db=Depends(get_db)):
-    """
-    บันทึกการวิเคราะห์ผลรวม
-    ส่ง: mean, max_score, min_score, median, std_dev, mode, subject_id, section_id
-    """
-    analysis_id = _short_id()
-    db.set_doc("result_analysis", analysis_id, None, {
-        "analysis_id": analysis_id,
-        "mean":        payload.get("mean", 0.0),
-        "max_score":   payload.get("max_score", 0.0),
-        "min_score":   payload.get("min_score", 0.0),
-        "median":      payload.get("median", 0.0),
-        "std_dev":     payload.get("std_dev", 0.0),
-        "mode":        payload.get("mode", 0.0),
-        "subject_id":  payload.get("subject_id", ""),
-        "section_id":  payload.get("section_id", ""),
-    })
-    return {"analysis_id": analysis_id}
-
-@app.put("/api/result-analysis/{analysis_id}")
-def update_result_analysis(analysis_id: str, payload: dict = Body(...), db=Depends(get_db)):
-    db.update_doc("result_analysis", analysis_id, None, payload)
-    return {"ok": True}
-
-@app.delete("/api/result-analysis/{analysis_id}")
-def delete_result_analysis(analysis_id: str, db=Depends(get_db)):
-    db.delete_doc("result_analysis", analysis_id, None)
-    return {"ok": True}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Admin Login Authentication (ขอบเขต 1.3.1.1)
 # ─────────────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/admin/login")
@@ -1021,23 +791,29 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="กรุณากรอกชื่อผู้ใช้และรหัสผ่าน")
         
     import hashlib
-    # ตรวจสอบว่าในตาราง admins มีผู้ใช้งานอยู่หรือไม่ ถ้าไม่มีให้สร้าง default admin
-    admins = db.get_collection("admins")
-    if not admins:
+    # Find user in users collection
+    users = db.get_collection("users")
+    if not users:
+        # Create default admin if no users exist
         default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
-        db.set_doc("admins", "admin", None, {
-            "id": "admin",
-            "aname": "admin",
-            "apassword": default_hash
+        db.set_doc("users", "admin@localhost", None, {
+            "email": "admin@localhost",
+            "username": "admin",
+            "password": default_hash,
+            "role": "admin",
+            "displayName": "System Admin"
         })
-        admins = db.get_collection("admins")
+        users = db.get_collection("users")
         
     hashed_input = hashlib.sha256(apassword.encode()).hexdigest()
     
-    for admin in admins:
-        admin_name = admin.get("aname") or admin.get("id")
-        admin_pass = admin.get("apassword")
-        if admin_name == aname and admin_pass == hashed_input:
-            return admin
-            
-    raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
+    for user in users:
+        # Check if role is admin and credentials match
+        if user.get("role") == "admin":
+            admin_name = user.get("username") or user.get("email")
+            admin_pass = user.get("password")
+            # If aname matches either username or email
+            if (admin_name == aname or user.get("email") == aname) and admin_pass == hashed_input:
+                return user
+                
+    raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์ผู้ดูแลระบบ")
