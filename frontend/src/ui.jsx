@@ -70,7 +70,7 @@ export function emptyForm(fields) {
 export function AppLogo({ compact = false }) {
   return (
     <div
-      className={`${compact ? "w-10 h-10 rounded-lg" : "w-16 h-16 rounded-xl"} bg-white flex items-center justify-center shadow-sm border border-slate-200 overflow-hidden p-0.5`}
+      className={`${compact ? "w-10 h-10 rounded-lg" : "w-16 h-16 rounded-md"} bg-white flex items-center justify-center shadow-sm border border-slate-200 overflow-hidden p-0.5`}
     >
       <img
         src={iconImage}
@@ -164,7 +164,7 @@ export function Select(props) {
       </button>
       {open && !disabled && (
         <div
-          className={`absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg ${menuClass}`}
+          className={`absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-sm ${menuClass}`}
         >
           {options.map((item) => {
             const isSelected = item.value === String(value ?? "");
@@ -283,7 +283,7 @@ export function StatCard({ title, value, icon, color }) {
   const s = styles[color] || styles.blue;
   return (
     <div
-      className={`bg-white p-5 rounded-xl shadow-sm border ${s.border} flex justify-between items-center transition-colors group`}
+      className={`bg-white p-5 rounded-md shadow-sm border ${s.border} flex justify-between items-center transition-colors group`}
     >
       <div>
         <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
@@ -323,15 +323,15 @@ export function DataTable({
   const endItem = Math.min(page * safePageSize, rows.length);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+    <div className="rounded-md border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-x-auto relative">
+        <table className="w-full text-sm table-fixed">
+          <thead className="bg-slate-100/90 backdrop-blur-sm text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className="px-4 py-3 text-left font-bold whitespace-nowrap"
+                  className={`px-4 py-3.5 text-left font-bold whitespace-nowrap ${column.className || ""}`}
                 >
                   {column.label}
                 </th>
@@ -343,10 +343,13 @@ export function DataTable({
               visibleRows.map((row) => (
                 <tr
                   key={row.id || JSON.stringify(row)}
-                  className="hover:bg-slate-50"
+                  className="hover:bg-slate-50/50 transition-colors"
                 >
                   {columns.map((column) => (
-                    <td key={column.key} className="px-4 py-3 align-top">
+                    <td
+                      key={column.key}
+                      className={`px-4 py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || ""}`}
+                    >
                       {column.render ? column.render(row) : row[column.key]}
                     </td>
                   ))}
@@ -354,11 +357,17 @@ export function DataTable({
               ))
             ) : (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-10 text-center text-slate-500"
-                >
-                  {emptyText}
+                <td colSpan={columns.length} className="px-4 py-16 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 text-3xl mb-2">
+                      <Icon name="fa-folder-open" />
+                    </div>
+                    <p className="font-bold text-slate-500">{emptyText}</p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                      ยังไม่มีข้อมูลที่จะแสดงผลในตารางนี้
+                      ลองเพิ่มข้อมูลหรือปรับการค้นหาใหม่
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}
@@ -475,7 +484,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className={`relative w-full ${maxWidth} bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]`}
+        className={`relative w-full ${maxWidth} bg-white rounded-md shadow-sm flex flex-col max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-200">

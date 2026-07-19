@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   DataTable,
   Field,
@@ -19,14 +19,36 @@ export function SubjectsPage({ data, api, refresh }) {
     emptyForm(["id", "subject", "sec"]),
   );
   const [activeSubject, setActiveSubject] = useState(null);
+  const [searchSubject, setSearchSubject] = useState("");
+  const [searchSection, setSearchSection] = useState("");
+
   const sections = activeSubject
     ? data.sections.filter((section) => section.subject === activeSubject)
     : data.sections;
+
+  const filteredSubjects = data.subjects.filter(
+    (s) =>
+      !searchSubject ||
+      (s.code + " " + s.name)
+        .toLowerCase()
+        .includes(searchSubject.toLowerCase()),
+  );
+
+  const filteredSections = sections.filter(
+    (s) =>
+      !searchSection ||
+      String(s.sec).toLowerCase().includes(searchSection.toLowerCase()),
+  );
 
   const currentSubject = data.subjects.find((s) => s.id === activeSubject);
 
   async function saveSubject(event) {
     event.preventDefault();
+    Swal().fire({
+      title: "กำลังบันทึกรายวิชา...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
     const payload = {
       code: subjectForm.code,
       name: subjectForm.name,
@@ -53,6 +75,11 @@ export function SubjectsPage({ data, api, refresh }) {
       );
     }
     const id = sectionForm.id || sectionForm.sec;
+    Swal().fire({
+      title: "กำลังบันทึกกลุ่มเรียน...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
     await api.set(`subjects/${subjectId}/sections/${id}`, {
       subject: subjectId,
       sec: sectionForm.sec,
@@ -97,24 +124,45 @@ export function SubjectsPage({ data, api, refresh }) {
       <section className="space-y-6">
         {!activeSubject ? (
           <>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+                  ข้อมูลรายวิชาทั้งหมด
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  จัดการรายวิชาและกลุ่มเรียนที่เปิดสอน
+                </p>
+              </div>
+              <div className="w-full sm:w-64">
+                <Input
+                  value={searchSubject}
+                  onChange={(e) => setSearchSubject(e.target.value)}
+                  placeholder="ค้นหารหัสวิชา หรือ ชื่อวิชา..."
+                  icon="fa-magnifying-glass"
+                />
+              </div>
+            </div>
             <DataTable
               columns={[
-                { key: "code", label: "รหัสวิชา" },
+                { key: "code", label: "รหัสวิชา", className: "w-24" },
                 { key: "name", label: "ชื่อวิชา" },
-                { key: "term", label: "เทอม" },
-                { key: "year", label: "ปี" },
-                { key: "teacher", label: "ผู้สอน" },
+                { key: "term", label: "เทอม", className: "w-12 text-center" },
+                { key: "year", label: "ปี", className: "w-20 text-center" },
+                { key: "teacher", label: "ผู้สอน", className: "truncate" },
                 {
                   key: "actions",
                   label: "",
+                  truncate: false,
+                  className: "w-[200px] text-right",
                   render: (row) => (
-                    <div className="flex flex-wrap gap-2 justify-end">
+                    <div className="flex flex-nowrap gap-2 justify-end">
                       <GhostButton
                         variant="primary"
-                        className="py-2 px-3"
+                        className="py-1.5 px-2.5 text-sm"
+                        title="จัดการกลุ่มเรียน"
                         onClick={() => setActiveSubject(row.id)}
                       >
-                        <Icon name="fa-users" /> กลุ่มเรียน
+                        <Icon name="fa-users" /> กลุ่ม
                       </GhostButton>
                       <GhostButton
                         className="py-2 px-3"
@@ -145,7 +193,8 @@ export function SubjectsPage({ data, api, refresh }) {
                   ),
                 },
               ]}
-              rows={data.subjects}
+              rows={filteredSubjects}
+              emptyText="ยังไม่มีรายวิชาในระบบ"
             />
           </>
         ) : (
@@ -163,9 +212,17 @@ export function SubjectsPage({ data, api, refresh }) {
                     กลุ่มเรียน: {currentSubject?.name}
                   </h3>
                   <p className="text-sm text-zinc-500">
-                    จัดการกลุ่มเรียนของวิชา {currentSubject?.code}
+                    กลุ่มเรียนทั้งหมดในรายวิชานี้
                   </p>
                 </div>
+              </div>
+              <div className="w-full sm:w-64">
+                <Input
+                  value={searchSection}
+                  onChange={(e) => setSearchSection(e.target.value)}
+                  placeholder="ค้นหากลุ่มเรียน..."
+                  icon="fa-magnifying-glass"
+                />
               </div>
             </div>
             <DataTable
@@ -181,8 +238,22 @@ export function SubjectsPage({ data, api, refresh }) {
                 {
                   key: "actions",
                   label: "",
+                  truncate: false,
+                  className: "w-[240px] text-right",
                   render: (row) => (
-                    <div className="flex justify-end">
+                    <div className="flex flex-nowrap gap-2 justify-end">
+                      <GhostButton
+                        className="py-2 px-3"
+                        onClick={() =>
+                          setSectionForm({
+                            ...emptyForm(["id", "subject", "sec"]),
+                            ...row,
+                          })
+                        }
+                        title="แก้ไขกลุ่มเรียน"
+                      >
+                        <Icon name="fa-pen" />
+                      </GhostButton>
                       <GhostButton
                         variant="danger"
                         className="py-2 px-3"
@@ -194,7 +265,7 @@ export function SubjectsPage({ data, api, refresh }) {
                   ),
                 },
               ]}
-              rows={sections}
+              rows={filteredSections}
               emptyText="ยังไม่มีกลุ่มเรียน"
             />
           </>
@@ -205,7 +276,7 @@ export function SubjectsPage({ data, api, refresh }) {
         {!activeSubject ? (
           <form
             onSubmit={saveSubject}
-            className="bg-white rounded-2xl border border-zinc-200 p-5  space-y-4"
+            className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
           >
             <h4 className="font-extrabold">
               {subjectForm.id ? "แก้ไขรายวิชา" : "เพิ่มรายวิชา"}
@@ -267,10 +338,12 @@ export function SubjectsPage({ data, api, refresh }) {
         ) : (
           <form
             onSubmit={saveSection}
-            className="bg-white rounded-2xl border border-zinc-200 p-5  space-y-4"
+            className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
           >
-            <h4 className="font-extrabold">เพิ่มกลุ่มเรียน</h4>
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-700 text-sm mb-2">
+            <h4 className="font-extrabold">
+              {sectionForm.id ? "แก้ไขกลุ่มเรียน" : "เพิ่มกลุ่มเรียน"}
+            </h4>
+            <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-blue-700 text-sm mb-2">
               <div className="font-bold flex items-center gap-2">
                 <Icon name="fa-book" /> {currentSubject?.code}
               </div>
@@ -287,7 +360,8 @@ export function SubjectsPage({ data, api, refresh }) {
               />
             </Field>
             <PrimaryButton className="w-full">
-              <Icon name="fa-plus" /> บันทึกกลุ่มเรียน
+              <Icon name="fa-floppy-disk" />{" "}
+              {sectionForm.id ? "บันทึกการแก้ไข" : "บันทึกกลุ่มเรียน"}
             </PrimaryButton>
           </form>
         )}

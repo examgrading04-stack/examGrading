@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   DataTable,
   GhostButton,
+  PrimaryButton,
   Icon,
   Select,
   Swal,
@@ -29,10 +30,17 @@ export function ReportsPage({ data }) {
       ? results.reduce((sum, result) => sum + Number(result.score || 0), 0) /
         results.length
       : 0;
+    const sectionName =
+      exam.section === "All Section" || !exam.section
+        ? "All Section"
+        : data.sections?.find((s) => String(s.id) === String(exam.section))
+            ?.sec || exam.section;
+
     return {
       ...exam,
       subjectKey: subject?.id || subject?.code || exam.subject || "",
       subjectName,
+      sectionName,
       participantCount: results.length,
       average,
     };
@@ -60,7 +68,7 @@ export function ReportsPage({ data }) {
     }
     const exportRows = reportRows.map((row, index) => ({
       ลำดับ: index + 1,
-      ข้อสอบ: row.name,
+      ข้อสอบ: `${row.name} ${row.sectionName !== "All Section" ? `(${row.sectionName})` : ""}`,
       รายวิชา: row.subjectName,
       จำนวนผู้สอบ: row.participantCount,
       คะแนนเฉลี่ย: row.average.toFixed(2),
@@ -79,10 +87,6 @@ export function ReportsPage({ data }) {
     <div className="page-enter mx-auto max-w-[1600px] space-y-6 px-4 pb-20">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-600 border border-blue-100">
-            <i className="fa-solid fa-chart-line" />
-            <span>รายงานและสถิติ</span>
-          </div>
           <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
             รายงานผลการตรวจทั้งหมด
           </h2>
@@ -108,10 +112,18 @@ export function ReportsPage({ data }) {
               ))}
             </Select>
           </div>
-          <GhostButton variant="success" onClick={() => exportReport("xlsx")}>
+          <GhostButton
+            variant="success"
+            onClick={() => exportReport("xlsx")}
+            className="print:hidden"
+          >
             <Icon name="fa-file-excel" /> ส่งออก Excel
           </GhostButton>
-          <GhostButton variant="primary" onClick={() => exportReport("csv")}>
+          <GhostButton
+            variant="primary"
+            onClick={() => exportReport("csv")}
+            className="print:hidden"
+          >
             <Icon name="fa-file-csv" /> ส่งออก CSV
           </GhostButton>
         </div>
@@ -132,11 +144,11 @@ export function ReportsPage({ data }) {
         />
       </div>
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/40 relative overflow-hidden">
-        <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-blue-500 to-emerald-500"></div>
+      <section className="rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40 relative overflow-hidden">
+        <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-blue-500 to-emerald-500"></div>
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500 border border-slate-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-50 text-slate-500 border border-slate-100">
               <i className="fa-solid fa-table" />
             </div>
             <div>
@@ -156,7 +168,14 @@ export function ReportsPage({ data }) {
               key: "name",
               label: "ข้อสอบ",
               render: (row) => (
-                <span className="font-bold text-slate-800">{row.name}</span>
+                <div className="flex flex-col">
+                  <span className="font-bold text-slate-800">{row.name}</span>
+                  {row.sectionName && row.sectionName !== "All Section" && (
+                    <span className="text-xs text-slate-500 font-medium mt-0.5">
+                      {row.sectionName}
+                    </span>
+                  )}
+                </div>
               ),
             },
             {

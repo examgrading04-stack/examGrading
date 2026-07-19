@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+﻿import { useMemo, useRef } from "react";
 import { StatCard, pct, useChart } from "../ui.jsx";
 
 export function Dashboard({ data }) {
@@ -72,9 +72,9 @@ export function Dashboard({ data }) {
           color="amber"
         />
       </div>
-      <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <section className="bg-white p-6 rounded-md shadow-sm border border-slate-200 border-t-4 border-t-blue-600">
         <h3 className="text-lg font-bold mb-4">กราฟสรุปผลการสอบ</h3>
-        <canvas ref={canvasRef} height="110" />
+        <canvas ref={canvasRef} height="100" />
       </section>
     </div>
   );

@@ -4,6 +4,7 @@ export const routes = [
     path: "/dashboard",
     file: "dashboard.html",
     label: "แดชบอร์ด",
+    subtitle: "ภาพรวมสถิติและข้อมูลทั้งหมดในระบบ",
     icon: "fa-chart-pie",
   },
   {
@@ -11,6 +12,7 @@ export const routes = [
     path: "/admin",
     file: "admin",
     label: "ผู้ดูแลระบบ",
+    subtitle: "จัดการผู้ใช้งานและตั้งค่าระบบ",
     icon: "fa-user-shield",
     adminOnly: true,
     hidden: true,
@@ -20,6 +22,7 @@ export const routes = [
     path: "/subjects",
     file: "subjects.html",
     label: "รายวิชาและกลุ่มเรียน",
+    subtitle: "จัดการข้อมูลรายวิชาและกลุ่มเรียนที่เปิดสอน",
     icon: "fa-book-open",
   },
   {
@@ -27,13 +30,15 @@ export const routes = [
     path: "/students",
     file: "students.html",
     label: "จัดการผู้เรียน",
+    subtitle: "เพิ่มและแก้ไขข้อมูลผู้เรียนในระบบ",
     icon: "fa-user-graduate",
   },
   {
     id: "exams",
     path: "/exams",
     file: "exams.html",
-    label: "จัดการข้อสอบ",
+    label: "จัดการกระดาษคำตอบ",
+    subtitle: "สร้างกระดาษคำตอบและพิมพ์กระดาษคำตอบ",
     icon: "fa-file-pen",
   },
   {
@@ -41,6 +46,7 @@ export const routes = [
     path: "/answer-key",
     file: "answer-key.html",
     label: "เฉลยข้อสอบ",
+    subtitle: "ตั้งค่าเฉลยและเกณฑ์การให้คะแนน",
     icon: "fa-key",
     hidden: true,
   },
@@ -49,6 +55,7 @@ export const routes = [
     path: "/results",
     file: "results.html",
     label: "ผลการสอบ",
+    subtitle: "ดูคะแนนและตรวจสอบความถูกต้องของกระดาษคำตอบ",
     icon: "fa-square-poll-vertical",
   },
   {
@@ -56,6 +63,7 @@ export const routes = [
     path: "/analysis",
     file: "analysis.html",
     label: "วิเคราะห์ผล",
+    subtitle: "วิเคราะห์ความยากง่ายและคุณภาพของข้อสอบ",
     icon: "fa-chart-line",
   },
   {
@@ -63,6 +71,7 @@ export const routes = [
     path: "/reports",
     file: "reports.html",
     label: "รายงานผล",
+    subtitle: "พิมพ์รายงานสรุปผลการสอบ",
     icon: "fa-file-invoice",
   },
   {
@@ -70,6 +79,7 @@ export const routes = [
     path: "/answer-sheet",
     file: "answer_sheet.html",
     label: "กระดาษคำตอบ",
+    subtitle: "พิมพ์แบบฟอร์มกระดาษคำตอบ",
     icon: "fa-file-lines",
     hidden: true,
   },

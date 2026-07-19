@@ -144,6 +144,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
   });
   const [editingUser, setEditingUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [searchLogs, setSearchLogs] = useState("");
   const [usersPage, setUsersPage] = useState(1);
   const [logsPage, setLogsPage] = useState(1);
   const [data, setData] = useState({
@@ -356,14 +357,31 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
   }
 
   async function logout() {
-    if (signOut) {
-      await signOut();
+    const res = await Swal().fire({
+      title: "ยืนยันออกจากระบบ?",
+      text: "คุณต้องการออกจากระบบใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ออกจากระบบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+
+    if (res.isConfirmed) {
+      if (signOut) {
+        await signOut();
+      }
+      window.location.href = "/";
     }
-    window.location.href = "/";
   }
 
   async function saveUser(event) {
     event.preventDefault();
+    Swal().fire({
+      title: "กำลังบันทึกข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
     const id = (editingUser?.id || userForm.id || userForm.email).trim();
     if (!id) return;
     await db
@@ -446,11 +464,24 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
     const start = (usersPage - 1) * PAGE_SIZE;
     return filteredUsers.slice(start, start + PAGE_SIZE);
   }, [filteredUsers, usersPage]);
-  const logsTotalPages = Math.max(1, Math.ceil(data.logs.length / PAGE_SIZE));
+  const filteredLogs = useMemo(() => {
+    const keyword = searchLogs.trim().toLowerCase();
+    if (!keyword) return data.logs;
+    return data.logs.filter((log) =>
+      [log.id, log.userEmail, log.user, log.admin, log.logid, log.activity]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword)),
+    );
+  }, [data.logs, searchLogs]);
+
+  const logsTotalPages = Math.max(
+    1,
+    Math.ceil(filteredLogs.length / PAGE_SIZE),
+  );
   const paginatedLogs = useMemo(() => {
     const start = (logsPage - 1) * PAGE_SIZE;
-    return data.logs.slice(start, start + PAGE_SIZE);
-  }, [data.logs, logsPage]);
+    return filteredLogs.slice(start, start + PAGE_SIZE);
+  }, [filteredLogs, logsPage]);
 
   useEffect(() => {
     setUsersPage(1);
@@ -503,7 +534,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
         plugins: { legend: { display: false } },
       },
     },
-    [monthlyStats],
+    [monthlyStats, activePage],
   );
 
   if (!session) {
@@ -511,7 +542,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4 font-['Sarabun']">
         <form
           onSubmit={login}
-          className="bg-white p-8 sm:p-10 rounded-xl  w-full max-w-md border-t-8 border-emerald-500"
+          className="bg-white p-8 sm:p-10 rounded-md  w-full max-w-md border-t-8 border-emerald-500"
         >
           <div className="text-center mb-8">
             <div className="bg-zinc-800 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
@@ -555,8 +586,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
           </div>
         </form>
         {loading && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-            <p className="loader">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+            <p className="loader !m-0">
               <span>Scan</span>
             </p>
           </div>
@@ -568,9 +599,11 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
   return (
     <div className="flex h-screen overflow-hidden bg-zinc-100 text-zinc-800 font-['Sarabun']">
       <aside className="w-64 bg-zinc-900 text-zinc-300 flex flex-col shrink-0">
-        <div className="p-6 border-b border-zinc-700 flex items-center gap-3">
+        <div className="px-6 border-b border-zinc-700 flex items-center gap-3 h-[73px]">
           <Icon name="fa-user-shield" />
-          <span className="text-lg font-bold text-white">Admin System</span>
+          <span className="text-lg font-bold text-white">
+            Exam Grading System
+          </span>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {[
@@ -581,7 +614,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
             <button
               key={id}
               onClick={() => setActivePage(id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition ${activePage === id ? "bg-emerald-500 text-white" : "hover:bg-emerald-600 hover:text-white"}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition ${activePage === id ? "bg-emerald-500 text-white" : "hover:bg-emerald-600 hover:text-white"}`}
             >
               <Icon name={icon} /> {label}
             </button>
@@ -596,39 +629,41 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 window.location.href = "/dashboard";
               }
             }}
-            className="w-full flex items-center justify-center gap-2 text-blue-300 hover:bg-zinc-800 py-2 rounded-xl transition"
+            className="w-full flex items-center justify-center gap-2 text-blue-300 hover:bg-zinc-800 py-2 rounded-md transition"
           >
             <Icon name="fa-desktop" /> โหมดผู้ใช้งาน
           </button>
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 text-red-300 hover:bg-zinc-800 py-2 rounded-xl transition"
+            className="w-full flex items-center justify-center gap-2 text-red-300 hover:bg-zinc-800 py-2 rounded-md transition"
           >
             <Icon name="fa-right-from-bracket" /> ออกจากระบบ
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto">
-        <header className="bg-white  p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-zinc-800">
-            {activePage === "dashboard" && "ภาพรวมระบบ (Dashboard)"}
-            {activePage === "users" && "จัดการผู้ใช้งาน"}
-            {activePage === "logs" && "ประวัติการใช้งาน"}
-          </h2>
+      <main className="flex-1 flex flex-col h-screen overlay-y bg-slate-50/50">
+        <header className="bg-white/80 backdrop-blur-md border-b border-zinc-200 px-6 sm:px-10 shrink-0 sticky top-0 z-20 flex justify-between items-center h-[73px]">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-900 sm:text-2xl">
+              {activePage === "dashboard" && "ภาพรวมระบบ (Dashboard)"}
+              {activePage === "users" && "จัดการผู้ใช้งาน"}
+              {activePage === "logs" && "ประวัติการใช้งาน"}
+            </h2>
+          </div>
           <div className="flex items-center gap-4">
             <button
               onClick={refresh}
-              className="text-sm font-bold text-emerald-700 hover:text-emerald-800"
+              className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
               disabled={loading}
             >
               <Icon name="fa-rotate" /> รีเฟรช
             </button>
-            <span className="hidden sm:inline text-zinc-600 font-medium">
-              สิทธิ์: {session.aname}
+            <span className="hidden sm:inline text-slate-500 font-bold text-sm">
+              Admin: {session.aname}
             </span>
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-800 font-bold border-2 border-emerald-500">
-              <Icon name="fa-user-tie" />
+            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-700 font-bold border border-slate-200">
+              <Icon name="fa-user-shield" />
             </div>
           </div>
         </header>
@@ -656,8 +691,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   value={`${data.results.length} รายการ`}
                 />
               </div>
-              <section className="bg-white p-6 rounded-xl ">
-                <h3 className="text-lg font-bold mb-4 text-zinc-700">
+              <section className="bg-white p-6 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600">
+                <h3 className="text-lg font-extrabold mb-4 text-slate-800">
                   สถิติการตรวจข้อสอบรายเดือน
                 </h3>
                 <canvas ref={chartRef} height="80" />
@@ -669,7 +704,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
             <div className="space-y-6">
               <form
                 onSubmit={saveUser}
-                className="bg-white rounded-xl  p-5 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
+                className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
               >
                 <Field label="รหัสผู้ใช้ / อีเมล">
                   <Input
@@ -708,7 +743,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                     onChange={(event) =>
                       setUserForm({ ...userForm, role: event.target.value })
                     }
-                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
@@ -737,7 +772,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                           role: "user",
                         });
                       }}
-                      className="px-4 rounded-xl border border-zinc-200 bg-white"
+                      className="px-4 rounded-md border border-zinc-200 bg-white"
                     >
                       <Icon name="fa-xmark" />
                     </button>
@@ -757,96 +792,110 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 />
               </div>
 
-              <div className="bg-white rounded-xl  overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-zinc-100 text-zinc-700">
-                      <th className="p-4 border-b">รหัสผู้ใช้</th>
-                      <th className="p-4 border-b">ชื่อ-นามสกุล</th>
-                      <th className="p-4 border-b">อีเมล / ชื่อผู้ใช้</th>
-                      <th className="p-4 border-b text-center">บทบาท</th>
-                      <th className="p-4 border-b text-center">สถานะ</th>
-                      <th className="p-4 border-b text-center">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedUsers.map((user) => (
-                      <tr
-                        key={user.id}
-                        className={`hover:bg-zinc-50 ${user.status === "suspended" ? "bg-red-50" : ""}`}
-                      >
-                        <td className="p-4 border-b text-zinc-600">
-                          {user.id}
-                        </td>
-                        <td className="p-4 border-b font-medium">
-                          {displayUserName(user)}
-                        </td>
-                        <td className="p-4 border-b">
-                          {user.email || user.id}
-                        </td>
-                        <td className="p-4 border-b text-center">
-                          <span
-                            className={`${user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"} px-3 py-1 rounded-full text-xs font-bold`}
-                          >
-                            {user.role || "user"}
-                          </span>
-                        </td>
-                        <td className="p-4 border-b text-center">
-                          {user.status === "suspended" ? (
-                            <span className="text-red-600 font-bold">
-                              ถูกระงับ
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 font-bold">
-                              ปกติ
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 border-b text-center whitespace-nowrap">
-                          <button
-                            onClick={() => startEdit(user)}
-                            className="text-yellow-500 hover:text-yellow-600 mx-2"
-                            title="แก้ไข"
-                          >
-                            <Icon name="fa-pen-to-square" />
-                          </button>
-                          <button
-                            onClick={() => toggleUserStatus(user)}
-                            className={`${user.status === "suspended" ? "text-emerald-600" : "text-red-500"} hover:opacity-80 mx-2`}
-                            title="เปลี่ยนสถานะ"
-                          >
-                            <Icon
-                              name={
-                                user.status === "suspended"
-                                  ? "fa-unlock"
-                                  : "fa-ban"
-                              }
-                            />
-                          </button>
-                          <button
-                            onClick={() => removeUser(user)}
-                            className="text-zinc-500 hover:text-red-600 mx-2"
-                            title="ลบ"
-                          >
-                            <Icon name="fa-trash" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!filteredUsers.length && (
+              <div className="bg-white rounded-lg border border-zinc-200">
+                <div className="overflow-x-auto relative rounded-t-lg">
+                  <table className="w-full text-left border-collapse text-sm table-fixed">
+                    <thead className="bg-zinc-100/90 backdrop-blur-sm text-zinc-700 sticky top-0 z-10 shadow-sm">
                       <tr>
-                        <td
-                          colSpan="6"
-                          className="p-8 text-center text-zinc-500"
-                        >
-                          ยังไม่มีข้อมูลผู้ใช้งาน
-                        </td>
+                        <th className="p-4 border-b font-bold whitespace-nowrap">
+                          รหัสผู้ใช้
+                        </th>
+                        <th className="p-4 border-b font-bold whitespace-nowrap">
+                          ชื่อ-นามสกุล
+                        </th>
+                        <th className="p-4 border-b font-bold whitespace-nowrap">
+                          อีเมล / ชื่อผู้ใช้
+                        </th>
+                        <th className="p-4 border-b font-bold text-center whitespace-nowrap">
+                          บทบาท
+                        </th>
+                        <th className="p-4 border-b font-bold text-center whitespace-nowrap">
+                          สถานะ
+                        </th>
+                        <th className="p-4 border-b font-bold text-center whitespace-nowrap">
+                          จัดการ
+                        </th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {paginatedUsers.map((user) => (
+                        <tr
+                          key={user.id}
+                          className={`hover:bg-zinc-50 ${user.status === "suspended" ? "bg-red-50" : ""}`}
+                        >
+                          <td className="p-4 border-b text-zinc-600 truncate">
+                            {user.id}
+                          </td>
+                          <td className="p-4 border-b font-medium truncate">
+                            {displayUserName(user)}
+                          </td>
+                          <td className="p-4 border-b truncate">
+                            {user.email || user.id}
+                          </td>
+                          <td className="p-4 border-b text-center">
+                            <span
+                              className={`${user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"} px-3 py-1 rounded-full text-xs font-bold`}
+                            >
+                              {user.role || "user"}
+                            </span>
+                          </td>
+                          <td className="p-4 border-b text-center">
+                            {user.status === "suspended" ? (
+                              <span className="text-red-600 font-bold">
+                                ถูกระงับ
+                              </span>
+                            ) : (
+                              <span className="text-emerald-600 font-bold">
+                                ปกติ
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 border-b text-center whitespace-nowrap">
+                            <button
+                              onClick={() => startEdit(user)}
+                              className="text-yellow-500 hover:text-yellow-600 mx-2"
+                              title="แก้ไข"
+                            >
+                              <Icon name="fa-pen-to-square" />
+                            </button>
+                            <button
+                              onClick={() => toggleUserStatus(user)}
+                              className={`${user.status === "suspended" ? "text-emerald-600" : "text-red-500"} hover:opacity-80 mx-2`}
+                              title="เปลี่ยนสถานะ"
+                            >
+                              <Icon
+                                name={
+                                  user.status === "suspended"
+                                    ? "fa-unlock"
+                                    : "fa-ban"
+                                }
+                              />
+                            </button>
+                            <button
+                              onClick={() => removeUser(user)}
+                              className="text-zinc-500 hover:text-red-600 mx-2"
+                              title="ลบ"
+                            >
+                              <Icon name="fa-trash" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!filteredUsers.length && (
+                        <tr>
+                          <td
+                            colSpan="6"
+                            className="p-8 text-center text-zinc-500"
+                          >
+                            ยังไม่มีข้อมูลผู้ใช้งาน
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
                 {filteredUsers.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 text-sm bg-white rounded-b-lg">
                     <span className="text-zinc-500">
                       แสดง {(usersPage - 1) * PAGE_SIZE + 1}-
                       {Math.min(usersPage * PAGE_SIZE, filteredUsers.length)}{" "}
@@ -872,112 +921,130 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   ประวัติการใช้งานระบบ
                 </h3>
                 <div className="flex gap-4 items-center min-h-[36px]">
+                  <Input
+                    value={searchLogs}
+                    onChange={(event) => setSearchLogs(event.target.value)}
+                    placeholder="ค้นหาประวัติการใช้งาน..."
+                    className="max-w-xs bg-white"
+                  />
                   <button
                     onClick={deleteSelectedLogs}
-                    className={`bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm ${
+                    className={`bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
                       selectedLogs.size > 0
                         ? "opacity-100"
                         : "opacity-0 pointer-events-none"
                     }`}
+                    title="ลบประวัติที่เลือก"
                   >
-                    <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedLogs.size}
-                    )
+                    <Icon name="fa-trash-can" /> ({selectedLogs.size})
                   </button>
                   <span className="text-sm text-zinc-500">
                     Collection: {logCollection}
                   </span>
                 </div>
               </div>
-              <div className="bg-zinc-900 rounded-xl  overflow-x-auto p-2">
-                <table className="w-full text-left border-collapse text-sm text-zinc-300 font-mono">
-                  <thead>
-                    <tr className="border-b border-zinc-700 text-zinc-400">
-                      <th className="p-3 w-10 text-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedLogs.size > 0 &&
-                            selectedLogs.size === data.logs.length
-                          }
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedLogs(
-                                new Set(data.logs.map((l) => l.id)),
-                              );
-                            } else {
-                              setSelectedLogs(new Set());
-                            }
-                          }}
-                          className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"
-                        />
-                      </th>
-                      <th className="p-3">วัน-เวลา</th>
-                      <th className="p-3">ผู้ใช้งาน</th>
-                      <th className="p-3">Log ID</th>
-                      <th className="p-3">กิจกรรม</th>
-                      <th className="p-3 text-center">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedLogs.map((log) => (
-                      <tr
-                        key={log.id}
-                        className="hover:bg-zinc-800 border-b border-zinc-800"
-                      >
-                        <td className="p-3 text-center">
+              <div className="bg-zinc-900 rounded-lg border border-zinc-700">
+                <div className="overflow-x-auto relative rounded-t-lg">
+                  <table className="w-full text-left border-collapse text-sm text-zinc-300 font-mono table-fixed">
+                    <thead className="bg-zinc-800/95 backdrop-blur-sm sticky top-0 z-10 shadow-md">
+                      <tr className="border-b border-zinc-700 text-zinc-400">
+                        <th className="p-3 w-10 text-center">
                           <input
                             type="checkbox"
-                            checked={selectedLogs.has(log.id)}
+                            checked={
+                              filteredLogs.length > 0 &&
+                              filteredLogs.every((l) => selectedLogs.has(l.id))
+                            }
                             onChange={(e) => {
-                              const newSet = new Set(selectedLogs);
-                              if (e.target.checked) newSet.add(log.id);
-                              else newSet.delete(log.id);
-                              setSelectedLogs(newSet);
+                              const next = new Set(selectedLogs);
+                              if (e.target.checked) {
+                                filteredLogs.forEach((l) => next.add(l.id));
+                              } else {
+                                filteredLogs.forEach((l) => next.delete(l.id));
+                              }
+                              setSelectedLogs(next);
                             }}
                             className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"
                           />
-                        </td>
-                        <td className="p-3 whitespace-nowrap">
-                          {formatDateTime(log.datetime)}
-                        </td>
-                        <td className="p-3 text-white">
-                          {log.userEmail || log.user || log.admin || "-"}
-                        </td>
-                        <td className="p-3 text-white">
-                          {log.logid || log.id}
-                        </td>
-                        <td className="p-3 text-emerald-300">
-                          {log.activity || "-"}
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => deleteLog(log.id)}
-                            className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-zinc-800 transition"
-                            title="ลบข้อมูล"
-                          >
-                            <Icon name="fa-trash-can" />
-                          </button>
-                        </td>
+                        </th>
+                        <th className="p-3 font-bold whitespace-nowrap">
+                          วัน-เวลา
+                        </th>
+                        <th className="p-3 font-bold whitespace-nowrap">
+                          ผู้ใช้งาน
+                        </th>
+                        <th className="p-3 font-bold whitespace-nowrap">
+                          Log ID
+                        </th>
+                        <th className="p-3 font-bold whitespace-nowrap">
+                          กิจกรรม
+                        </th>
+                        <th className="p-3 font-bold text-center whitespace-nowrap">
+                          จัดการ
+                        </th>
                       </tr>
-                    ))}
-                    {!data.logs.length && (
-                      <tr>
-                        <td
-                          colSpan="6"
-                          className="p-8 text-center text-zinc-400"
+                    </thead>
+                    <tbody>
+                      {paginatedLogs.map((log) => (
+                        <tr
+                          key={log.id}
+                          className="hover:bg-zinc-800 border-b border-zinc-800"
                         >
-                          ยังไม่มีประวัติการใช้งาน
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {data.logs.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 border-t border-zinc-700 px-4 py-3 text-sm">
+                          <td className="p-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedLogs.has(log.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedLogs);
+                                if (e.target.checked) newSet.add(log.id);
+                                else newSet.delete(log.id);
+                                setSelectedLogs(newSet);
+                              }}
+                              className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"
+                            />
+                          </td>
+                          <td className="p-3 whitespace-nowrap truncate">
+                            {formatDateTime(log.datetime)}
+                          </td>
+                          <td className="p-3 text-white truncate">
+                            {log.userEmail || log.user || log.admin || "-"}
+                          </td>
+                          <td className="p-3 text-white truncate">
+                            {log.logid || log.id}
+                          </td>
+                          <td className="p-3 text-emerald-300 truncate">
+                            {log.activity || "-"}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => deleteLog(log.id)}
+                              className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-zinc-800 transition"
+                              title="ลบข้อมูล"
+                            >
+                              <Icon name="fa-trash-can" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!filteredLogs.length && (
+                        <tr>
+                          <td
+                            colSpan="6"
+                            className="p-8 text-center text-zinc-400"
+                          >
+                            ยังไม่มีประวัติการใช้งาน
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredLogs.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-700 px-4 py-3 text-sm bg-zinc-900 rounded-b-lg">
                     <span className="text-zinc-400">
                       แสดง {(logsPage - 1) * PAGE_SIZE + 1}-
-                      {Math.min(logsPage * PAGE_SIZE, data.logs.length)} จาก{" "}
-                      {data.logs.length} รายการ
+                      {Math.min(logsPage * PAGE_SIZE, filteredLogs.length)} จาก{" "}
+                      {filteredLogs.length} รายการ
                     </span>
                     <Pagination
                       count={logsTotalPages}
@@ -995,8 +1062,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       </main>
 
       {loading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-          <p className="loader">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+          <p className="loader !m-0">
             <span>Scan</span>
           </p>
         </div>
@@ -1013,11 +1080,11 @@ function AdminStat({ title, value, icon, color }) {
   };
   return (
     <div
-      className={`bg-white p-6 rounded-xl  border-t-4 ${colors[color].split(" ")[0]} flex items-center justify-between`}
+      className={`bg-white p-6 rounded-lg border border-zinc-200 border-t-4 ${colors[color].split(" ")[0]} flex items-center justify-between`}
     >
       <div>
-        <p className="text-zinc-500 text-sm font-bold">{title}</p>
-        <h3 className="text-3xl font-bold mt-2 text-zinc-800">{value}</h3>
+        <p className="text-slate-500 text-sm font-bold">{title}</p>
+        <h3 className="text-3xl font-extrabold mt-2 text-slate-800">{value}</h3>
       </div>
       <div className={`${colors[color].split(" ")[1]} text-4xl opacity-50`}>
         <Icon name={icon} />

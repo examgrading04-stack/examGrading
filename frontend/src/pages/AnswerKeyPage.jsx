@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Icon, PrimaryButton } from "../ui.jsx";
+import { Icon, PrimaryButton, Swal } from "../ui.jsx";
 
 export function AnswerKeyPage({ data, api, refresh, query }) {
   const [examId, setExamId] = useState(query.examId || data.exams[0]?.id || "");
@@ -8,11 +8,22 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
 
   useEffect(() => {
     if (!exam) return;
-    setAnswers(exam.answerKey?.[0] || {});
+    const ak = exam.answerKey || {};
+    // Handle nested format { "0": {...} } and flat format { "1": "A", ... }
+    const loadedAnswers =
+      ak["0"] || ak[0] || (ak["1"] || Object.keys(ak).length ? ak : {});
+    setAnswers(loadedAnswers);
   }, [examId, exam]);
 
   async function save() {
     if (!exam) return;
+    Swal().fire({
+      title: "กำลังบันทึก...",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal().showLoading();
+      },
+    });
     const answerKey = { 0: answers };
     await api.update("exams", exam.id, { answerKey });
     localStorage.setItem(
@@ -35,12 +46,12 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
 
   return (
     <div className="page-enter space-y-6">
-      <div className="bg-white rounded-2xl border border-zinc-200 p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => window.history.back()}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-            title="กลับไปหน้าจัดการข้อสอบ"
+            className="w-10 h-10 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+            title="กลับไปหน้าจัดการกระดาษคำตอบ"
           >
             <Icon name="fa-arrow-left" />
           </button>
@@ -62,7 +73,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
           {questionNumbers.map((question) => (
             <div
               key={question}
-              className="break-inside-avoid bg-white rounded-xl border border-zinc-200 p-4 flex items-center justify-between mb-4 hover:border-indigo-300 transition-colors "
+              className="break-inside-avoid bg-white rounded-md border border-zinc-200 p-4 flex items-center justify-between mb-4 hover:border-indigo-300 transition-colors "
             >
               <span className="font-extrabold text-slate-700 min-w-[50px]">
                 ข้อ {question}
@@ -75,7 +86,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
                     onClick={() =>
                       setAnswers({ ...answers, [question]: option })
                     }
-                    className={`w-9 h-9 rounded-full border-2 font-bold transition-all ${answers[question] === option ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200 scale-110" : "bg-white text-zinc-500 border-slate-100 hover:border-blue-200"}`}
+                    className={`w-9 h-9 rounded-full border-2 font-bold transition-all ${answers[question] === option ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 scale-110" : "bg-white text-zinc-500 border-slate-100 hover:border-blue-200"}`}
                   >
                     {option}
                   </button>
@@ -85,7 +96,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-2xl p-10 text-center text-zinc-500 ">
+        <div className="bg-white border border-zinc-200 rounded-lg p-10 text-center text-zinc-500 ">
           เลือกข้อสอบเพื่อกำหนดเฉลย
         </div>
       )}

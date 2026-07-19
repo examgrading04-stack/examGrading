@@ -85,6 +85,7 @@ function AuthCard({ mode, setMode, auth }) {
       if (isRegister)
         await auth.createUserWithEmailAndPassword(email, password);
       else await auth.signInWithEmailAndPassword(email, password);
+      sessionStorage.setItem("justLoggedIn", "true");
       Swal().close();
     } catch (error) {
       Swal().fire(
@@ -99,6 +100,7 @@ function AuthCard({ mode, setMode, auth }) {
     const provider = new window.firebase.auth.GoogleAuthProvider();
     try {
       await auth.signInWithPopup(provider);
+      sessionStorage.setItem("justLoggedIn", "true");
     } catch (error) {
       if (
         !["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(
@@ -130,7 +132,7 @@ function AuthCard({ mode, setMode, auth }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-slate-200 w-full max-w-md">
+      <div className="bg-white p-8 sm:p-10 rounded-lg shadow-sm border border-slate-200 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <AppLogo />
@@ -255,7 +257,7 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
     <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4">
       <form
         onSubmit={save}
-        className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xl w-full max-w-md space-y-4"
+        className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm w-full max-w-md space-y-4"
       >
         <div className="flex items-center justify-between">
           <h3 className="font-extrabold text-lg">ตั้งค่าโปรไฟล์</h3>
@@ -264,8 +266,8 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
           </GhostButton>
         </div>
 
-        <div className="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-emerald-100 flex items-center justify-center text-blue-700 font-bold text-3xl overflow-hidden shadow-md border-4 border-white">
+        <div className="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+          <div className="w-24 h-24 rounded-full bg-slate-50 from-blue-100 to-emerald-100 flex items-center justify-center text-blue-700 font-bold text-3xl overflow-hidden shadow-sm border-4 border-white">
             <AvatarImage
               src={photoURL}
               name={displayName || user.email}
@@ -346,8 +348,20 @@ function Shell({
   }
 
   async function signOut() {
-    await api?.log("User signed out");
-    await auth.signOut();
+    const res = await Swal().fire({
+      title: "ยืนยันออกจากระบบ?",
+      text: "คุณต้องการออกจากระบบใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ออกจากระบบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+
+    if (res.isConfirmed) {
+      await api?.log("User signed out");
+      await auth.signOut();
+    }
   }
 
   return (
@@ -359,7 +373,7 @@ function Shell({
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-xl flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
+        className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-sm flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
         <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between h-[73px]">
           <div className="flex items-center gap-4">
@@ -395,7 +409,11 @@ function Shell({
         </nav>
         <div className="p-4 border-t border-slate-100">
           {user?.role === "admin" ? (
-            <GhostButton variant="primary" onClick={() => navigate("admin")} className="w-full">
+            <GhostButton
+              variant="primary"
+              onClick={() => navigate("admin")}
+              className="w-full"
+            >
               <Icon name="fa-user-shield" /> โหมดผู้ดูแลระบบ
             </GhostButton>
           ) : (
@@ -405,35 +423,45 @@ function Shell({
           )}
         </div>
       </aside>
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
-        <header className="bg-white border-b border-slate-200 p-4 px-6 lg:px-8 flex justify-between items-center sticky top-0 z-10 h-[73px]">
-          <div className="flex items-center gap-4">
+      <main className="flex-1 flex flex-col h-screen overlay-y relative">
+        <header className="bg-white border-b border-slate-200 px-6 sm:px-10 shrink-0 sticky top-0 z-10 h-[73px] flex items-center w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors mr-2"
+              >
+                <Icon name="fa-bars" />
+              </button>
+              {route.icon && (
+                <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50">
+                  <Icon name={route.icon} />
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-800 leading-tight">
+                  {route.label}
+                </h2>
+              </div>
+            </div>
+
             <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              onClick={() => setProfileOpen(true)}
+              className="flex items-center gap-3 group"
             >
-              <Icon name="fa-bars" />
+              <span className="hidden sm:flex flex-col items-end">
+                <span className="text-sm font-semibold text-slate-800 leading-none group-hover:text-blue-600 transition-colors">
+                  {effectiveDisplayName}
+                </span>
+                <span className="text-xs text-slate-500 mt-1">
+                  ตั้งค่าโปรไฟล์
+                </span>
+              </span>
+              <span className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold overflow-hidden border border-slate-200">
+                {avatar}
+              </span>
             </button>
-            <h2 className="text-xl lg:text-2xl font-extrabold text-slate-800 tracking-tight">
-              {route.label}
-            </h2>
           </div>
-          <button
-            onClick={() => setProfileOpen(true)}
-            className="flex items-center gap-3 group"
-          >
-            <span className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-semibold text-slate-800 leading-none group-hover:text-blue-600 transition-colors">
-                {effectiveDisplayName}
-              </span>
-              <span className="text-xs text-slate-500 mt-1">
-                ตั้งค่าโปรไฟล์
-              </span>
-            </span>
-            <span className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold overflow-hidden border border-slate-200">
-              {avatar}
-            </span>
-          </button>
         </header>
         <div className="p-4 lg:p-8 max-w-7xl mx-auto w-full">
           {renderPage()}
@@ -493,7 +521,25 @@ export default function App() {
             setLoading(false);
             return;
           }
-          const userData = { ...nextUser, role: userDoc.data()?.role };
+          let role = userDoc.data()?.role || nextUser.role;
+          if (!role || role !== "admin") {
+            const adminEmail =
+              nextUser.email || nextUser.username || nextUser.id;
+            const adminDoc = await services.db
+              .collection("Admin")
+              .doc(adminEmail)
+              .get();
+            if (adminDoc.exists) {
+              role = "admin";
+            } else {
+              const adminsDoc = await services.db
+                .collection("admins")
+                .doc(adminEmail)
+                .get();
+              if (adminsDoc.exists) role = "admin";
+            }
+          }
+          const userData = { ...nextUser, role };
           setUser(userData);
           setProfile(await loadProfile(services, userData));
           await loadData(services, userData);
@@ -503,22 +549,13 @@ export default function App() {
       } else {
         setUser(null);
         setProfile(null);
+        setInitialLoginHandled(false);
       }
       setLoading(false);
       if (nextUser) await loadData(services, nextUser);
     });
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    if (user && !initialLoginHandled) {
-      setInitialLoginHandled(true);
-      if (user.role === "admin" && routeId === "dashboard" && window.location.pathname === "/") {
-        setRouteId("admin");
-        window.history.replaceState({}, "", "/admin");
-      }
-    }
-  }, [user, initialLoginHandled, routeId]);
 
   useEffect(() => {
     const handler = () => {
@@ -531,7 +568,11 @@ export default function App() {
 
   useEffect(() => {
     if (user && ["login", "register"].includes(routeId)) {
-      navigate("dashboard");
+      if (user.role === "admin") {
+        navigate("admin");
+      } else {
+        navigate("dashboard");
+      }
     }
   }, [user, routeId]);
 
@@ -777,6 +818,25 @@ export default function App() {
     };
   }, [firebase, user]);
 
+  useEffect(() => {
+    if (user && !initialLoginHandled) {
+      setInitialLoginHandled(true);
+      if (api && sessionStorage.getItem("justLoggedIn")) {
+        sessionStorage.removeItem("justLoggedIn");
+        api.log("User signed in");
+      }
+      if (
+        user.role === "admin" &&
+        (routeId === "dashboard" ||
+          routeId === "login" ||
+          routeId === "register" ||
+          routeId === "")
+      ) {
+        navigate("admin");
+      }
+    }
+  }, [user, initialLoginHandled, routeId, api]);
+
   async function refresh(message) {
     await loadData();
     if (message)
@@ -820,14 +880,27 @@ export default function App() {
 
   if (routeId === "admin") {
     if (user.role === "admin") {
-      return <AdminPage firebase={firebase} user={user} signOut={signOut} navigate={navigate} />;
+      return (
+        <AdminPage
+          firebase={firebase}
+          user={user}
+          signOut={signOut}
+          navigate={navigate}
+        />
+      );
     }
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
         <Icon name="fa-shield-halved" className="text-5xl text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-4">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</h2>
-        <p className="mb-6 text-slate-500">หน้านี้สงวนไว้สำหรับผู้ดูแลระบบเท่านั้น</p>
-        <PrimaryButton onClick={() => navigate("/")}>กลับสู่หน้าหลัก</PrimaryButton>
+        <h2 className="text-2xl font-bold mb-4">
+          คุณไม่มีสิทธิ์เข้าถึงหน้านี้
+        </h2>
+        <p className="mb-6 text-slate-500">
+          หน้านี้สงวนไว้สำหรับผู้ดูแลระบบเท่านั้น
+        </p>
+        <PrimaryButton onClick={() => navigate("/")}>
+          กลับสู่หน้าหลัก
+        </PrimaryButton>
       </div>
     );
   }

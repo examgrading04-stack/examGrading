@@ -222,6 +222,7 @@ class MySQLAdapter(BaseDBAdapter):
                 # Map back to frontend keys
                 d["section"] = d.pop("section_id", None) or "All Section"
                 d["sheetType"] = d.pop("template_id", None)
+                d["subject"] = d.get("subject_id")
             finally:
                 session.close()
 
@@ -580,11 +581,17 @@ class MySQLAdapter(BaseDBAdapter):
                 session.flush()
                 
                 if collection == "exams" and "answerKey" in mapped_data:
-                    if isinstance(mapped_data["answerKey"], dict):
-                        for q_str, ans in mapped_data["answerKey"].items():
+                    raw_ak = mapped_data["answerKey"]
+                    if isinstance(raw_ak, dict):
+                        if "0" in raw_ak and isinstance(raw_ak["0"], dict):
+                            raw_ak = raw_ak["0"]
+                        elif 0 in raw_ak and isinstance(raw_ak[0], dict):
+                            raw_ak = raw_ak[0]
+                        for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=ans))
+                                if isinstance(ans, str) or isinstance(ans, int):
+                                    session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=str(ans)))
                             except ValueError:
                                 pass
                                 
@@ -651,11 +658,17 @@ class MySQLAdapter(BaseDBAdapter):
                             
                 if collection == "exams" and "answerKey" in mapped_data:
                     session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id).delete()
-                    if isinstance(mapped_data["answerKey"], dict):
-                        for q_str, ans in mapped_data["answerKey"].items():
+                    raw_ak = mapped_data["answerKey"]
+                    if isinstance(raw_ak, dict):
+                        if "0" in raw_ak and isinstance(raw_ak["0"], dict):
+                            raw_ak = raw_ak["0"]
+                        elif 0 in raw_ak and isinstance(raw_ak[0], dict):
+                            raw_ak = raw_ak[0]
+                        for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=ans))
+                                if isinstance(ans, str) or isinstance(ans, int):
+                                    session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=str(ans)))
                             except ValueError:
                                 pass
                                 
@@ -726,6 +739,9 @@ def get_db_adapter() -> BaseDBAdapter:
         return _cached_adapter
 
     db_url = os.getenv("DATABASE_URL", "mysql+pymysql://root:@localhost:3306/exam_grading")
+    if "mysql" in db_url and "charset=" not in db_url:
+        db_url += "?charset=utf8mb4" if "?" not in db_url else "&charset=utf8mb4"
+        
     print(f"DATABASE: Using MySQL database adapter connecting to {db_url}")
     _cached_adapter = MySQLAdapter(db_url)
     return _cached_adapter

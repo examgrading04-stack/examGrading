@@ -2,8 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import {
   DataTable,
   Icon,
+  Input,
   Select,
   GhostButton,
+  PrimaryButton,
   Swal,
   Modal,
   Pagination,
@@ -29,6 +31,7 @@ function getCorrectAnswer(exam, question) {
 export function ResultsPage({ data, api, refresh, query }) {
   const [selectedExamId, setSelectedExamId] = useState(query?.examId || "");
   const [selectedResult, setSelectedResult] = useState(null);
+  const [searchResult, setSearchResult] = useState("");
 
   useEffect(() => {
     if (query?.examId) {
@@ -42,7 +45,7 @@ export function ResultsPage({ data, api, refresh, query }) {
     if (selectedExamId) {
       list = list.filter((r) => r.examId === selectedExamId);
     }
-    return list.map((row) => {
+    const finalMapped = list.map((row) => {
       const exam = data.exams.find((e) => e.id === row.examId);
       const student = data.students.find(
         (s) => s.id === row.studentId || s.code === row.studentCode,
@@ -81,13 +84,38 @@ export function ResultsPage({ data, api, refresh, query }) {
         totalQuestions: questionsCount,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
-        examSection: data.sections?.find(s => String(s.id) === String(exam?.section))?.sec || exam?.section || "",
-        studentSec: data.sections?.find(s => String(s.id) === String(student?.section))?.sec || student?.section || "",
+        examSection:
+          data.sections?.find((s) => String(s.id) === String(exam?.section))
+            ?.sec ||
+          exam?.section ||
+          "",
+        studentSec:
+          data.sections?.find((s) => String(s.id) === String(student?.section))
+            ?.sec ||
+          student?.section ||
+          "",
         studentName: student?.name || row.studentName || "",
         studentCode: student?.id || student?.code || row.studentCode || "",
       };
     });
-  }, [data.results, data.exams, data.students, data.sections, selectedExamId]);
+
+    if (searchResult) {
+      const keyword = searchResult.trim().toLowerCase();
+      return finalMapped.filter((row) =>
+        [row.studentName, row.studentCode]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(keyword)),
+      );
+    }
+    return finalMapped;
+  }, [
+    data.results,
+    data.exams,
+    data.students,
+    data.sections,
+    selectedExamId,
+    searchResult,
+  ]);
 
   // Summary Statistics
   const stats = useMemo(() => {
@@ -105,25 +133,49 @@ export function ResultsPage({ data, api, refresh, query }) {
   return (
     <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
-        <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-            {currentExam
-              ? `ผลการตรวจคะแนน: ${currentExam.name}`
-              : "ผลการตรวจคะแนนทั้งหมด"}
-            {currentExam?.section && (
-              <span className="ml-3 rounded-full bg-slate-100 px-3 py-1 text-sm font-black uppercase text-slate-600 border border-slate-200">
-                Sec {currentExam.section}
-              </span>
+        <div className="flex-1 min-w-0 pr-4">
+          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl truncate">
+            {currentExam ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-xl sm:text-2xl text-slate-500">
+                  ผลการตรวจคะแนน:
+                </span>
+                <div className="flex items-center gap-3 text-2xl sm:text-3xl">
+                  <span>{currentExam.name}</span>
+                  {currentExam.section && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-black uppercase text-slate-600 border border-slate-200">
+                      {currentExam.section === "All Section"
+                        ? "All Section"
+                        : data.sections?.find(
+                            (s) => String(s.id) === String(currentExam.section),
+                          )?.sec || currentExam.section}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              "ผลการตรวจคะแนนทั้งหมด"
             )}
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 truncate">
             {currentExam
               ? `รหัสวิชา ${currentExam.subject} · รายชื่อผู้เข้าสอบและผลคะแนนรายบุคคล`
               : "เลือกข้อสอบเพื่อดูรายละเอียดผลคะแนนแยกตามกลุ่มเรียน"}
           </p>
         </div>
-        <div className="w-full sm:w-80 flex flex-col gap-3">
-          <div>
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-end gap-3 print:hidden">
+          <div className="w-full sm:w-64">
+            <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
+              ค้นหาผู้เรียน
+            </label>
+            <Input
+              value={searchResult}
+              onChange={(e) => setSearchResult(e.target.value)}
+              placeholder="รหัส หรือ ชื่อ-สกุล..."
+              className="bg-white"
+            />
+          </div>
+          <div className="w-full sm:w-80">
             <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
               เลือกข้อสอบ
             </label>
@@ -133,12 +185,21 @@ export function ResultsPage({ data, api, refresh, query }) {
               className="w-full bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">ดูผลการตรวจคะแนนทั้งหมด</option>
-              {data.exams.map((exam) => (
-                <option key={exam.id} value={exam.id}>
-                  {exam.subject} {exam.section ? `(Sec ${exam.section})` : ""} -{" "}
-                  {exam.name}
-                </option>
-              ))}
+              {data.exams.map((exam) => {
+                const secName =
+                  exam.section === "All Section" || !exam.section
+                    ? "All Section"
+                    : data.sections?.find(
+                        (s) => String(s.id) === String(exam.section),
+                      )?.sec || exam.section;
+                return (
+                  <option key={exam.id} value={exam.id}>
+                    {exam.subject}{" "}
+                    {secName !== "All Section" ? `(${secName})` : ""} -{" "}
+                    {exam.name}
+                  </option>
+                );
+              })}
             </Select>
           </div>
         </div>
@@ -147,13 +208,13 @@ export function ResultsPage({ data, api, refresh, query }) {
       {/* Stats Dashboard */}
       {stats && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+          <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
               คะแนนเฉลี่ย
             </p>
             <p className="text-2xl font-black text-indigo-600">{stats.avg}</p>
           </div>
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+          <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
               ผู้เข้าสอบ
             </p>
@@ -163,7 +224,7 @@ export function ResultsPage({ data, api, refresh, query }) {
       )}
 
       {/* Main Table Section */}
-      <section className="space-y-4">
+      <section className="space-y-4 print:hidden">
         <DataTable
           columns={[
             {
@@ -171,7 +232,7 @@ export function ResultsPage({ data, api, refresh, query }) {
               label: "ผู้เรียน",
               render: (row) => (
                 <div className="flex items-center gap-3 py-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-100 to-slate-200 text-sm font-bold text-slate-500 shadow-inner border border-white">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 from-slate-100 to-slate-200 text-sm font-bold text-slate-500 shadow-inner border border-white">
                     {row.studentName ? row.studentName.charAt(0) : "?"}
                   </div>
                   <div className="flex flex-col">
@@ -181,7 +242,7 @@ export function ResultsPage({ data, api, refresh, query }) {
                       </span>
                       {(row.studentSec || row.examSection) && (
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-500 shadow-sm border border-slate-200/50">
-                          Sec {row.studentSec || row.examSection}
+                          {row.studentSec || row.examSection}
                         </span>
                       )}
                     </div>
@@ -239,7 +300,7 @@ export function ResultsPage({ data, api, refresh, query }) {
                 <div className="flex justify-end gap-2 pr-2">
                   <GhostButton
                     variant="primary"
-                    className="p-2 rounded-xl"
+                    className="p-2 rounded-md"
                     onClick={() => setSelectedResult(row)}
                     title="ดูรายละเอียดการตรวจ"
                   >
@@ -247,7 +308,7 @@ export function ResultsPage({ data, api, refresh, query }) {
                   </GhostButton>
                   <GhostButton
                     variant="danger"
-                    className="p-2 rounded-xl"
+                    className="p-2 rounded-md"
                     onClick={async () => {
                       Swal()
                         .fire({
@@ -275,6 +336,39 @@ export function ResultsPage({ data, api, refresh, query }) {
           emptyText="ยังไม่มีผลการตรวจสำหรับรายการที่เลือก"
         />
       </section>
+
+      {/* Print-only Table (shows all rows) */}
+      <div className="hidden print:block mt-8">
+        <h3 className="text-xl font-bold mb-4">รายละเอียดผลคะแนน</h3>
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="border-b-2 border-black">
+              <th className="py-2 pr-4 font-bold">รหัสผู้เรียน</th>
+              <th className="py-2 pr-4 font-bold">ชื่อ-นามสกุล</th>
+              <th className="py-2 pr-4 font-bold">กลุ่มเรียน</th>
+              <th className="py-2 pr-4 font-bold text-center">คะแนน</th>
+              <th className="py-2 pr-4 font-bold text-center">ร้อยละ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredResults.map((r, i) => (
+              <tr key={r.id} className="border-b border-gray-300">
+                <td className="py-2 pr-4">{r.studentCode || "-"}</td>
+                <td className="py-2 pr-4">{r.studentName || "-"}</td>
+                <td className="py-2 pr-4">
+                  {r.studentSec || r.examSection || "-"}
+                </td>
+                <td className="py-2 pr-4 text-center">
+                  {r.score}/{r.totalQuestions}
+                </td>
+                <td className="py-2 pr-4 text-center">
+                  {r.percentage.toFixed(0)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <Modal
         isOpen={!!selectedResult}
@@ -346,7 +440,7 @@ function StudentAnswersView({ result, exam }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between bg-slate-50 p-4 rounded-xl border border-slate-100 gap-4">
+      <div className="flex flex-col md:flex-row justify-between bg-slate-50 p-4 rounded-md border border-slate-100 gap-4">
         <div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
             ผู้เรียน
@@ -370,7 +464,7 @@ function StudentAnswersView({ result, exam }) {
       </div>
 
       {result.imageUrl ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+        <div className="bg-white rounded-md border border-slate-200 p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               รูปกระดาษคำตอบที่ตรวจ
@@ -394,12 +488,12 @@ function StudentAnswersView({ result, exam }) {
           </a>
         </div>
       ) : (
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+        <div className="bg-slate-50 rounded-md border border-slate-200 p-4 text-sm text-slate-500">
           ไม่มีรูปกระดาษคำตอบในผลการตรวจนี้
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <div className="overflow-x-auto rounded-md border border-slate-200">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
             <tr>
@@ -451,7 +545,7 @@ function StudentAnswersView({ result, exam }) {
         </table>
       </div>
       {rows.length > 0 && (
-        <div className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3 border border-slate-200 rounded-md px-4 py-3 text-sm">
           <span className="text-slate-500">
             แสดง {(page - 1) * pageSize + 1}-
             {Math.min(page * pageSize, rows.length)} จาก {rows.length} รายการ

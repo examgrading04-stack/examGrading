@@ -255,7 +255,13 @@ export function AnalysisPage({ data }) {
             ภาพรวมสถิติและคุณภาพข้อสอบ
             {exam?.section && (
               <span className="ml-3 rounded-full bg-slate-100 px-3 py-1 text-sm font-black uppercase text-slate-600 border border-slate-200">
-                Sec {exam.section}
+                {exam.section === "All Section" || !exam.section
+                  ? "All Section"
+                  : `Sec ${
+                      data.sections?.find(
+                        (s) => String(s.id) === String(exam.section),
+                      )?.sec || exam.section
+                    }`}
               </span>
             )}
           </h2>
@@ -316,11 +322,11 @@ export function AnalysisPage({ data }) {
       </div>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_24rem]">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/40">
-          <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+        <div className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40">
+          <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-blue-500 to-indigo-500"></div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl text-blue-600 shadow-inner">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-blue-50 text-xl text-blue-600 shadow-inner">
                 <i className="fa-solid fa-chart-column" />
               </div>
               <div>
@@ -332,7 +338,7 @@ export function AnalysisPage({ data }) {
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
+            <div className="flex shrink-0 items-center gap-4 rounded-md border border-emerald-100 bg-emerald-50/50 px-4 py-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-right">
                   คะแนนเฉลี่ย
@@ -346,7 +352,7 @@ export function AnalysisPage({ data }) {
               </div>
             </div>
           </div>
-          <div className="mt-8 relative h-72 w-full overflow-x-auto overflow-y-hidden rounded-xl border border-slate-100 bg-slate-50/30 p-2">
+          <div className="mt-8 relative h-72 w-full overflow-x-auto overflow-y-hidden rounded-md border border-slate-100 bg-slate-50/30 p-2">
             <div
               style={{
                 minWidth: `max(100%, ${chartLabels.length * 40}px)`,
@@ -368,10 +374,10 @@ export function AnalysisPage({ data }) {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl shadow-slate-200/40 flex flex-col">
-          <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-indigo-500 to-violet-500"></div>
+        <div className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40 flex flex-col">
+          <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-indigo-500 to-violet-500"></div>
           <div className="flex gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-xl text-indigo-600 shadow-inner">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-xl text-indigo-600 shadow-inner">
               <i className="fa-solid fa-chart-pie" />
             </div>
             <div>
@@ -426,7 +432,7 @@ export function AnalysisPage({ data }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4 font-bold text-slate-800">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
             <i className="fa-solid fa-circle-info" />
@@ -436,7 +442,7 @@ export function AnalysisPage({ data }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* p Box */}
-          <div className="rounded-xl border border-blue-100 bg-blue-50/30 overflow-hidden">
+          <div className="rounded-md border border-blue-100 bg-blue-50/30 overflow-hidden">
             <div className="bg-blue-100/50 px-4 py-2 flex items-center gap-2 border-b border-blue-100">
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-blue-700 shadow-sm border border-blue-200 text-xs">
                 p
@@ -468,7 +474,7 @@ export function AnalysisPage({ data }) {
           </div>
 
           {/* D Box */}
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50/30 overflow-hidden">
+          <div className="rounded-md border border-emerald-100 bg-emerald-50/30 overflow-hidden">
             <div className="bg-emerald-100/50 px-4 py-2 flex items-center gap-2 border-b border-emerald-100">
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-emerald-700 shadow-sm border border-emerald-200 text-xs">
                 D
@@ -501,7 +507,7 @@ export function AnalysisPage({ data }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">
