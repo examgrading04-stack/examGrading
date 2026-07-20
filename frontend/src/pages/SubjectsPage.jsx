@@ -119,8 +119,71 @@ export function SubjectsPage({ data, api, refresh }) {
     );
     await refresh("ลบกลุ่มเรียนเรียบร้อยแล้ว");
   }
+
+  const [selectedSubjects, setSelectedSubjects] = useState(new Set());
+  const [selectedSections, setSelectedSections] = useState(new Set());
+
+  async function deleteSelectedSubjects() {
+    if (selectedSubjects.size === 0) return;
+    const result = await Swal().fire({
+      title: "ยืนยันการลบ?",
+      text: `คุณต้องการลบรายวิชาจำนวน ${selectedSubjects.size} รายการใช่หรือไม่? (ระบบจะลบกลุ่มเรียนและรายชื่อผู้เรียนด้วย)`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบทั้งหมด",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+    if (!result.isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
+    for (const id of selectedSubjects) {
+      await api.remove("subjects", id);
+    }
+
+    setSelectedSubjects(new Set());
+    await refresh("ลบรายวิชาที่เลือกเรียบร้อยแล้ว");
+  }
+
+  async function deleteSelectedSections() {
+    if (selectedSections.size === 0) return;
+    const result = await Swal().fire({
+      title: "ยืนยันการลบ?",
+      text: `คุณต้องการลบกลุ่มเรียนจำนวน ${selectedSections.size} รายการใช่หรือไม่? (ระบบจะลบรายชื่อผู้เรียนด้วย)`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบทั้งหมด",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    });
+    if (!result.isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
+    for (const id of selectedSections) {
+      const section = data.sections.find((s) => s.id === id);
+      if (section) {
+        await api.remove(
+          `subjects/${section.subject}/sections`,
+          section.realId || section.id,
+        );
+      }
+    }
+
+    setSelectedSections(new Set());
+    await refresh("ลบกลุ่มเรียนที่เลือกเรียบร้อยแล้ว");
+  }
   return (
-    <div className="page-enter grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
       <section className="space-y-6">
         {!activeSubject ? (
           <>
@@ -133,17 +196,63 @@ export function SubjectsPage({ data, api, refresh }) {
                   จัดการรายวิชาและกลุ่มเรียนที่เปิดสอน
                 </p>
               </div>
-              <div className="w-full sm:w-64">
-                <Input
-                  value={searchSubject}
-                  onChange={(e) => setSearchSubject(e.target.value)}
-                  placeholder="ค้นหารหัสวิชา หรือ ชื่อวิชา..."
-                  icon="fa-magnifying-glass"
-                />
+            </div>
+            <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                <div className="w-full sm:w-56 max-w-full shrink-0">
+                  <Input
+                    value={searchSubject}
+                    onChange={(e) => setSearchSubject(e.target.value)}
+                    placeholder="ค้นหารหัสวิชา หรือ ชื่อวิชา..."
+                    icon="fa-magnifying-glass"
+                  />
+                </div>
               </div>
+              {selectedSubjects.size > 0 && (
+                <button
+                  onClick={deleteSelectedSubjects}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
+                  title="ลบรายการที่เลือก"
+                >
+                  <Icon name="fa-trash-can" /> ({selectedSubjects.size})
+                </button>
+              )}
             </div>
             <DataTable
               columns={[
+                {
+                  key: "select",
+                  className: "w-12 text-center px-2",
+                  label: (
+                    <input
+                      type="checkbox"
+                      checked={selectedSubjects.size > 0}
+                      onChange={(e) => {
+                        const next = new Set(selectedSubjects);
+                        if (e.target.checked) {
+                          filteredSubjects.forEach((s) => next.add(s.id));
+                        } else {
+                          next.clear();
+                        }
+                        setSelectedSubjects(next);
+                      }}
+                      className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  ),
+                  render: (row) => (
+                    <input
+                      type="checkbox"
+                      checked={selectedSubjects.has(row.id)}
+                      onChange={(e) => {
+                        const next = new Set(selectedSubjects);
+                        if (e.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        setSelectedSubjects(next);
+                      }}
+                      className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  ),
+                },
                 { key: "code", label: "รหัสวิชา", className: "w-24" },
                 { key: "name", label: "ชื่อวิชา" },
                 { key: "term", label: "เทอม", className: "w-12 text-center" },
@@ -199,7 +308,7 @@ export function SubjectsPage({ data, api, refresh }) {
           </>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-4">
                 <GhostButton
                   onClick={() => setActiveSubject(null)}
@@ -216,17 +325,63 @@ export function SubjectsPage({ data, api, refresh }) {
                   </p>
                 </div>
               </div>
-              <div className="w-full sm:w-64">
-                <Input
-                  value={searchSection}
-                  onChange={(e) => setSearchSection(e.target.value)}
-                  placeholder="ค้นหากลุ่มเรียน..."
-                  icon="fa-magnifying-glass"
-                />
+            </div>
+            <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                <div className="w-full sm:w-56 max-w-full shrink-0">
+                  <Input
+                    value={searchSection}
+                    onChange={(e) => setSearchSection(e.target.value)}
+                    placeholder="ค้นหากลุ่มเรียน..."
+                    icon="fa-magnifying-glass"
+                  />
+                </div>
               </div>
+              {selectedSections.size > 0 && (
+                <button
+                  onClick={deleteSelectedSections}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
+                  title="ลบรายการที่เลือก"
+                >
+                  <Icon name="fa-trash-can" /> ({selectedSections.size})
+                </button>
+              )}
             </div>
             <DataTable
               columns={[
+                {
+                  key: "select",
+                  className: "w-12 text-center px-2",
+                  label: (
+                    <input
+                      type="checkbox"
+                      checked={selectedSections.size > 0}
+                      onChange={(e) => {
+                        const next = new Set(selectedSections);
+                        if (e.target.checked) {
+                          filteredSections.forEach((s) => next.add(s.id));
+                        } else {
+                          next.clear();
+                        }
+                        setSelectedSections(next);
+                      }}
+                      className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  ),
+                  render: (row) => (
+                    <input
+                      type="checkbox"
+                      checked={selectedSections.has(row.id)}
+                      onChange={(e) => {
+                        const next = new Set(selectedSections);
+                        if (e.target.checked) next.add(row.id);
+                        else next.delete(row.id);
+                        setSelectedSections(next);
+                      }}
+                      className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  ),
+                },
                 {
                   key: "subject",
                   label: "รายวิชา",

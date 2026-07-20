@@ -788,7 +788,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="ค้นหาชื่อหรืออีเมล..."
-                  className="max-w-sm bg-white"
+                  className="w-full sm:w-[384px] bg-white"
                 />
               </div>
 
@@ -921,26 +921,23 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   ประวัติการใช้งานระบบ
                 </h3>
                 <div className="flex gap-4 items-center min-h-[36px]">
-                  <Input
-                    value={searchLogs}
-                    onChange={(event) => setSearchLogs(event.target.value)}
-                    placeholder="ค้นหาประวัติการใช้งาน..."
-                    className="max-w-xs bg-white"
-                  />
                   <button
                     onClick={deleteSelectedLogs}
                     className={`bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
                       selectedLogs.size > 0
                         ? "opacity-100"
-                        : "opacity-0 pointer-events-none"
+                        : "opacity-0 pointer-events-none absolute -z-10"
                     }`}
                     title="ลบประวัติที่เลือก"
                   >
                     <Icon name="fa-trash-can" /> ({selectedLogs.size})
                   </button>
-                  <span className="text-sm text-zinc-500">
-                    Collection: {logCollection}
-                  </span>
+                  <Input
+                    value={searchLogs}
+                    onChange={(event) => setSearchLogs(event.target.value)}
+                    placeholder="ค้นหาประวัติการใช้งาน..."
+                    className="w-full sm:w-[384px] bg-white"
+                  />
                 </div>
               </div>
               <div className="bg-zinc-900 rounded-lg border border-zinc-700">
@@ -951,17 +948,14 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                         <th className="p-3 w-10 text-center">
                           <input
                             type="checkbox"
-                            checked={
-                              filteredLogs.length > 0 &&
-                              filteredLogs.every((l) => selectedLogs.has(l.id))
-                            }
+                            checked={selectedLogs.size > 0}
                             onChange={(e) => {
                               const next = new Set(selectedLogs);
                               if (e.target.checked) {
                                 filteredLogs.forEach((l) => next.add(l.id));
                               } else {
-                                filteredLogs.forEach((l) => next.delete(l.id));
-                              }
+                        next.clear();
+                      }
                               setSelectedLogs(next);
                             }}
                             className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"

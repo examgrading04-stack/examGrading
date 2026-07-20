@@ -238,7 +238,7 @@ export function StudentsPage({ data, api, refresh }) {
   });
 
   return (
-    <div className="page-enter grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
       <section className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
           <div>
@@ -252,7 +252,7 @@ export function StudentsPage({ data, api, refresh }) {
         </div>
         <div className="flex flex-col xl:flex-row xl:items-center gap-4">
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
-            <div className="w-full sm:w-64 shrink-0">
+            <div className="w-full sm:w-56 max-w-full shrink-0">
               <Input
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
@@ -309,17 +309,14 @@ export function StudentsPage({ data, api, refresh }) {
               label: (
                 <input
                   type="checkbox"
-                  checked={
-                    filteredStudents.length > 0 &&
-                    filteredStudents.every((s) => selectedStudents.has(s.id))
-                  }
+                  checked={selectedStudents.size > 0}
                   onChange={(e) => {
                     const next = new Set(selectedStudents);
                     if (e.target.checked) {
                       filteredStudents.forEach((s) => next.add(s.id));
                     } else {
-                      filteredStudents.forEach((s) => next.delete(s.id));
-                    }
+                        next.clear();
+                      }
                     setSelectedStudents(next);
                   }}
                   className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"

@@ -69,7 +69,7 @@ class SqlUser(Base):
     displayName = Column("displayName", String(200))
     photoURL = Column("photoURL", String(500))
     role = Column("role", String(20), default="user")
-    created_at = Column("created_at", DateTime, default=datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.now)
 
 class SqlTemplate(Base):
     __tablename__ = "templates"
@@ -85,7 +85,7 @@ class SqlSystemLog(Base):
     activity = Column("action", String(255), nullable=False)
     displayName = Column("displayName", String(200))
     role = Column("role", String(20))
-    datetime = Column("action_time", DateTime, default=datetime.utcnow)
+    datetime = Column("action_time", DateTime, default=datetime.now)
     userEmail = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="SET NULL")) # Note: old frontend used userEmail, now maps to user_id
 
 class SqlSubject(Base):
@@ -107,7 +107,7 @@ class SqlSection(Base):
     __tablename__ = "subjects_sec"
     id = Column("section_id", Integer, primary_key=True, autoincrement=True)
     sec = Column("section_name", String(50), nullable=False)
-    created_at = Column("created_at", DateTime, default=datetime.utcnow)
+    created_at = Column("created_at", DateTime, default=datetime.now)
     subject = Column("subject_id", String(50), ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
 
@@ -124,7 +124,7 @@ class SqlExam(Base):
     id = Column("exam_id", String(100), primary_key=True)
     name = Column("exam_name", String(200), nullable=False)
     questions = Column("questions", Integer, nullable=False)
-    createdAt = Column("created_at", DateTime, default=datetime.utcnow)
+    createdAt = Column("created_at", DateTime, default=datetime.now)
     subject_id = Column("subject_id", String(50), ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
     section_id = Column("section_id", Integer, ForeignKey("subjects_sec.section_id", ondelete="CASCADE"), nullable=False)
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
@@ -145,7 +145,7 @@ class SqlResult(Base):
     percent = Column("percent", Float, nullable=False)
     flagged = Column("flagged", Boolean, default=False)
     imageUrl = Column("imageURL", String(500))
-    createdAt = Column("created_at", DateTime, default=datetime.utcnow)
+    createdAt = Column("created_at", DateTime, default=datetime.now)
     examId = Column("exam_id", String(100), ForeignKey("exams.exam_id", ondelete="CASCADE"), nullable=False)
     studentCode = Column("student_code", String(50), ForeignKey("students.student_code", ondelete="CASCADE"), nullable=False)
     sheetId = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
@@ -353,7 +353,7 @@ class MySQLAdapter(BaseDBAdapter):
             for ts_key in ["createdAt", "timestamp"]:
                 if ts_key in data:
                     if not isinstance(data[ts_key], datetime):
-                        data[ts_key] = datetime.utcnow()
+                        data[ts_key] = datetime.now()
             
             # Remove any keys that are not in SqlResult columns
             allowed_keys = {c.key for c in SqlResult.__mapper__.column_attrs}
@@ -495,9 +495,12 @@ class MySQLAdapter(BaseDBAdapter):
                     if k in valid_cols:
                         if isinstance(v, str) and (k.endswith("At") or k == "timestamp" or k == "datetime" or k == "created_at"):
                             try:
-                                setattr(row, k, datetime.fromisoformat(v.replace("Z", "+00:00")))
+                                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                                if dt.tzinfo:
+                                    dt = dt.astimezone().replace(tzinfo=None)
+                                setattr(row, k, dt)
                             except ValueError:
-                                setattr(row, k, datetime.utcnow())
+                                setattr(row, k, datetime.now())
                         else:
                             setattr(row, k, v)
                             
@@ -523,7 +526,7 @@ class MySQLAdapter(BaseDBAdapter):
                 if collection in ("users", "profiles"):
                     mapped_data["user_id"] = doc_id
                     mapped_data["status"] = "active"
-                    mapped_data["created_at"] = datetime.utcnow()
+                    mapped_data["created_at"] = datetime.now()
                     
                 if hasattr(model_cls, "user_email") and user_email:
                     mapped_data["user_email"] = user_email
@@ -570,9 +573,12 @@ class MySQLAdapter(BaseDBAdapter):
                     if k in valid_cols:
                         if isinstance(v, str) and (k.endswith("At") or k == "timestamp" or k == "datetime" or k == "created_at"):
                             try:
-                                cleaned_data[k] = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                                if dt.tzinfo:
+                                    dt = dt.astimezone().replace(tzinfo=None)
+                                cleaned_data[k] = dt
                             except ValueError:
-                                cleaned_data[k] = datetime.utcnow()
+                                cleaned_data[k] = datetime.now()
                         else:
                             cleaned_data[k] = v
                 
@@ -650,9 +656,12 @@ class MySQLAdapter(BaseDBAdapter):
                     if k in valid_cols:
                         if isinstance(v, str) and (k.endswith("At") or k == "timestamp" or k == "datetime" or k == "created_at"):
                             try:
-                                setattr(row, k, datetime.fromisoformat(v.replace("Z", "+00:00")))
+                                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                                if dt.tzinfo:
+                                    dt = dt.astimezone().replace(tzinfo=None)
+                                setattr(row, k, dt)
                             except ValueError:
-                                setattr(row, k, datetime.utcnow())
+                                setattr(row, k, datetime.now())
                         else:
                             setattr(row, k, v)
                             

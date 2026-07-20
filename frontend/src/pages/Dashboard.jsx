@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { StatCard, pct, useChart } from "../ui.jsx";
 
 export function Dashboard({ data }) {
@@ -45,7 +45,7 @@ export function Dashboard({ data }) {
   );
 
   return (
-    <div className="page-enter space-y-8">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard
           title="รายวิชาทั้งหมด"

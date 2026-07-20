@@ -161,16 +161,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       return;
     }
 
-    payload.date = formatThaiDate();
-    payload.studentsSnapshot = getStudentsForExam(
-      { subject_id: subject?.code || form.subject, section: form.section },
-      subject,
-    ).map((student) => ({
-      id: student.id || "",
-      code: student.code || student.id || "",
-      name: student.name || "",
-      section: student.section || "",
-    }));
     payload.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
 
     // Format ID: SUBJECT_SECTION_NAME
@@ -246,7 +236,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
-                <div className="w-full sm:w-64 shrink-0">
+                <div className="w-full sm:w-56 max-w-full shrink-0">
                   <Input
                     value={searchExam}
                     onChange={(event) => setSearchExam(event.target.value)}
@@ -289,17 +279,14 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   label: (
                     <input
                       type="checkbox"
-                      checked={
-                        filteredExams.length > 0 &&
-                        filteredExams.every((e) => selectedExams.has(e.id))
-                      }
+                      checked={selectedExams.size > 0}
                       onChange={(e) => {
                         const next = new Set(selectedExams);
                         if (e.target.checked) {
                           filteredExams.forEach((ex) => next.add(ex.id));
                         } else {
-                          filteredExams.forEach((ex) => next.delete(ex.id));
-                        }
+                        next.clear();
+                      }
                         setSelectedExams(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"

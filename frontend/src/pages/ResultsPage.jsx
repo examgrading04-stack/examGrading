@@ -164,7 +164,7 @@ export function ResultsPage({ data, api, refresh, query }) {
           </p>
         </div>
         <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-end gap-3 print:hidden">
-          <div className="w-full sm:w-64">
+          <div className="w-full sm:w-56 max-w-full">
             <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
               ค้นหาผู้เรียน
             </label>

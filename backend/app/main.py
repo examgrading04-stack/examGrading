@@ -40,8 +40,13 @@ app = FastAPI(title="Exam Grading OMR API")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Simplified for debugging
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -221,7 +226,7 @@ def create_answer_sheets_pdf(
                     "storagePath": storage_path,
                     "gsUrl": public_url,
                     "studentCount": len(students),
-                    "updatedAt": datetime.utcnow().isoformat(),
+                    "updatedAt": datetime.now().isoformat(),
                 }
             }
         )
@@ -366,8 +371,8 @@ async def scan_sheet(
         "skipped": score["skipped"],
         "summary": summary,
         "metadata": metadata,
-        "createdAt": datetime.utcnow(),
-        "timestamp": datetime.utcnow(),
+        "createdAt": datetime.now(),
+        "timestamp": datetime.now(),
     }
 
     result_id = None
@@ -489,8 +494,8 @@ async def scan_cloudinary(
         "summary": summary,
         "metadata": metadata,
         "imageUrl": image_url,
-        "createdAt": datetime.utcnow(),
-        "timestamp": datetime.utcnow(),
+        "createdAt": datetime.now(),
+        "timestamp": datetime.now(),
     }
 
     result_id = None
