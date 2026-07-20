@@ -7,6 +7,9 @@ Usage:
     python diagnose_sheet.py 5.png
     python diagnose_sheet.py 5.png 6.png 7.png
 """
+# pyrefly: ignore [missing-import]
+import os
+# pyrefly: ignore [missing-import]
 import cv2, numpy as np, sys, json, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from dataclasses import dataclass, field

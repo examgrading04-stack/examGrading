@@ -3,6 +3,7 @@ OMR Answer Sheet Scanner  v3.0
 ================================
 รองรับกระดาษคำตอบ 30, 50, 100 ข้อ  (5 ตัวเลือก A-E)
 """
+# pyrefly: ignore [missing-import]
 import cv2, numpy as np, json, os, sys
 from dataclasses import dataclass, field
 
@@ -21,6 +22,7 @@ try:
 except ImportError:
     SKLEARN_AVAILABLE = False
 try:
+    # pyrefly: ignore [missing-import]
     from pyzbar import pyzbar as _pyzbar
     PYZBAR_AVAILABLE = True
 except ImportError:

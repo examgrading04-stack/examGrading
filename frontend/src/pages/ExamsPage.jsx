@@ -285,8 +285,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                         if (e.target.checked) {
                           filteredExams.forEach((ex) => next.add(ex.id));
                         } else {
-                        next.clear();
-                      }
+                          next.clear();
+                        }
                         setSelectedExams(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -581,45 +581,64 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             </div>
             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-indigo-600/5 p-4 rounded-lg border border-indigo-50 flex flex-col items-center justify-center text-center">
-                  <p className="text-[12px] font-black text-indigo-400 uppercase tracking-widest mb-1">
-                    นักเรียน
-                  </p>
-                  <p className="text-2xl font-black text-zinc-900">
-                    {sheetModal.students.length}{" "}
-                    <span className="text-xs font-normal text-slate-400">
-                      คน
-                    </span>
-                  </p>
-                </div>
                 {(() => {
                   const info = getTemplateInfo(sheetModal.exam.questions);
                   const style = badgeStyles[info.color] || badgeStyles.amber;
+                  const labelColor =
+                    info.color === "emerald"
+                      ? "text-emerald-500"
+                      : info.color === "blue"
+                        ? "text-indigo-500"
+                        : "text-amber-500";
+
                   return (
-                    <div
-                      className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
-                    >
-                      <p className="text-[12px] font-black uppercase tracking-widest mb-1 opacity-70">
-                        รูปแบบ
-                      </p>
-                      <p className="text-sm font-black">
-                        <Icon name={info.icon} className="mr-1 opacity-80" />{" "}
-                        {info.label}
-                      </p>
-                    </div>
+                    <>
+                      <div
+                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
+                      >
+                        <p
+                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
+                        >
+                          นักเรียน
+                        </p>
+                        <p className="text-2xl font-black">
+                          {sheetModal.students.length}{" "}
+                          <span className="text-xs font-normal opacity-70">
+                            คน
+                          </span>
+                        </p>
+                      </div>
+                      <div
+                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
+                      >
+                        <p
+                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
+                        >
+                          รูปแบบ
+                        </p>
+                        <p className="text-sm font-black mt-2">
+                          <Icon name={info.icon} className="mr-1 opacity-80" />{" "}
+                          {info.label}
+                        </p>
+                      </div>
+                      <div
+                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
+                      >
+                        <p
+                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
+                        >
+                          จำนวนข้อ
+                        </p>
+                        <p className="text-2xl font-black">
+                          {sheetModal.exam.questions}{" "}
+                          <span className="text-xs font-normal opacity-70">
+                            ข้อ
+                          </span>
+                        </p>
+                      </div>
+                    </>
                   );
                 })()}
-                <div className="bg-indigo-600/5 p-4 rounded-lg border border-indigo-50 flex flex-col items-center justify-center text-center">
-                  <p className="text-[12px] font-black text-indigo-400 uppercase tracking-widest mb-1">
-                    จำนวนข้อ
-                  </p>
-                  <p className="text-2xl font-black text-zinc-900">
-                    {sheetModal.exam.questions}{" "}
-                    <span className="text-xs font-normal text-slate-400">
-                      ข้อ
-                    </span>
-                  </p>
-                </div>
               </div>
               <div className="space-y-3">
                 <h5 className="font-black text-zinc-600 text-[14px] flex items-center gap-2 uppercase tracking-widest px-1">

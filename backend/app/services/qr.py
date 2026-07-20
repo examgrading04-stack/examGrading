@@ -12,7 +12,9 @@ QR Code Generator สำหรับระบบตรวจข้อสอบ
   import generate_qr as gq        → ใช้ใน code อื่น
 """
 
+# pyrefly: ignore [missing-import]
 import cv2
+# pyrefly: ignore [missing-import]
 import numpy as np
 import json
 import os

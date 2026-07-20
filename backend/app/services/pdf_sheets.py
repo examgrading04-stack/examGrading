@@ -1,10 +1,12 @@
-﻿import os
+import os
 import tempfile
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 import numpy as np
+# pyrefly: ignore [missing-import]
 from PIL import Image, ImageDraw, ImageFont
 
 from .qr import build_qr_payload, generate_qr_with_border
@@ -101,7 +103,7 @@ def build_sheet_payload(exam: dict, student: dict) -> dict:
     """Normalize Firestore exam/student docs into the QR/text payload used by the OMR scanner."""
     subject_code = exam.get("subject") or exam.get("subjectCode") or exam.get("code") or ""
     student_doc_id = student.get("id") or student.get("docId") or ""
-    student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or ""
+    student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or student_doc_id
     exam_id = exam.get("id") or exam.get("examId") or ""
 
     return {
