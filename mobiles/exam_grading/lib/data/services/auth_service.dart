@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:exam_grading/config/api_config.dart';
@@ -123,12 +122,16 @@ class AuthService {
   }
 
   // ── Update local profile cache ──────────────────────────────────────────
-  Future<void> updateLocalProfile({String? displayName, String? photoURL}) async {
+  Future<void> updateLocalProfile({
+    String? displayName,
+    String? photoURL,
+  }) async {
     if (_currentUser == null) return;
     if (displayName != null) _currentUser!['displayName'] = displayName;
     if (photoURL != null) _currentUser!['photoURL'] = photoURL;
     final prefs = await SharedPreferences.getInstance();
-    if (displayName != null) await prefs.setString(_keyDisplayName, displayName);
+    if (displayName != null)
+      await prefs.setString(_keyDisplayName, displayName);
     if (photoURL != null) await prefs.setString(_keyPhotoURL, photoURL);
   }
 
@@ -136,7 +139,8 @@ class AuthService {
   String _extractDetail(http.Response resp) {
     try {
       final body = jsonDecode(resp.body);
-      return body['detail']?.toString() ?? 'เกิดข้อผิดพลาด (${resp.statusCode})';
+      return body['detail']?.toString() ??
+          'เกิดข้อผิดพลาด (${resp.statusCode})';
     } catch (_) {
       return 'เกิดข้อผิดพลาด (${resp.statusCode})';
     }
