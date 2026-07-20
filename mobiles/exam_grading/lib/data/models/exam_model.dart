@@ -28,12 +28,12 @@ class ExamModel {
 
     return ExamModel(
       id: id,
-      name: map['name'] ?? '',
-      subject: map['subject'] ?? '',
-      date: map['date'] ?? '',
-      questions: int.tryParse(map['questions'].toString()) ?? 0,
-      options: int.tryParse(map['options'].toString()) ?? 0,
-      sets: int.tryParse(map['sets'].toString()) ?? 0,
+      name: map['name']?.toString() ?? '',
+      subject: map['subject']?.toString() ?? '',
+      date: _parseDate(map['date']?.toString() ?? map['createdAt']?.toString() ?? map['created_at']?.toString()),
+      questions: int.tryParse(map['questions']?.toString() ?? '') ?? 0,
+      options: int.tryParse(map['options']?.toString() ?? '') ?? 0,
+      sets: int.tryParse(map['sets']?.toString() ?? '') ?? 0,
       section: map['section']?.toString(),
       answerKey: _parseAnswerKey(rawAnswerKey),
       studentsSnapshot: _parseStudentsSnapshot(map['studentsSnapshot']),
@@ -52,6 +52,12 @@ class ExamModel {
       'answerKey': answerKey,
       'studentsSnapshot': studentsSnapshot,
     };
+  }
+
+  static String _parseDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    if (raw.length >= 10) return raw.substring(0, 10);
+    return raw;
   }
 
   static List<Map<String, dynamic>> _parseStudentsSnapshot(dynamic raw) {

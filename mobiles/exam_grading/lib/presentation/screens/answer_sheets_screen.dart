@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +11,8 @@ import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
@@ -29,7 +29,7 @@ class AnswerSheetsScreen extends StatefulWidget {
 }
 
 class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 10;
   int _currentPage = 1;
   List<StudentModel> _students = [];
@@ -43,6 +43,8 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
 
   Future<void> _fetchStudents() async {
     if (_uid.isEmpty) return;
+    // Always fetch from API to ensure it matches the database
+    /*
     if (widget.exam.studentsSnapshot.isNotEmpty) {
       final snapStudents = widget.exam.studentsSnapshot
           .map((raw) => StudentModel.fromMap((raw['id'] ?? '').toString(), raw))
@@ -53,15 +55,10 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
       });
       return;
     }
+    */
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('students')
-          .get();
-      final all = snap.docs
-          .map((d) => StudentModel.fromMap(d.id, d.data()))
-          .toList();
+      final snapDocs = await ApiService.instance.getCollection(_uid, 'students');
+      final all = snapDocs.map((d) => StudentModel.fromMap(d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
       final filtered = all.where((s) {
         final classStr = s.className;
         final examSec = widget.exam.section?.toString() ?? '';
@@ -497,7 +494,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'รหัส: ${student.code}',
+                                      'รหัส: ${student.code.isNotEmpty ? student.code : student.id}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontFamily: 'monospace',

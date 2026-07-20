@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
@@ -15,15 +15,18 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
+  String get _uid => AuthService.instance.currentEmail ?? '';
   List<ExamModel> _exams = [];
+  List<Map<String, dynamic>> _results = [];
+  bool _isLoading = true;
   static const int _pageSize = 10;
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
   DateTime? _readResultTime(Map<String, dynamic> data) {
     final dynamic createdAt = data['createdAt'];
-    if (createdAt is Timestamp) return createdAt.toDate();
+    if (createdAt != null) return DateTime.tryParse(createdAt.toString());
     final dynamic timestamp = data['timestamp'];
-    if (timestamp is Timestamp) return timestamp.toDate();
+    if (timestamp != null) return DateTime.tryParse(timestamp.toString());
     return null;
   }
 
@@ -65,35 +68,30 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchExams();
+    _fetchData();
   }
 
-  Future<void> _fetchExams() async {
-    final uid = FirebaseAuth.instance.currentUser?.email ?? '';
-    if (uid.isEmpty) {
-      return;
-    }
+  Future<void> _fetchData() async {
+    if (_uid.isEmpty) return;
+    setState(() => _isLoading = true);
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('exams')
-          .get();
+      final examDocs = await ApiService.instance.getCollection(_uid, 'exams');
+      final resultDocs = await ApiService.instance.getCollection(_uid, 'results');
       if (mounted) {
         setState(() {
-          _exams = snapshot.docs
-              .map((doc) => ExamModel.fromMap(doc.id, doc.data()))
-              .toList();
+          _exams = examDocs.map((doc) => ExamModel.fromMap(doc['id']?.toString() ?? doc['exam_id']?.toString() ?? '', doc)).toList();
+          _results = resultDocs;
+          _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching exams for results filter: $e');
+      debugPrint('Error fetching data: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.email ?? '';
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -180,85 +178,33 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ),
             ),
           ),
-          StreamBuilder<QuerySnapshot>(
-            stream: uid.isNotEmpty
-                ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .collection('results')
-                      .snapshots()
-                : const Stream.empty(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverFillRemaining(
-                  child: Center(
-                    child: SpinKitThreeBounce(
-                      color: AppColors.primary,
-                      size: 32.0,
-                    ),
-                  ),
-                );
-              }
-              if (snapshot.hasError) {
-                return SliverFillRemaining(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.error.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.triangleExclamation,
-                            color: AppColors.error,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'โหลดผลสอบไม่สำเร็จ: ${snapshot.error}',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return SliverFillRemaining(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: _buildEmptyState(),
-                  ),
-                );
-              }
-              final docs = [...snapshot.data!.docs];
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(
+                child: SpinKitThreeBounce(color: AppColors.primary, size: 32.0),
+              ),
+            )
+          else if (_results.isEmpty)
+            SliverFillRemaining(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: _buildEmptyState(),
+              ),
+            )
+          else
+            Builder(builder: (context) {
+              final docs = [..._results];
               docs.sort((a, b) {
-                final aData = a.data() as Map<String, dynamic>;
-                final bData = b.data() as Map<String, dynamic>;
-                final at = _readResultTime(aData);
-                final bt = _readResultTime(bData);
+                final at = _readResultTime(a);
+                final bt = _readResultTime(b);
                 if (at == null && bt == null) return 0;
                 if (at == null) return 1;
                 if (bt == null) return -1;
                 return bt.compareTo(at);
               });
-              final filteredDocs = docs.where((doc) {
+              final filteredDocs = docs.where((data) {
                 if (_selectedSubject == 'ทั้งหมด') return true;
-                final data = doc.data() as Map<String, dynamic>;
-                final examId = data['examId'] ?? '';
+                final examId = data['examId']?.toString() ?? '';
                 String subjectCode = '';
                 if (examId.contains('_')) {
                   subjectCode = examId.split('_')[0];
@@ -319,9 +265,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           ],
                         );
                       }
-                      final data =
-                          visibleDocs[index].data() as Map<String, dynamic>;
-                      final examId = data['examId'] ?? 'ไม่ระบุ';
+                      final data = visibleDocs[index];
+                      final examId = data['examId']?.toString() ?? 'ไม่ระบุ';
                       final isPending = data['score'] == null;
                       ExamModel? currentExam;
                       try {
@@ -572,14 +517,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ),
                       );
                     },
-                    childCount:
-                        visibleDocs.length +
-                        (filteredDocs.length > _pageSize ? 1 : 0),
+                    childCount: visibleDocs.length + (filteredDocs.length > _pageSize ? 1 : 0),
                   ),
                 ),
               );
-            },
-          ),
+            }),
         ],
       ),
     );

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class AnswerKeyScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class AnswerKeyScreen extends StatefulWidget {
 }
 
 class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   // Map<SetIndex, Map<QuestionNumber, AnswerLetter>>
   // e.g. { '0': { '1': 'A', '2': 'C' } }
   Map<String, Map<String, String>> _answerKeys = {};
@@ -33,14 +33,11 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   Future<void> _fetchAnswerKey() async {
     if (_uid.isEmpty) return;
     try {
-      final examRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('exams')
-          .doc(widget.exam.id);
-
-      final examDoc = await examRef.get();
-      final examData = examDoc.data();
+      final examData = await ApiService.instance.getDoc(
+        _uid,
+        'exams',
+        widget.exam.id,
+      );
       Map<String, Map<String, String>> answerKeys =
           Map<String, Map<String, String>>.from(widget.exam.answerKey);
 
@@ -50,20 +47,17 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       }
 
       if (answerKeys.isEmpty) {
-        final legacyDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_uid)
-            .collection('answerKeys')
-            .doc(widget.exam.id)
-            .get();
-
-        final legacyData = legacyDoc.data();
-        if (legacyDoc.exists && legacyData != null) {
+        final legacyData = await ApiService.instance.getDoc(
+          _uid,
+          'answerKeys',
+          widget.exam.id,
+        );
+        if (legacyData != null) {
           answerKeys = _parseAnswerKey(legacyData['data']);
           if (answerKeys.isNotEmpty) {
-            await examRef
-                .update({'answerKey': answerKeys})
-                .timeout(const Duration(seconds: 15));
+            await ApiService.instance.updateDoc(_uid, 'exams', widget.exam.id, {
+              'answerKey': answerKeys,
+            });
           }
         }
       }
@@ -108,16 +102,9 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('exams')
-          .doc(widget.exam.id)
-          .set({
-            'answerKey': _answerKeys,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 15));
+      await ApiService.instance.updateDoc(_uid, 'exams', widget.exam.id, {
+        'answerKey': _answerKeys,
+      });
 
       if (!mounted) return;
       QuickAlert.show(
@@ -214,12 +201,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
           ),
           SliverPadding(
             padding: const EdgeInsets.all(16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 1,
-                childAspectRatio: 4.5,
-                mainAxisSpacing: 12,
-              ),
+            sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final qNum = index + 1;
                 final selectedAnswer =
@@ -228,83 +210,86 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                     ? widget.exam.options
                     : 4;
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border, width: 1.5),
-                    boxShadow: AppColors.softShadow,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1.5),
+                      boxShadow: AppColors.softShadow,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'ข้อที่ $qNum',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'ข้อที่ $qNum',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(numOptions, (optIndex) {
-                            final letter = String.fromCharCode(65 + optIndex);
-                            final isChecked = selectedAnswer == letter;
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (!_answerKeys.containsKey(
-                                    _currentSetIndex.toString(),
-                                  )) {
-                                    _answerKeys[_currentSetIndex.toString()] =
-                                        {};
-                                  }
-                                  _answerKeys[_currentSetIndex.toString()]![qNum
-                                          .toString()] =
-                                      letter;
-                                });
-                              },
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isChecked
-                                      ? AppColors.primary
-                                      : Colors.white,
-                                  border: Border.all(
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(numOptions, (optIndex) {
+                              final letter = String.fromCharCode(65 + optIndex);
+                              final isChecked = selectedAnswer == letter;
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    if (!_answerKeys.containsKey(
+                                      _currentSetIndex.toString(),
+                                    )) {
+                                      _answerKeys[_currentSetIndex.toString()] =
+                                          {};
+                                    }
+                                    _answerKeys[_currentSetIndex
+                                            .toString()]![qNum.toString()] =
+                                        letter;
+                                  });
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
                                     color: isChecked
-                                        ? Colors.transparent
-                                        : AppColors.border,
-                                    width: 1.5,
+                                        ? AppColors.primary
+                                        : Colors.white,
+                                    border: Border.all(
+                                      color: isChecked
+                                          ? Colors.transparent
+                                          : AppColors.border,
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: isChecked
+                                        ? AppColors.primaryShadow
+                                        : [],
                                   ),
-                                  boxShadow: isChecked
-                                      ? AppColors.primaryShadow
-                                      : [],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  letter,
-                                  style: TextStyle(
-                                    color: isChecked
-                                        ? Colors.white
-                                        : AppColors.textSecondary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    letter,
+                                    style: TextStyle(
+                                      color: isChecked
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          }),
-                        ),
-                      ],
+                              );
+                            }),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class SectionOption {
@@ -32,59 +32,63 @@ class StudentsScreen extends StatefulWidget {
 }
 
 class _StudentsScreenState extends State<StudentsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 10;
   int _currentPage = 1;
   List<SubjectModel> _subjects = [];
   List<SectionOption> _sections = [];
+  List<StudentModel> _students = [];
+  bool _isLoading = true;
   String? _filterSubjectId;
   String? _filterSectionId;
+  final ScrollController _scrollController = ScrollController();
+  
   @override
   void initState() {
     super.initState();
-    _fetchSections();
+    _fetchData();
   }
 
-  Future<void> _fetchSections() async {
-    final email = FirebaseAuth.instance.currentUser?.email ?? '';
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchData() async {
+    final email = _uid;
     if (email.isEmpty) return;
+    setState(() => _isLoading = true);
     try {
-      final subjectsSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(email)
-          .collection('subjects')
-          .get();
-      List<SubjectModel> subjects = subjectsSnapshot.docs
-          .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
-          .toList();
+      final subjectDocs = await ApiService.instance.getCollection(email, 'subjects');
+      final subjects = subjectDocs.map((d) => SubjectModel.fromMap(
+        d['code']?.toString() ?? '', d)).toList();
       List<SectionOption> options = [];
-      for (var subjectDoc in subjectsSnapshot.docs) {
-        final subjectCode = subjectDoc.data()['code'] ?? '';
-        final sectionsSnapshot = await subjectDoc.reference
-            .collection('sections')
-            .get();
-        for (var sectionDoc in sectionsSnapshot.docs) {
-          final sec = sectionDoc.data()['sec'] ?? '';
-          final id = '${subjectDoc.id}_${sectionDoc.id}';
-          options.add(
-            SectionOption(id, subjectCode, sec, subjectDoc.id, sectionDoc.id),
-          );
+      for (var subjectDoc in subjectDocs) {
+        final subjectId = subjectDoc['id']?.toString() ?? subjectDoc['subject_id']?.toString() ?? subjectDoc['code']?.toString() ?? '';
+        final subjectCode = subjectDoc['code']?.toString() ?? '';
+        final sectionDocs = await ApiService.instance.getNestedCollection(
+          email, 'subjects', subjectId, 'sections');
+        for (var sectionDoc in sectionDocs) {
+          final sectionId = sectionDoc['id']?.toString() ?? sectionDoc['section_id']?.toString() ?? '';
+          final sec = sectionDoc['sec']?.toString() ?? '';
+          final id = '${subjectCode}_$sectionId';
+          options.add(SectionOption(id, subjectCode, sec, subjectId, sectionId));
         }
       }
+      final studentDocs = await ApiService.instance.getCollection(email, 'students');
+      final students = studentDocs.map((d) => StudentModel.fromMap(
+        d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
       if (!mounted) return;
       setState(() {
         _subjects = subjects;
         _sections = options;
+        _students = students;
+        _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error fetching sections: $e');
-      if (mounted) {
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.error,
-          text: 'โหลดข้อมูลรายวิชา/กลุ่มเรียนไม่สำเร็จ: $e',
-        );
-      }
+      debugPrint('Error fetching data: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -185,28 +189,23 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             );
                             return;
                           }
+                          final selectedOpt = _sections.firstWhere((s) => s.id == selectedSectionId);
                           final data = {
+                            'id': codeController.text,
                             'code': codeController.text,
                             'name': nameController.text,
                             'class': selectedSectionId,
+                            'subjectCode': selectedOpt.subjectId,
+                            'section': selectedOpt.sectionId,
                           };
                           if (isEdit) {
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(_uid)
-                                .collection('students')
-                                .doc(student.id)
-                                .update(data)
-                                .timeout(const Duration(seconds: 15));
+                            await ApiService.instance.updateDoc(
+                              _uid, 'students', student.id, data);
                           } else {
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(_uid)
-                                .collection('students')
-                                .doc(codeController.text)
-                                .set(data)
-                                .timeout(const Duration(seconds: 15));
+                            await ApiService.instance.setDoc(
+                              _uid, 'students', codeController.text, data);
                           }
+                          await _fetchData();
                           if (!mounted) return;
                           Navigator.pop(context);
                           QuickAlert.show(
@@ -375,13 +374,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
       confirmBtnColor: Colors.red,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_uid)
-            .collection('students')
-            .doc(id)
-            .delete()
-            .timeout(const Duration(seconds: 15));
+        await ApiService.instance.deleteDoc(_uid, 'students', id);
+        await _fetchData();
         if (!mounted) return;
         QuickAlert.show(
           context: context,
@@ -414,6 +408,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         ),
       ),
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           SliverAppBar(
             expandedHeight: 60,
@@ -640,102 +635,44 @@ class _StudentsScreenState extends State<StudentsScreen> {
               ),
             ),
           ),
-          StreamBuilder<QuerySnapshot>(
-            stream: (FirebaseAuth.instance.currentUser?.email ?? '').isNotEmpty
-                ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(FirebaseAuth.instance.currentUser?.email)
-                      .collection('students')
-                      .where(
-                        'class',
-                        isGreaterThanOrEqualTo: _filterSubjectId != null
-                            ? '${_filterSubjectId}_'
-                            : null,
-                      )
-                      .where(
-                        'class',
-                        isLessThan: _filterSubjectId != null
-                            ? '${_filterSubjectId}_\uf8ff'
-                            : null,
-                      )
-                      .snapshots()
-                : const Stream.empty(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(child: ListSkeletonLoader());
-              }
-              var docs = snapshot.data?.docs ?? [];
-              final students = docs
-                  .map(
-                    (doc) => StudentModel.fromMap(
-                      doc.id,
-                      doc.data() as Map<String, dynamic>,
-                    ),
-                  )
-                  .where((student) {
-                    if (_filterSectionId != null)
-                      return student.className == _filterSectionId;
-                    if (_filterSubjectId != null)
-                      return student.className.startsWith(
-                        '${_filterSubjectId}_',
-                      );
-                    return true;
-                  })
-                  .toList();
-              if (students.isEmpty) {
-                return SliverFillRemaining(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.usersSlash,
-                                size: 24,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'ยังไม่มีรายชื่อผู้เรียน',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'เพิ่มผู้เรียนใหม่ หรือปรับตัวกรองเพื่อแสดงผลรายการ',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-              return SliverToBoxAdapter(child: _buildStudentsList(students));
-            },
-          ),
+          if (_isLoading)
+            const SliverToBoxAdapter(child: ListSkeletonLoader())
+          else
+            SliverToBoxAdapter(child: _buildStudentsContent()),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
+  }
+
+  Widget _buildStudentsContent() {
+    final students = _students.where((student) {
+      if (_filterSectionId != null) return student.className == _filterSectionId;
+      if (_filterSubjectId != null) {
+        final subjectCode = _subjects.firstWhere((s) => s.id == _filterSubjectId).code;
+        return student.className.startsWith('${subjectCode}_') || student.className == subjectCode;
+      }
+      return true;
+    }).toList();
+    if (students.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.usersSlash, size: 24, color: AppColors.primary))),
+              const SizedBox(height: 20),
+              const Text('ยังไม่มีรายชื่อผู้เรียน', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 6),
+              Text('เพิ่มผู้เรียนใหม่ หรือปรับตัวกรองเพื่อแสดงผลรายการ', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+    return _buildStudentsList(students);
   }
 
   Widget _buildStudentsList(List<StudentModel> students) {
@@ -918,6 +855,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
               totalPages: totalPages,
               onPageChanged: (nextPage) {
                 setState(() => _currentPage = nextPage);
+                if (_scrollController.hasClients) {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                  );
+                }
               },
             ),
           ],

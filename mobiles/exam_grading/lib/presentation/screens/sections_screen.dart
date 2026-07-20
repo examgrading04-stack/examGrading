@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/section_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
@@ -18,9 +18,45 @@ class SectionsScreen extends StatefulWidget {
 }
 
 class _SectionsScreenState extends State<SectionsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 10;
   int _currentPage = 1;
+  List<SectionModel> _sections = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSections();
+  }
+
+  Future<void> _loadSections() async {
+    if (_uid.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      final docs = await ApiService.instance.getNestedCollection(
+        _uid,
+        'subjects',
+        widget.subject.id,
+        'sections',
+      );
+      if (mounted) {
+        setState(() {
+          _sections = docs
+              .map(
+                (d) => SectionModel.fromMap(
+                  d['id']?.toString() ?? d['section_id']?.toString() ?? '',
+                  d,
+                ),
+              )
+              .toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _showSectionDialog([SectionModel? section]) {
     final isEdit = section != null;
@@ -116,34 +152,24 @@ class _SectionsScreenState extends State<SectionsScreen> {
                               return;
                             }
 
-                            final data = {
-                              'sec': secController.text.trim(),
-                              'created_at': FieldValue.serverTimestamp(),
-                            };
+                            final data = {'sec': secController.text.trim()};
 
                             try {
                               if (isEdit) {
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(_uid)
-                                    .collection('subjects')
-                                    .doc(widget.subject.id)
-                                    .collection('sections')
-                                    .doc(section.id)
-                                    .update(data)
-                                    .timeout(const Duration(seconds: 15));
+                                await ApiService.instance.updateDoc(
+                                  _uid,
+                                  'sections',
+                                  section.id,
+                                  data,
+                                );
                               } else {
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(_uid)
-                                    .collection('subjects')
-                                    .doc(widget.subject.id)
-                                    .collection('sections')
-                                    .doc(secController.text.trim())
-                                    .set(data)
-                                    .timeout(const Duration(seconds: 15));
+                                await ApiService.instance.addDoc(
+                                  _uid,
+                                  'sections',
+                                  {...data, 'subject_id': widget.subject.id},
+                                );
                               }
-
+                              await _loadSections();
                               if (!mounted) return;
                               Navigator.pop(context);
                               QuickAlert.show(
@@ -226,30 +252,9 @@ class _SectionsScreenState extends State<SectionsScreen> {
   }
 
   Future<void> _deleteSectionCascade(String sectionId) async {
-    final userRoot = FirebaseFirestore.instance.collection('users').doc(_uid);
-    final subjectRef = userRoot.collection('subjects').doc(widget.subject.id);
-    final sectionRef = subjectRef.collection('sections').doc(sectionId);
-    final sectionSnap = await sectionRef.get();
-    final subjectCode = widget.subject.code;
-    final sectionSec = (sectionSnap.data()?['sec'] ?? sectionId).toString();
-    final sectionFullId = '${widget.subject.id}_$sectionId';
-    final legacySectionFullId = '${subjectCode}_$sectionSec';
-
-    final batch = FirebaseFirestore.instance.batch();
-
-    final studentsSnapshot = await userRoot.collection('students').get();
-    for (final studentDoc in studentsSnapshot.docs) {
-      final classId = (studentDoc.data()['class'] ?? '').toString();
-      final shouldDelete =
-          classId == sectionFullId ||
-          classId == legacySectionFullId ||
-          classId == sectionSec ||
-          classId == sectionId;
-      if (shouldDelete) batch.delete(studentDoc.reference);
-    }
-
-    batch.delete(sectionRef);
-    await batch.commit().timeout(const Duration(seconds: 15));
+    // Backend CASCADE จะจัดการลบ students ในกลุ่มนี้อัตโนมัติ
+    await ApiService.instance.deleteDoc(_uid, 'sections', sectionId);
+    await _loadSections();
   }
 
   Widget _buildPopupField(
@@ -333,239 +338,191 @@ class _SectionsScreenState extends State<SectionsScreen> {
               background: Container(color: AppColors.surface),
             ),
           ),
-          StreamBuilder<QuerySnapshot>(
-            stream: (FirebaseAuth.instance.currentUser?.email ?? '').isNotEmpty
-                ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(FirebaseAuth.instance.currentUser?.email)
-                      .collection('subjects')
-                      .doc(widget.subject.id)
-                      .collection('sections')
-                      .snapshots()
-                : const Stream.empty(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      'โหลดข้อมูลไม่สำเร็จ: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
+          SliverToBoxAdapter(
+            child: _isLoading
+                ? const ListSkeletonLoader()
+                : _buildSectionsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionsList() {
+    final sections = _sections;
+    if (sections.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 60),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.primarySoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    FontAwesomeIcons.usersSlash,
+                    size: 24,
+                    color: AppColors.primary,
                   ),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(child: ListSkeletonLoader());
-              }
-              final docs = snapshot.data?.docs ?? [];
-              if (docs.isEmpty) {
-                return SliverFillRemaining(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'ยังไม่มีกลุ่มเรียน',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'กดปุ่ม + เพื่อเพิ่มกลุ่มเรียนแรกของวิชานี้',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final totalPages = (sections.length / _pageSize).ceil().clamp(1, 1000000);
+    final page = _currentPage.clamp(1, totalPages);
+    final start = (page - 1) * _pageSize;
+    final end = (start + _pageSize).clamp(0, sections.length);
+    final visibleSections = sections.sublist(start, end);
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          ...visibleSections.asMap().entries.map((entry) {
+            final index = entry.key;
+            final section = entry.value;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border, width: 1.5),
+                boxShadow: AppColors.softShadow,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${start + index + 1}',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.usersSlash,
-                                size: 24,
-                                color: AppColors.primary,
-                              ),
+                          Text(
+                            'กลุ่มเรียน',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 4),
                           Text(
-                            'ยังไม่มีกลุ่มเรียน',
+                            'Sec ${section.sec}',
                             style: TextStyle(
-                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'กดปุ่ม + เพื่อเพิ่มกลุ่มเรียนแรกของวิชานี้',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }
-
-              final sections = docs
-                  .map(
-                    (doc) => SectionModel.fromMap(
-                      doc.id,
-                      doc.data() as Map<String, dynamic>,
-                    ),
-                  )
-                  .toList();
-              final totalPages = (sections.length / _pageSize).ceil().clamp(
-                1,
-                1000000,
-              );
-              final page = _currentPage.clamp(1, totalPages);
-              if (page != _currentPage) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _currentPage = page);
-                });
-              }
-              final start = (page - 1) * _pageSize;
-              final end = (start + _pageSize).clamp(0, sections.length);
-              final visibleSections = sections.sublist(start, end);
-              return SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      ...visibleSections.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final section = entry.value;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppColors.border,
-                              width: 1.5,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showSectionDialog(section),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(
+                              color: AppColors.infoSoft,
+                              shape: BoxShape.circle,
                             ),
-                            boxShadow: AppColors.softShadow,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primarySoft,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '${start + index + 1}',
-                                      style: const TextStyle(
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'กลุ่มเรียน',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Sec ${section.sec}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _showSectionDialog(section),
-                                      child: Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.infoSoft,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            FontAwesomeIcons.solidPenToSquare,
-                                            color: AppColors.info,
-                                            size: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    GestureDetector(
-                                      onTap: () => _deleteSection(section.id),
-                                      child: Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.errorSoft,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Center(
-                                          child: Icon(
-                                            FontAwesomeIcons.trash,
-                                            color: AppColors.error,
-                                            size: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.solidPenToSquare,
+                                color: AppColors.info,
+                                size: 14,
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                      if (sections.length > _pageSize) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'แสดง ${start + 1}-$end จาก ${sections.length} รายการ',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        PaginationBar(
-                          page: page,
-                          totalPages: totalPages,
-                          onPageChanged: (nextPage) {
-                            setState(() => _currentPage = nextPage);
-                          },
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () => _deleteSection(section.id),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: const BoxDecoration(
+                              color: AppColors.errorSoft,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                FontAwesomeIcons.trash,
+                                color: AppColors.error,
+                                size: 14,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ),
+            );
+          }).toList(),
+          if (sections.length > _pageSize) ...[
+            const SizedBox(height: 4),
+            Text(
+              'แสดง ${start + 1}-$end จาก ${sections.length} รายการ',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            PaginationBar(
+              page: page,
+              totalPages: totalPages,
+              onPageChanged: (p) => setState(() => _currentPage = p),
+            ),
+          ],
         ],
       ),
     );

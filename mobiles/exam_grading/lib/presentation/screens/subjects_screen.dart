@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/screens/sections_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
@@ -17,15 +17,33 @@ class SubjectsScreen extends StatefulWidget {
 }
 
 class _SubjectsScreenState extends State<SubjectsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 10;
   int _currentPage = 1;
+  List<SubjectModel> _subjects = [];
+  bool _isLoading = true;
 
-  CollectionReference<Map<String, dynamic>> get _subjectsRef =>
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('subjects');
+  @override
+  void initState() {
+    super.initState();
+    _loadSubjects();
+  }
+
+  Future<void> _loadSubjects() async {
+    if (_uid.isEmpty) return;
+    setState(() => _isLoading = true);
+    try {
+      final docs = await ApiService.instance.getCollection(_uid, 'subjects');
+      if (mounted) {
+        setState(() {
+          _subjects = docs.map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _showSubjectDialog([SubjectModel? subject]) {
     final isEdit = subject != null;
@@ -92,15 +110,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 };
 
                 if (isEdit) {
-                  await _subjectsRef
-                      .doc(subject.id)
-                      .update(data)
-                      .timeout(const Duration(seconds: 15));
+                  await ApiService.instance.updateDoc(_uid, 'subjects', subject.id, data);
                 } else {
-                  await _subjectsRef
-                      .doc(codeController.text.trim())
-                      .set(data)
-                      .timeout(const Duration(seconds: 15));
+                  await ApiService.instance.setDoc(_uid, 'subjects', codeController.text.trim(), data);
                 }
 
                 if (!mounted) return;
@@ -213,43 +225,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   }
 
   Future<void> _deleteSubjectCascade(String subjectId) async {
-    final userRoot = FirebaseFirestore.instance.collection('users').doc(_uid);
-    final subjectRef = userRoot.collection('subjects').doc(subjectId);
-    final subjectSnap = await subjectRef.get();
-    final subjectCode = (subjectSnap.data()?['code'] ?? subjectId).toString();
-
-    final sectionsSnapshot = await subjectRef.collection('sections').get();
-    final sectionDocIds = sectionsSnapshot.docs.map((d) => d.id).toSet();
-    final sectionSecs = sectionsSnapshot.docs
-        .map((d) => (d.data()['sec'] ?? d.id).toString())
-        .toSet();
-    final sectionFullIds = sectionDocIds
-        .map((id) => '${subjectId}_$id')
-        .toSet();
-    final legacySectionFullIds = sectionSecs
-        .map((sec) => '${subjectCode}_$sec')
-        .toSet();
-
-    final batch = FirebaseFirestore.instance.batch();
-    for (final sectionDoc in sectionsSnapshot.docs) {
-      batch.delete(sectionDoc.reference);
-    }
-
-    final studentsSnapshot = await userRoot.collection('students').get();
-    for (final studentDoc in studentsSnapshot.docs) {
-      final classId = (studentDoc.data()['class'] ?? '').toString();
-      final shouldDelete =
-          classId.startsWith('${subjectId}_') ||
-          classId.startsWith('${subjectCode}_') ||
-          classId == subjectId ||
-          classId == subjectCode ||
-          sectionFullIds.contains(classId) ||
-          legacySectionFullIds.contains(classId);
-      if (shouldDelete) batch.delete(studentDoc.reference);
-    }
-
-    batch.delete(subjectRef);
-    await batch.commit().timeout(const Duration(seconds: 15));
+    // Backend CASCADE จะจัดการลบ sections, enrollments อัตโนมัติ
+    await ApiService.instance.deleteDoc(_uid, 'subjects', subjectId);
+    await _loadSubjects();
   }
 
   void _warn(String text) {
@@ -327,14 +305,15 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   }
 
   Widget _buildSubjectsSection() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _uid.isNotEmpty ? _subjectsRef.snapshots() : const Stream.empty(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SliverToBoxAdapter(child: ListSkeletonLoader());
-        }
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
+    if (_isLoading) {
+      return const SliverToBoxAdapter(child: ListSkeletonLoader());
+    }
+    return _buildSubjectsSectionContent();
+  }
+
+  Widget _buildSubjectsSectionContent() {
+    final docs = _subjects;
+    if (docs.isEmpty) {
           return SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -391,12 +370,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
           );
         }
-        final subjects = docs
-            .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
-            .toList();
-        return SliverToBoxAdapter(child: _buildSubjectsList(subjects));
-      },
-    );
+    return SliverToBoxAdapter(child: _buildSubjectsList(docs));
   }
 
   Widget _buildSubjectsList(List<SubjectModel> subjects) {

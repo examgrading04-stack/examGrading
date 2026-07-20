@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/models/subject_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/screens/answer_key_screen.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
@@ -19,65 +19,55 @@ class ExamsScreen extends StatefulWidget {
 }
 
 class _ExamsScreenState extends State<ExamsScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 5;
   int _currentPage = 1;
   List<SubjectModel> _subjects = [];
+  List<ExamModel> _exams = [];
+  bool _isLoading = true;
   @override
   void initState() {
     super.initState();
-    _fetchSubjects();
+    _fetchData();
   }
 
-  Future<void> _fetchSubjects() async {
+  Future<void> _fetchData() async {
     if (_uid.isEmpty) return;
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_uid)
-        .collection('subjects')
-        .get();
-    setState(() {
-      _subjects = snapshot.docs
-          .map((doc) => SubjectModel.fromMap(doc.id, doc.data()))
-          .toList();
-    });
+    setState(() => _isLoading = true);
+    try {
+      final subjectDocs = await ApiService.instance.getCollection(_uid, 'subjects');
+      final examDocs = await ApiService.instance.getCollection(_uid, 'exams');
+      if (mounted) {
+        setState(() {
+          _subjects = subjectDocs.map((d) => SubjectModel.fromMap(
+            d['code']?.toString() ?? '', d)).toList();
+          _exams = examDocs.map((d) => ExamModel.fromMap(
+            d['id']?.toString() ?? d['exam_id']?.toString() ?? '', d)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<List<Map<String, dynamic>>> _buildStudentsSnapshotForExam(
     String subjectCode,
     String? section,
   ) async {
-    final studentsSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_uid)
-        .collection('students')
-        .get();
-
-    final all = studentsSnapshot.docs
-        .map((doc) => StudentModel.fromMap(doc.id, doc.data()))
-        .toList();
+    final studentDocs = await ApiService.instance.getCollection(_uid, 'students');
+    final all = studentDocs.map((d) => StudentModel.fromMap(
+      d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
     final examSection = (section ?? '').trim();
-
     final filtered = all.where((s) {
       final classStr = s.className;
       if (examSection.isNotEmpty) {
-        return classStr == '${subjectCode}_$examSection' ||
-            classStr == examSection;
+        return classStr == '${subjectCode}_$examSection' || classStr == examSection;
       }
       return classStr == subjectCode || classStr.startsWith('${subjectCode}_');
     }).toList();
-
     final source = filtered.isNotEmpty ? filtered : all;
-    return source
-        .map(
-          (s) => {
-            'id': s.id,
-            'code': s.code,
-            'name': s.name,
-            'class': s.className,
-          },
-        )
-        .toList();
+    return source.map((s) => {'id': s.id, 'code': s.code, 'name': s.name, 'class': s.className}).toList();
   }
 
   void _showExamDialog([ExamModel? exam]) {
@@ -94,7 +84,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       QuickAlert.show(
         context: context,
         type: QuickAlertType.warning,
-        text: 'กรุณาเพิ่มรายวิชาก่อนสร้างข้อสอบ',
+        text: 'กรุณาเพิ่มรายวิชาก่อนสร้างกระดาษคำตอบ',
         confirmBtnColor: AppColors.primary,
       );
       return;
@@ -134,7 +124,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      isEdit ? 'แก้ไขข้อมูลข้อสอบ' : 'สร้างข้อสอบใหม่',
+                      isEdit ? 'แก้ไขข้อมูลกระดาษคำตอบ' : 'สร้างกระดาษคำตอบใหม่',
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -143,7 +133,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     ),
                     const SizedBox(height: 32),
                     _buildPopupField(
-                      'ชื่อการสอบ',
+                      'ชื่อกระดาษคำตอบ',
                       nameController,
                       FontAwesomeIcons.solidFileLines,
                     ),
@@ -208,24 +198,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(_uid)
-                                .collection('exams')
-                                .doc(exam.id)
-                                .update(data)
-                                .timeout(const Duration(seconds: 15));
+                            await ApiService.instance.updateDoc(_uid, 'exams', exam.id, data);
                           } else {
                             data['answerKey'] = {};
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(_uid)
-                                .collection('exams')
-                                .doc(
-                                  '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}',
-                                )
-                                .set(data)
-                                .timeout(const Duration(seconds: 15));
+                            await ApiService.instance.setDoc(_uid, 'exams',
+                              '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}', data);
                           }
                           if (!mounted) return;
                           Navigator.pop(context);
@@ -261,7 +238,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             QuickAlert.show(
                               context: context,
                               type: QuickAlertType.success,
-                              text: 'แก้ไขข้อมูลข้อสอบสำเร็จ',
+                              text: 'แก้ไขข้อมูลกระดาษคำตอบสำเร็จ',
                               confirmBtnColor: AppColors.primary,
                             );
                           }
@@ -274,7 +251,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           ),
                         ),
                         child: const Text(
-                          'บันทึกข้อสอบ',
+                          'บันทึกกระดาษคำตอบ',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -490,27 +467,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
       context: context,
       type: QuickAlertType.warning,
       title: 'ยืนยันการลบ',
-      text: 'คุณแน่ใจหรือไม่ที่จะลบข้อสอบนี้?',
+      text: 'คุณแน่ใจหรือไม่ที่จะลบกระดาษคำตอบนี้?',
       confirmBtnText: 'ลบ',
       cancelBtnText: 'ยกเลิก',
       showCancelBtn: true,
       confirmBtnColor: Colors.red,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_uid)
-            .collection('exams')
-            .doc(id)
-            .delete()
-            .timeout(const Duration(seconds: 15));
+        await ApiService.instance.deleteDoc(_uid, 'exams', id);
+        await _fetchData();
         if (!mounted) return;
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.success,
-          text: 'ลบข้อสอบเรียบร้อยแล้ว',
-          confirmBtnColor: AppColors.primary,
-        );
+        QuickAlert.show(context: context, type: QuickAlertType.success, text: 'ลบกระดาษคำตอบเรียบร้อยแล้ว', confirmBtnColor: AppColors.primary);
       },
     );
   }
@@ -572,7 +539,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
             iconTheme: IconThemeData(color: AppColors.textPrimary),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                'จัดการข้อสอบ',
+                'จัดการกระดาษคำตอบ',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -582,118 +549,49 @@ class _ExamsScreenState extends State<ExamsScreen> {
               background: Container(color: AppColors.surface),
             ),
           ),
-          StreamBuilder<QuerySnapshot>(
-            stream: _uid.isNotEmpty
-                ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(_uid)
-                      .collection('exams')
-                      .snapshots()
-                : const Stream.empty(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverToBoxAdapter(child: ListSkeletonLoader());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return SliverFillRemaining(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.fileLines,
-                                size: 24,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'ยังไม่มีข้อมูลข้อสอบ',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างข้อสอบชุดแรก',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-              final docs = snapshot.data!.docs;
-              final totalPages = (docs.length / _pageSize).ceil().clamp(
-                1,
-                1000000,
-              );
-              final page = _currentPage.clamp(1, totalPages);
-              if (page != _currentPage) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _currentPage = page);
-                });
-              }
-              final start = (page - 1) * _pageSize;
-              final end = (start + _pageSize).clamp(0, docs.length);
-              final visibleDocs = docs.sublist(start, end);
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      if (index == visibleDocs.length) {
-                        return Column(
-                          children: [
-                            Text(
-                              'แสดง ${start + 1}-$end จาก ${docs.length} รายการ',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            PaginationBar(
-                              page: page,
-                              totalPages: totalPages,
-                              onPageChanged: (nextPage) {
-                                setState(() => _currentPage = nextPage);
-                              },
-                            ),
-                          ],
-                        );
-                      }
-                      final exam = ExamModel.fromMap(
-                        visibleDocs[index].id,
-                        visibleDocs[index].data() as Map<String, dynamic>,
-                      );
-                      return _buildExamCard(exam);
-                    },
-                    childCount:
-                        visibleDocs.length + (docs.length > _pageSize ? 1 : 0),
+          if (_isLoading)
+            const SliverToBoxAdapter(child: ListSkeletonLoader())
+          else if (_exams.isEmpty)
+            SliverFillRemaining(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.fileLines, size: 24, color: AppColors.primary))),
+                      const SizedBox(height: 20),
+                      const Text('ยังไม่มีข้อมูลกระดาษคำตอบ', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 6),
+                      Text('แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(child: _buildExamsList()),
+        ],
+      ),
+    );
+  }
+  Widget _buildExamsList() {
+    final docs = _exams;
+    final totalPages = (docs.length / _pageSize).ceil().clamp(1, 1000000);
+    final page = _currentPage.clamp(1, totalPages);
+    final start = (page - 1) * _pageSize;
+    final end = (start + _pageSize).clamp(0, docs.length);
+    final visibleDocs = docs.sublist(start, end);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
+      child: Column(
+        children: [
+          ...visibleDocs.map((exam) => _buildExamCard(exam)).toList(),
+          if (docs.length > _pageSize) ...[
+            Text('แสดง ${start + 1}-$end จาก ${docs.length} รายการ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+            PaginationBar(page: page, totalPages: totalPages, onPageChanged: (nextPage) => setState(() => _currentPage = nextPage)),
+          ],
         ],
       ),
     );
@@ -800,18 +698,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    _buildSmallInfo(
-                      FontAwesomeIcons.circleQuestion,
-                      '${exam.questions} ข้อ',
-                    ),
-                    const SizedBox(width: 16),
-                    _buildSmallInfo(
-                      FontAwesomeIcons.layerGroup,
-                      '${exam.sets} ชุด',
-                    ),
-                  ],
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      _buildSmallInfo(
+                        FontAwesomeIcons.circleQuestion,
+                        '${exam.questions} ข้อ',
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -823,7 +720,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       bgColor: AppColors.successSoft,
                       onTap: () => _openAnswerKey(exam),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 6),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.filePdf,
                       iconSize: 12,
@@ -831,7 +728,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       bgColor: AppColors.infoSoft,
                       onTap: () => _openAnswerSheets(exam),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 6),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.solidPenToSquare,
                       iconSize: 12,
@@ -839,7 +736,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       bgColor: AppColors.warningSoft,
                       onTap: () => _showExamDialog(exam),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 6),
                     _buildCompactAction(
                       icon: FontAwesomeIcons.trash,
                       iconSize: 11,
@@ -867,8 +764,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
         child: Center(
           child: Icon(icon, color: color, size: iconSize),

@@ -1,4 +1,4 @@
-﻿class StudentModel {
+class StudentModel {
   String id;
   String code;
   String name;
@@ -12,15 +12,33 @@
   });
 
   factory StudentModel.fromMap(String id, Map<String, dynamic> map) {
+    String className = map['class']?.toString() ?? '';
+    if (className.isEmpty) {
+      final subjectCode = map['subjectCode']?.toString() ?? '';
+      final section = map['section']?.toString() ?? '';
+      if (subjectCode.isNotEmpty && section.isNotEmpty) {
+        className = '${subjectCode}_$section';
+      } else if (subjectCode.isNotEmpty) {
+        className = subjectCode;
+      } else if (section.isNotEmpty) {
+        className = section;
+      }
+    }
+
+    String code = map['code']?.toString() ?? '';
+    if (code.isEmpty) {
+      code = id; // id is usually the student_code from db
+    }
+
     return StudentModel(
       id: id,
-      code: map['code'] ?? '',
-      name: map['name'] ?? '',
-      className: map['class'] ?? '',
+      code: code,
+      name: map['name']?.toString() ?? '',
+      className: className,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'code': code, 'name': name, 'class': className};
+    return {'id': id, 'code': code, 'name': name, 'class': className};
   }
 }

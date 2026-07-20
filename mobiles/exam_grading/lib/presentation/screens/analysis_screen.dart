@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:quickalert/quickalert.dart';
@@ -28,7 +28,7 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.email ?? '';
+  String get _uid => AuthService.instance.currentEmail ?? '';
   static const int _pageSize = 3;
   int _currentPage = 1;
   List<ExamModel> _exams = [];
@@ -47,30 +47,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return;
     }
     try {
-      final examsSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('exams')
-          .get();
-      final resultsSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('results')
-          .get();
-      final subjectsSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_uid)
-          .collection('subjects')
-          .get();
+      final examsData = await ApiService.instance.getCollection(_uid, 'exams');
+      final resultsData = await ApiService.instance.getCollection(
+        _uid,
+        'results',
+      );
+      final subjectsData = await ApiService.instance.getCollection(
+        _uid,
+        'subjects',
+      );
+
       if (!mounted) return;
+
       setState(() {
-        _exams = examsSnapshot.docs
-            .map((doc) => ExamModel.fromMap(doc.id, doc.data()))
+        _exams = examsData
+            .map(
+              (data) =>
+                  ExamModel.fromMap(data['exam_id'] ?? data['id'] ?? '', data),
+            )
             .toList();
-        _results = resultsSnapshot.docs.map((doc) => doc.data()).toList();
+        _results = resultsData;
+
         _subjectNames = {
-          for (var doc in subjectsSnapshot.docs)
-            doc.id: doc.data()['name'] ?? '',
+          for (var item in subjectsData)
+            item['subject_id'] ?? item['id'] ?? '':
+                item['subject_name'] ?? item['name'] ?? '',
         };
         _isLoading = false;
       });
@@ -380,33 +381,38 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       }
     }
     final averageScore = totalCount == 0 ? 0.0 : totalScore / totalCount;
-    return GridView.count(
-      crossAxisCount: 3,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 0.92,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        _buildStatCard(
-          value: '${_exams.length}',
-          label: 'ข้อสอบ',
-          icon: FontAwesomeIcons.fileLines,
-          color: AppColors.primary,
-        ),
-        _buildStatCard(
-          value: '${_results.length}',
-          label: 'ตรวจแล้ว',
-          icon: FontAwesomeIcons.userCheck,
-          color: AppColors.success,
-        ),
-        _buildStatCard(
-          value: averageScore.toStringAsFixed(1),
-          label: 'เฉลี่ย',
-          icon: FontAwesomeIcons.star,
-          color: AppColors.warning,
-        ),
-      ],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              value: '${_exams.length}',
+              label: 'ข้อสอบ',
+              icon: FontAwesomeIcons.fileLines,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildStatCard(
+              value: '${_results.length}',
+              label: 'ตรวจแล้ว',
+              icon: FontAwesomeIcons.userCheck,
+              color: AppColors.success,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _buildStatCard(
+              value: averageScore.toStringAsFixed(1),
+              label: 'เฉลี่ย',
+              icon: FontAwesomeIcons.star,
+              color: AppColors.warning,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

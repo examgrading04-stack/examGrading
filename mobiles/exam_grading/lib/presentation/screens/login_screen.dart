@@ -1,10 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/presentation/screens/dashboard_screen.dart';
 import 'package:exam_grading/presentation/screens/register_screen.dart';
 import 'package:exam_grading/presentation/widgets/vector_logo.dart';
@@ -43,9 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password)
-          .timeout(const Duration(seconds: 20));
+      await AuthService.instance.login(email, password);
 
       if (!mounted) return;
       Navigator.pop(context); // ปิด loading
@@ -53,21 +51,13 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // ปิด loading
-      String msg = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
-      if (e.code == 'user-not-found' ||
-          e.code == 'wrong-password' ||
-          e.code == 'invalid-credential') {
-        msg = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
-      } else if (e.code == 'invalid-email') {
-        msg = 'รูปแบบอีเมลไม่ถูกต้อง';
-      }
+      Navigator.pop(context);
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
-        text: msg,
+        text: e.message,
         confirmBtnColor: const Color(0xFF2563EB),
       );
     } catch (e) {
@@ -91,9 +81,10 @@ class _LoginScreenState extends State<LoginScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      // บังคับให้ลบ Session เก่าออกก่อน เพื่อให้หน้าต่างเลือก Email เด้งขึ้นมาทุกครั้ง
-      final googleSignIn = GoogleSignIn();
-      await googleSignIn.signOut();
+      final googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
+      await googleSignIn.signOut(); // บังคับให้เลือก account ใหม่ทุกครั้ง
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
@@ -104,14 +95,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      final accessToken = googleAuth.accessToken;
+      if (accessToken == null) {
+        throw Exception('ไม่สามารถรับ Access Token จาก Google ได้');
+      }
 
-      await FirebaseAuth.instance
-          .signInWithCredential(credential)
-          .timeout(const Duration(seconds: 20));
+      await AuthService.instance.loginWithGoogle(accessToken);
 
       if (!mounted) return;
       Navigator.pop(context); // close loading
@@ -119,48 +108,22 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: e.message,
+        confirmBtnColor: const Color(0xFF2563EB),
+      );
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
-        text: 'Google Sign-In failed: $e',
-        confirmBtnColor: const Color(0xFF2563EB),
-      );
-    }
-  }
-
-  Future<void> _forgotPassword() async {
-    final email = _usernameController.text.trim();
-    if (email.isEmpty) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        text: 'กรุณากรอกอีเมลในช่องด้านบนเพื่อรีเซ็ตรหัสผ่าน',
-        confirmBtnColor: const Color(0xFF2563EB),
-      );
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance
-          .sendPasswordResetEmail(email: email)
-          .timeout(const Duration(seconds: 20));
-      if (!mounted) return;
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.success,
-        text:
-            'ส่งอีเมลรีเซ็ตรหัสผ่านเรียบร้อยแล้ว กรุณาตรวจสอบกล่องจดหมายของคุณ',
-        confirmBtnColor: const Color(0xFF2563EB),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.error,
-        text: 'ไม่พบอีเมลนี้ในระบบหรือเกิดข้อผิดพลาด',
+        text: 'Google Sign-In ล้มเหลว: $e',
         confirmBtnColor: const Color(0xFF2563EB),
       );
     }
@@ -198,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const SizedBox(height: 5),
-                    // Branding Section
                     Column(
                       children: [
                         Container(
@@ -230,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Login Card (Glassmorphism inspired but clean)
+                    // Login Card
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -260,8 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 14),
-
-                          // Email
                           _buildPremiumTextField(
                             controller: _usernameController,
                             icon: Icons.alternate_email,
@@ -269,8 +229,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             hintText: 'name@example.com',
                           ),
                           const SizedBox(height: 12),
-
-                          // Password
                           _buildPremiumTextField(
                             controller: _passwordController,
                             icon: Icons.lock_outline,
@@ -280,26 +238,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             obscureText: _obscurePassword,
                             onToggle: () => setState(
                               () => _obscurePassword = !_obscurePassword,
-                            ),
-                          ),
-
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _forgotPassword,
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 0),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text(
-                                'ลืมรหัสผ่าน?',
-                                style: TextStyle(
-                                  color: Color(0xFF2563EB),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -315,9 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: const Color(0xFF2563EB),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(
-                                      0xFF2563EB,
-                                    ).withOpacity(0.3),
+                                    color: const Color(0xFF2563EB).withOpacity(0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
@@ -338,12 +274,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Divider for Social Login
+                          // Divider
                           Row(
                             children: [
-                              Expanded(
-                                child: Divider(color: const Color(0xFFE2E8F0)),
-                              ),
+                              Expanded(child: Divider(color: const Color(0xFFE2E8F0))),
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 10),
                                 child: Text(
@@ -354,9 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              Expanded(
-                                child: Divider(color: const Color(0xFFE2E8F0)),
-                              ),
+                              Expanded(child: Divider(color: const Color(0xFFE2E8F0))),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -370,9 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                ),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.02),
@@ -413,10 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         const Text(
                           'ยังไม่มีบัญชี? ',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 14,
-                          ),
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                         ),
                         TextButton(
                           onPressed: () => Navigator.push(
@@ -505,15 +432,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     )
                   : null,
               hintText: hintText,
-              hintStyle: const TextStyle(
-                color: Color(0xFFCBD5E1),
-                fontSize: 13,
-              ),
+              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 14,
-                horizontal: 14,
-              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
             ),
           ),
         ),

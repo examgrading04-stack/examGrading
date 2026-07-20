@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
+import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/screens/login_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
@@ -19,15 +19,14 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _auth = FirebaseAuth.instance;
-  late User _user;
+  Map<String, dynamic>? get _user => AuthService.instance.currentUser;
+  String get _email => AuthService.instance.currentEmail ?? '';
   final TextEditingController _nameController = TextEditingController();
   bool _isLoading = false;
   @override
   void initState() {
     super.initState();
-    _user = _auth.currentUser!;
-    _nameController.text = _user.displayName ?? '';
+    _nameController.text = _user?['displayName']?.toString() ?? '';
   }
 
   @override
@@ -40,19 +39,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? displayName,
     String? photoURL,
   }) async {
-    final email = _user.email;
-    if (email == null || email.isEmpty) return;
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(email)
-        .collection('profiles')
-        .doc(email)
-        .set({
-          'email': email,
-          if (displayName != null) 'displayName': displayName,
-          if (photoURL != null) 'photoURL': photoURL,
-          'lastUpdated': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    if (_email.isEmpty) return;
+    await ApiService.instance.setDoc(_email, 'profiles', _email, {
+      'email': _email,
+      if (displayName != null) 'displayName': displayName,
+      if (photoURL != null) 'photoURL': photoURL,
+      'lastUpdated': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<String?> _uploadToCloudinary(File imageFile) async {
@@ -92,14 +85,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (cloudUrl == null) {
         throw Exception('อัปโหลดรูปล้มเหลว');
       }
-      await _user.updatePhotoURL(cloudUrl);
-      await _user.reload();
-      final refreshedUser = _auth.currentUser;
-      if (refreshedUser != null) {
-        _user = refreshedUser;
-      }
+      await AuthService.instance.updateLocalProfile(photoURL: cloudUrl);
       await _saveProfileDocument(
-        displayName: _user.displayName ?? _nameController.text.trim(),
+        displayName:
+            _user?['displayName']?.toString() ?? _nameController.text.trim(),
         photoURL: cloudUrl,
       );
       if (!mounted) return;
@@ -130,15 +119,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (newName.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      await _user.updateDisplayName(newName);
-      await _user.reload();
-      final refreshedUser = _auth.currentUser;
-      if (refreshedUser != null) {
-        _user = refreshedUser;
-      }
+      await AuthService.instance.updateLocalProfile(displayName: newName);
       await _saveProfileDocument(
         displayName: newName,
-        photoURL: _user.photoURL,
+        photoURL: _user?['photoURL']?.toString(),
       );
       if (!mounted) return;
       setState(() {});
@@ -175,7 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       confirmBtnColor: AppColors.error,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
-        await _auth.signOut();
+        await AuthService.instance.logout();
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -187,12 +171,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = _user.photoURL;
-    final initial = (_user.displayName?.isNotEmpty == true)
-        ? _user.displayName![0].toUpperCase()
-        : (_user.email?.isNotEmpty == true
-              ? _user.email![0].toUpperCase()
-              : 'A');
+    final photoUrl = _user?['photoURL']?.toString();
+    final dName = _user?['displayName']?.toString() ?? '';
+    final initial = dName.isNotEmpty
+        ? dName[0].toUpperCase()
+        : (_email.isNotEmpty ? _email[0].toUpperCase() : 'A');
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -468,7 +451,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            _user.email ?? '',
+                                            _email,
                                             style: const TextStyle(
                                               color: AppColors.textSecondary,
                                               fontSize: 14,

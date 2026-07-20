@@ -1,10 +1,7 @@
-import 'package:exam_grading/config/api_config.dart';
-import 'package:exam_grading/config/firebase_options.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/presentation/screens/login_screen.dart';
 import 'package:exam_grading/presentation/screens/dashboard_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -94,20 +91,15 @@ class _SplashScreenState extends State<SplashScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeApp());
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   Future<void> _initializeApp() async {
     try {
       FlutterNativeSplash.remove();
-      await _waitForSplashStep();
+      await Future.delayed(const Duration(milliseconds: 300));
+      // โหลด .env
       await dotenv.load(fileName: '.env');
-      await _waitForSplashStep();
-      await Firebase.initializeApp(options: firebaseOptions);
-      debugPrint('FastAPI URL: ${ApiConfig.baseUrl} (${ApiConfig.source})');
-      await _waitForSplashStep();
+      await Future.delayed(const Duration(milliseconds: 300));
+      // โหลด session จาก SharedPreferences (แทน Firebase)
+      await AuthService.instance.init();
       await Future.delayed(const Duration(milliseconds: 450));
       if (!mounted) return;
       Navigator.pushReplacement(context, _fadeRoute(const AuthWrapper()));
@@ -115,11 +107,8 @@ class _SplashScreenState extends State<SplashScreen> {
       FlutterNativeSplash.remove();
       if (!mounted) return;
       debugPrint('Splash initialization failed: $error');
+      Navigator.pushReplacement(context, _fadeRoute(const AuthWrapper()));
     }
-  }
-
-  Future<void> _waitForSplashStep() async {
-    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   @override
@@ -201,14 +190,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAuth();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAuth());
   }
 
   void _checkAuth() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    if (AuthService.instance.isLoggedIn) {
       Navigator.pushReplacement(context, _fadeRoute(const DashboardScreen()));
     } else {
       Navigator.pushReplacement(context, _fadeRoute(const LoginScreen()));

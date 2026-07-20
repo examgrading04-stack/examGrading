@@ -1,4 +1,4 @@
-﻿class SubjectModel {
+class SubjectModel {
   String id;
   String code;
   String name;
@@ -18,11 +18,11 @@
   factory SubjectModel.fromMap(String id, Map<String, dynamic> map) {
     return SubjectModel(
       id: id,
-      code: map['code'] ?? '',
-      name: map['name'] ?? '',
-      term: map['term'] ?? '',
-      year: map['year'] ?? '',
-      teacher: map['teacher'] ?? '',
+      code: map['code']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      term: map['term']?.toString() ?? '',
+      year: map['year']?.toString() ?? '',
+      teacher: map['teacher']?.toString() ?? '',
     );
   }
 

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
@@ -110,7 +110,7 @@ class _ScanScreenState extends State<ScanScreen> {
         throw Exception('อัปโหลดรูปล้มเหลว (Cloudinary)');
       }
 
-      final uid = FirebaseAuth.instance.currentUser!.email!;
+      final uid = AuthService.instance.currentEmail ?? '';
 
       // 2. Call FastAPI (warmup + retry for cold start hosting)
       await _warmupServer();

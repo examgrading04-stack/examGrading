@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/presentation/widgets/vector_logo.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -53,9 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password)
-          .timeout(const Duration(seconds: 20));
+      await AuthService.instance.register(email, password, email.split('@').first);
 
       if (!mounted) return;
       Navigator.pop(context); // close loading
@@ -69,19 +67,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Navigator.pop(context); // back to login
         },
       );
-    } on FirebaseAuthException catch (e) {
+    } on AuthException catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      String msg = 'เกิดข้อผิดพลาดในการลงทะเบียน';
-      if (e.code == 'email-already-in-use') {
-        msg = 'อีเมลนี้ถูกใช้งานแล้ว';
-      } else if (e.code == 'weak-password') {
-        msg = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร';
-      }
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
-        text: msg,
+        text: e.message,
         confirmBtnColor: const Color(0xFF2563EB),
       );
     } catch (e) {
