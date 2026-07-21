@@ -79,7 +79,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       final studentDocs = await ApiService.instance.getCollection(email, 'students');
       final students = studentDocs.map((d) => StudentModel.fromMap(
         d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       setState(() {
         _subjects = subjects;
         _sections = options;
@@ -102,7 +102,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         context: context,
         type: QuickAlertType.warning,
         text: 'ยังไม่มีกลุ่มเรียน กรุณาสร้างกลุ่มเรียนก่อนเพิ่มผู้เรียน',
-        confirmBtnColor: AppColors.primary,
+        confirmBtnColor: AppColors.success,
       );
       return;
     }
@@ -145,7 +145,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
+                        color: AppColors.successDark,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -173,8 +173,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       height: 52,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        color: AppColors.primary,
-                        boxShadow: AppColors.primaryShadow,
+                        color: AppColors.success,
+                        boxShadow: AppColors.successShadow,
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
@@ -185,7 +185,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               context: context,
                               type: QuickAlertType.warning,
                               text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-                              confirmBtnColor: AppColors.primary,
+                              confirmBtnColor: AppColors.success,
                             );
                             return;
                           }
@@ -206,7 +206,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               _uid, 'students', codeController.text, data);
                           }
                           await _fetchData();
-                          if (!mounted) return;
+                          if (!mounted || !context.mounted) return;
                           Navigator.pop(context);
                           QuickAlert.show(
                             context: context,
@@ -214,7 +214,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             text: isEdit
                                 ? 'อัปเดตข้อมูลผู้เรียนสำเร็จ'
                                 : 'เพิ่มผู้เรียนสำเร็จ',
-                            confirmBtnColor: AppColors.primary,
+                            confirmBtnColor: AppColors.success,
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -261,7 +261,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: AppColors.primary,
+          color: AppColors.success,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
@@ -273,7 +273,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 16, right: 10),
-          child: Icon(icon, color: AppColors.primary, size: 13),
+          child: Icon(icon, color: AppColors.success, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         contentPadding: const EdgeInsets.symmetric(
@@ -288,7 +288,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: const BorderSide(color: AppColors.success, width: 2.0),
         ),
       ),
     );
@@ -300,65 +300,43 @@ class _StudentsScreenState extends State<StudentsScreen> {
     List<SectionOption> sections,
     ValueChanged<String?> onChanged,
   ) {
-    return DropdownButtonFormField<String>(
-      isExpanded: true,
-      borderRadius: BorderRadius.circular(16),
-      dropdownColor: Colors.white,
-      decoration: InputDecoration(
-        labelText: label,
+    return DropdownMenu<String>(
+      initialSelection: sections.any((s) => s.id == value) ? value : null,
+      expandedInsets: EdgeInsets.zero,
+      label: Text(label),
+      enableFilter: true,
+      enableSearch: true,
+      hintText: 'พิมพ์เพื่อค้นหา...',
+      leadingIcon: const Padding(
+        padding: EdgeInsets.only(left: 16, right: 10),
+        child: Icon(FontAwesomeIcons.users, color: AppColors.success, size: 13),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.background,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: AppColors.primary,
+          color: AppColors.success,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: const Padding(
-          padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(
-            FontAwesomeIcons.users,
-            color: AppColors.primary,
-            size: 13,
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 14,
-          horizontal: 16,
-        ),
-        filled: true,
-        fillColor: AppColors.background,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: const BorderSide(color: AppColors.success, width: 2.0),
         ),
       ),
-      value: sections.any((s) => s.id == value) ? value : null,
-      items: sections
-          .map(
-            (s) => DropdownMenuItem(
-              value: s.id,
-              child: Text(
-                s.displayName,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          )
-          .toList(),
-      onChanged: onChanged,
-      icon: const Icon(
-        Icons.keyboard_arrow_down_rounded,
-        color: AppColors.primary,
-        size: 20,
-      ),
+      onSelected: onChanged,
+      dropdownMenuEntries: sections.map((s) {
+        return DropdownMenuEntry<String>(
+          value: s.id,
+          label: s.displayName,
+        );
+      }).toList(),
     );
   }
 
@@ -376,12 +354,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
         Navigator.pop(context);
         await ApiService.instance.deleteDoc(_uid, 'students', id);
         await _fetchData();
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         QuickAlert.show(
           context: context,
           type: QuickAlertType.success,
           text: 'ลบข้อมูลผู้เรียนเรียบร้อยแล้ว',
-          confirmBtnColor: AppColors.primary,
+          confirmBtnColor: AppColors.success,
         );
       },
     );
@@ -394,8 +372,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.primary,
-          boxShadow: AppColors.primaryShadow,
+          color: AppColors.success,
+          boxShadow: AppColors.successShadow,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
@@ -452,12 +430,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           padding: const EdgeInsets.only(left: 14, right: 4),
                           decoration: BoxDecoration(
                             color: _filterSubjectId != null
-                                ? AppColors.primarySoft
+                                ? AppColors.successSoft
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: _filterSubjectId != null
-                                  ? AppColors.primary
+                                  ? AppColors.success
                                   : AppColors.border,
                               width: _filterSubjectId != null ? 1.8 : 1.0,
                             ),
@@ -470,7 +448,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               icon: Icon(
                                 Icons.keyboard_arrow_down_rounded,
                                 color: _filterSubjectId != null
-                                    ? AppColors.primary
+                                    ? AppColors.success
                                     : AppColors.textSecondary,
                                 size: 18,
                               ),
@@ -479,7 +457,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 prefixIcon: Icon(
                                   FontAwesomeIcons.bookOpen,
                                   color: _filterSubjectId != null
-                                      ? AppColors.primary
+                                      ? AppColors.success
                                       : AppColors.textSecondary,
                                   size: 13,
                                 ),
@@ -543,12 +521,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             padding: const EdgeInsets.only(left: 14, right: 4),
                             decoration: BoxDecoration(
                               color: _filterSectionId != null
-                                  ? AppColors.primarySoft
+                                  ? AppColors.successSoft
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: _filterSectionId != null
-                                    ? AppColors.primary
+                                    ? AppColors.success
                                     : AppColors.border,
                                 width: _filterSectionId != null ? 1.8 : 1.0,
                               ),
@@ -561,7 +539,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 icon: Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   color: _filterSectionId != null
-                                      ? AppColors.primary
+                                      ? AppColors.success
                                       : AppColors.textSecondary,
                                   size: 18,
                                 ),
@@ -570,7 +548,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   prefixIcon: Icon(
                                     FontAwesomeIcons.users,
                                     color: _filterSectionId != null
-                                        ? AppColors.primary
+                                        ? AppColors.success
                                         : AppColors.textSecondary,
                                     size: 13,
                                   ),
@@ -662,9 +640,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.usersSlash, size: 24, color: AppColors.primary))),
+              Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.successSoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.usersSlash, size: 24, color: AppColors.success))),
               const SizedBox(height: 20),
-              const Text('ยังไม่มีรายชื่อผู้เรียน', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('ยังไม่มีรายชื่อผู้เรียน', style: TextStyle(color: AppColors.successDark, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 6),
               Text('เพิ่มผู้เรียนใหม่ หรือปรับตัวกรองเพื่อแสดงผลรายการ', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             ],
@@ -721,13 +699,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
+                        color: AppColors.successSoft,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Center(
                         child: Icon(
                           FontAwesomeIcons.solidUser,
-                          color: AppColors.primary,
+                          color: AppColors.success,
                           size: 20,
                         ),
                       ),
@@ -764,7 +742,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primarySoft,
+                                  color: AppColors.successSoft,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -772,7 +750,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                                    color: AppColors.success,
                                   ),
                                 ),
                               ),
@@ -855,13 +833,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
               totalPages: totalPages,
               onPageChanged: (nextPage) {
                 setState(() => _currentPage = nextPage);
-                if (_scrollController.hasClients) {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                  );
-                }
               },
             ),
           ],

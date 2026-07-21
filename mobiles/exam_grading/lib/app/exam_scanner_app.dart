@@ -101,11 +101,11 @@ class _SplashScreenState extends State<SplashScreen> {
       // โหลด session จาก SharedPreferences (แทน Firebase)
       await AuthService.instance.init();
       await Future.delayed(const Duration(milliseconds: 450));
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pushReplacement(context, _fadeRoute(const AuthWrapper()));
     } catch (error) {
       FlutterNativeSplash.remove();
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       debugPrint('Splash initialization failed: $error');
       Navigator.pushReplacement(context, _fadeRoute(const AuthWrapper()));
     }

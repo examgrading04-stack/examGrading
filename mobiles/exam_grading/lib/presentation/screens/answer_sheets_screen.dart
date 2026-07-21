@@ -128,7 +128,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
           file.path,
           type: 'application/pdf',
         );
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         QuickAlert.show(
           context: context,
           type: openResult.type == ResultType.done
@@ -147,7 +147,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
         throw Exception(_errorMessage(response));
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,

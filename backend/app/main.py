@@ -3,6 +3,11 @@ import os
 import uuid
 from pathlib import Path
 from typing import Any, List, Optional
+# pyrefly: ignore [missing-import]
+from dotenv import load_dotenv
+
+load_dotenv()
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # pyrefly: ignore [missing-import]
 from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request
@@ -24,6 +29,22 @@ from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_
 from .services.pdf_sheets import generate_pdf_for_students
 from .db_adapter import get_db_adapter
 
+def upload_to_cloudinary(file_path: str) -> str:
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    upload_preset = os.getenv("CLOUDINARY_UPLOAD_PRESET")
+    if not cloud_name or not upload_preset:
+        return ""
+    url = f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload"
+    try:
+        with open(file_path, "rb") as f:
+            res = requests.post(url, files={"file": f}, data={"upload_preset": upload_preset}, timeout=15)
+            if res.status_code == 200:
+                return res.json().get("secure_url", "")
+    except Exception as e:
+        print(f"Cloudinary upload error: {e}")
+    return ""
+
+
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 APP_ROOT = BACKEND_DIR.parent
@@ -36,7 +57,22 @@ UPLOADS_DIR = STATIC_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
 
+# pyrefly: ignore [missing-import]
+from fastapi.responses import JSONResponse
+import traceback
+
 app = FastAPI(title="Exam Grading OMR API")
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print("500 ERROR:", exc)
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": traceback.format_exc()},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.add_middleware(
     CORSMiddleware,
@@ -331,29 +367,46 @@ def download_answer_sheets_pdf(
 async def scan_sheet(
     file: UploadFile = File(...),
     user_email: str | None = Form(None),
-    exam_id: str = Form(...),
+    exam_id: str | None = Form(None),
     answer_set: str = Form("0"),
     debug: bool = Form(False),
     save_result: bool = Form(True),
+    overwrite: bool = Form(False),
     authorization: str | None = Header(None),
     db=Depends(get_db),
 ):
     user_email = get_user_email(authorization=authorization, user_email=user_email)
-    exam = get_exam(db, user_email, exam_id)
     image_path = await save_upload(file)
+
+    payload_exam_id = str(exam_id or "").strip()
+    exam = get_exam(db, user_email, payload_exam_id) if payload_exam_id else {}
+    force_questions = int(exam.get("questions") or 0) if exam else 0
+
     result = scan_answer_sheet(
         image_path,
-        force_questions=int(exam.get("questions") or 0),
+        force_questions=force_questions,
         debug=debug,
     )
 
     if not result.success:
         raise HTTPException(status_code=422, detail=result.error_msg or "Scan failed")
 
+    metadata = metadata_to_dict(result)
+    if exam:
+        exam_id = exam["id"]
+    else:
+        try:
+            exam_id = resolve_exam_id(payload_exam_id, metadata)
+            exam = get_exam(db, user_email, exam_id)
+        except HTTPException:
+            exam = find_exam_for_scan(db, user_email, metadata)
+            exam_id = exam["id"]
+
     answer_key = normalize_answer_key(exam, answer_set)
     score = calculate_score(result.answers, answer_key)
-    metadata = metadata_to_dict(result)
     summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
+
+    image_url = upload_to_cloudinary(image_path)
 
     payload = {
         "examId": exam_id,
@@ -361,7 +414,7 @@ async def scan_sheet(
         "answerSet": answer_set,
         "studentCode": metadata.get("studentCode", ""),
         "studentName": metadata.get("studentName", ""),
-        "sheetId": metadata.get("sheetId", ""),
+        "sheetId": exam.get("sheetType") or metadata.get("sheetId", ""),
         "score": score["score"],
         "total": score["total"],
         "percent": score["percent"],
@@ -371,15 +424,23 @@ async def scan_sheet(
         "skipped": score["skipped"],
         "summary": summary,
         "metadata": metadata,
+        "imageUrl": image_url,
+        "overwrite": overwrite,
         "createdAt": datetime.now(),
         "timestamp": datetime.now(),
     }
 
     result_id = None
     if save_result:
-        result_id = db.save_result(user_email, payload)
+        try:
+            result_id = db.save_result(user_email, payload)
+        except ValueError as e:
+            if str(e).startswith("duplicate_result:"):
+                raise HTTPException(status_code=409, detail="กระดาษคำตอบของนักเรียนคนนี้ถูกสแกนไปแล้ว")
+            raise
 
     response_payload = dict(payload)
+    response_payload.pop("overwrite", None)
     response_payload["createdAt"] = None
     response_payload["timestamp"] = None
     response_payload["resultId"] = result_id
@@ -483,7 +544,7 @@ async def scan_cloudinary(
         "answerSet": answer_set,
         "studentCode": metadata.get("studentCode", ""),
         "studentName": metadata.get("studentName", ""),
-        "sheetId": metadata.get("sheetId", ""),
+        "sheetId": exam.get("sheetType") or metadata.get("sheetId", ""),
         "score": score["score"],
         "total": score["total"],
         "percent": score["percent"],
@@ -609,25 +670,31 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
 @app.post("/api/auth/google")
 def auth_google(payload: dict = Body(...), db=Depends(get_db)):
     access_token = payload.get("access_token")
-    if not access_token:
-        raise HTTPException(status_code=400, detail="Missing Google access token")
-        
-    # Call Google API to verify access token and get profile info
-    google_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
-    try:
-        resp = requests.get(google_url, timeout=10)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Google authentication failed")
-        google_profile = resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Failed to connect to Google API: {str(e)}")
-        
-    email = google_profile.get("email")
-    displayName = google_profile.get("name", "")
-    photoURL = google_profile.get("picture", "")
-    
+    email = None
+    displayName = ""
+    photoURL = ""
+
+    if access_token:
+        # Call Google API to verify access token and get profile info
+        google_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
+        try:
+            resp = requests.get(google_url, timeout=10)
+            if resp.status_code == 200:
+                google_profile = resp.json()
+                email = google_profile.get("email")
+                displayName = google_profile.get("name", "")
+                photoURL = google_profile.get("picture", "")
+        except Exception:
+            pass
+
+    # Fallback to direct email in payload if access_token missing or Google verification failed
     if not email:
-        raise HTTPException(status_code=400, detail="Google profile did not contain email")
+        email = payload.get("email")
+        displayName = payload.get("displayName") or payload.get("name") or (email.split("@")[0] if email else "")
+        photoURL = payload.get("photoURL") or "https://img.icons8.com/color/96/000000/google-logo.png"
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing Google access token or email")
         
     # Get or create user in local SQL
     user_doc = db.get_doc("users", email)

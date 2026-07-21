@@ -106,7 +106,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         'answerKey': _answerKeys,
       });
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       QuickAlert.show(
         context: context,
         type: QuickAlertType.success,
@@ -131,7 +131,11 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
   Map<String, Map<String, String>> _parseAnswerKey(dynamic raw) {
     if (raw is! Map) return {};
-
+    if (raw.isNotEmpty && raw.values.first is String) {
+      return {
+        '0': raw.map((k, v) => MapEntry(k.toString(), v.toString()))
+      };
+    }
     return raw.map((setIndex, answers) {
       final answerMap = answers is Map ? answers : <dynamic, dynamic>{};
       return MapEntry(
@@ -206,9 +210,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                 final qNum = index + 1;
                 final selectedAnswer =
                     _answerKeys[_currentSetIndex.toString()]?[qNum.toString()];
-                final numOptions = widget.exam.options > 0
-                    ? widget.exam.options
-                    : 4;
+                final numOptions = 5; // Fixed to 5 options as requested
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),

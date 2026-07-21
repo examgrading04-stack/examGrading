@@ -44,22 +44,21 @@ class OMRResult:
     success: bool=False; error_msg: str=""
 
 class OMRConfig:
-    # เกณฑ์ถูกใช้กับ "normalized score" (score - baseline) ใน decide_answers
-    # score ถูกคำนวณจากความมืดในวง bubble เทียบกับวงแหวนรอบๆ (0..1 โดยประมาณ)
-    NORM_FILL_MIN=0.06; NORM_GAP_MIN=0.04
-    MULTI_MARK_RATIO=0.92          # ถ้าอันดับ 2 ใกล้อันดับ 1 มาก ให้ถือว่าอาจฝนซ้ำ
+    NORM_FILL_MIN=0.08
+    NORM_GAP_MIN=0.04
+    MULTI_MARK_RATIO=0.88
     ANCHOR_MIN_AREA=3000; ANCHOR_MAX_AREA=9000; ANCHOR_ASPECT_TOL=0.15
     WARP_W=900; WARP_H=1200
-    BUBBLE_RADIUS=16; HOUGH_MIN_R=10; HOUGH_MAX_R=30; HOUGH_MIN_DIST=20
-    DEBUG_CIRCLE_RADIUS_OFFSET=-3  # ทำวง debug ให้เล็กลง (R + offset)
-    SNAP_TO_DETECTED_CIRCLE=True   # snap จุดวัดไปศูนย์กลาง bubble จริง
-    SNAP_SEARCH_PAD=26             # ขนาดหน้าต่างค้นหา (px) รอบจุดคาด
-    SNAP_PARAM2=18                 # Hough param2 (ต่ำ=เจอง่ายขึ้น)
-    SNAP_FALLBACK_SCORE=0.24       # เพิ่ม threshold เพื่อเรียก Hough มากขึ้น (แม่นยำกว่า)
-    LOCAL_REFINE_ENABLE=True       # refine center ด้วย local search เพื่อทนภาพมือถือเอียง/เบลอ
-    LOCAL_REFINE_RADIUS=5          # เน้นความแม่นยำ: ค้นหารอบกว้างขึ้น
-    LOCAL_REFINE_STEP=1            # เน้นความแม่นยำ: ไล่ทุกพิกเซลย่อย
-    LOCAL_REFINE_EARLY_STOP=0.55   # ยังหยุดได้เมื่อคะแนนชัดมาก
+    BUBBLE_RADIUS=12; HOUGH_MIN_R=9; HOUGH_MAX_R=15; HOUGH_MIN_DIST=20
+    DEBUG_CIRCLE_RADIUS_OFFSET=-3
+    SNAP_TO_DETECTED_CIRCLE=True
+    SNAP_SEARCH_PAD=18           # ลดลงเพื่อไม่ให้ไปจับวงกลมข้างๆ
+    SNAP_PARAM2=14               # ต่ำลงเพื่อเจอ bubble ที่ฝนแล้ว (มืดกว่า) ได้ง่ายขึ้น
+    SNAP_FALLBACK_SCORE=0.15     # snap ทุกครั้งที่คะแนน < 0.15
+    LOCAL_REFINE_ENABLE=True
+    LOCAL_REFINE_RADIUS=12       # ลดลงเพื่อไม่ให้ overlap กับวงกลมข้างเคียง (ระยะห่างวงกลม ~45px)
+    LOCAL_REFINE_STEP=2          # กว้าง radius ทดแทนด้วย step ใหญ่ขึ้นเพื่อความเร็ว
+    LOCAL_REFINE_EARLY_STOP=0.70
     CHOICES=["A","B","C","D","E"]
 
 def _layout_question_count(total_q: int) -> int:
@@ -346,6 +345,20 @@ def detect_grid_region(warped_gray, total_questions):
     iw, ih = W, H
     return (int(iw * 0.02), int(ih * 0.30), int(iw * 0.96), int(ih * 0.62))
 
+def robust_grid_1d(data_1d, k, expected_spacing=30):
+    # pyrefly: ignore [missing-import]
+    import numpy as np
+    if not data_1d: return []
+    pts = np.sort(data_1d)
+    if len(pts) == 1: return [int(pts[0] + i * expected_spacing) for i in range(k)]
+    diffs = np.diff(pts)
+    diffs = diffs[diffs > 10]
+    if len(diffs) == 0: return [int(pts[0] + i * expected_spacing) for i in range(k)]
+    min_d = np.min(diffs)
+    valid = diffs[diffs < 1.5 * min_d]
+    step = np.median(valid) if len(valid) > 0 else min_d
+    return [int(pts[0] + i * step) for i in range(k)]
+
 def _kmeans_uniform_init(data_1d, k):
     """K-means ด้วย uniform init เพื่อให้ edge cluster ไม่หาย"""
     arr = np.array(data_1d).reshape(-1, 1).astype(np.float32)
@@ -355,90 +368,135 @@ def _kmeans_uniform_init(data_1d, k):
     km.fit(arr)
     return sorted([int(c[0]) for c in km.cluster_centers_])
 
-def get_bubble_positions(warped, grid_rect, n_q):
-    if not SKLEARN_AVAILABLE:
-        return _fallback_positions(grid_rect, n_q)
+def _adaptive_bubble_positions(warped, grid_rect, n_q):
+    """
+    ตรวจหาตำแหน่ง bubble จาก HoughCircles จริงในภาพ
+    ใช้ Canny edge detection เพื่อให้จับได้ทั้ง bubble ที่ว่างเปล่า (2 ขอบ) และที่ฝนแล้ว (1 ขอบ)
+    """
     gx, gy, gw, gh = grid_rect
-    pad = 10
-    rx1 = max(0, gx - pad); ry1 = max(0, gy - pad)
-    rx2 = min(warped.shape[1], gx + gw + pad)
-    ry2 = min(warped.shape[0], gy + gh + pad)
-    grid_img  = warped[ry1:ry2, rx1:rx2]
-    grid_gray = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(grid_gray, (5, 5), 0)
+    grid_img = warped[gy:gy+gh, gx:gx+gw]
+    gray_grid = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray_grid)
+    blurred = cv2.GaussianBlur(enhanced, (3, 3), 0)
+    edges = cv2.Canny(blurred, 50, 150)
+
     n_groups = 4 if n_q > 50 else 2
     rpg = n_q // n_groups
-    circles = None
-    for p2 in [18, 14, 11, 9, 7, 5]:
-        c = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, dp=1,
-            minDist=OMRConfig.HOUGH_MIN_DIST, param1=50, param2=p2,
-            minRadius=OMRConfig.HOUGH_MIN_R, maxRadius=OMRConfig.HOUGH_MAX_R)
-        if c is not None:
-            c = np.round(c[0]).astype(int)
-            if len(c) >= n_q * 5 * 0.45:
-                circles = c; break
+
+    circles = cv2.HoughCircles(
+        edges, cv2.HOUGH_GRADIENT, dp=1, minDist=18,
+        param1=50, param2=12, minRadius=9, maxRadius=16
+    )
     if circles is None:
-        print("  [WARN] Hough ไม่พบ circles เพียงพอ → fallback")
-        return _fallback_positions(grid_rect, n_q)
+        return None
 
-    # offset: แปลง padded coords → grid-relative
-    ox = gx - rx1; oy = gy - ry1
-    x_rel = np.array([int(c[0]) - ox for c in circles], dtype=np.float32)
-    y_rel = np.array([int(c[1]) - oy for c in circles], dtype=np.float32)
-
-    # แบ่งวงกลมเป็นคอลัมน์ซ้าย/ขวา ตามตำแหน่งพิกัด X
-    # ไม่ใช้ K-means รวบยอดเพราะอาจจะไปจับโดนเลขข้อสอบ ทำให้จำนวน center ฝั่งซ้าย/ขวาไม่เท่ากัน
+    pts = np.round(circles[0, :, :2]).astype(int)
     
-    # คำนวณ Y centers จากวงกลมทั้งหมดในภาพ (เพื่อป้องกันปัญหากลุ่มใดกลุ่มหนึ่งตรวจไม่เจอแถวบน/ล่างสุด)
-    global_ys = _kmeans_uniform_init(y_rel.tolist(), rpg)
+    # ยอมให้เจอแค่ครึ่งนึงของที่ควรจะเป็นก็พอ เพราะเราใช้ KMeans หาจุดศูนย์กลาง
+    if len(pts) < n_q * 1.5:
+        return None
 
-    gx_lists = [[] for _ in range(n_groups)]
-    for xi in x_rel.tolist():
-        # gw = grid width, gw / n_groups คือความกว้างของแต่ละคอลัมน์
-        gi = int(xi // (gw / n_groups))
-        if 0 <= gi < n_groups:
-            gx_lists[gi].append(xi)
-
-    groups = []
-    fb = _fallback_positions(grid_rect, n_q)
+    x_split = gw / n_groups
+    positions = []
     for gi in range(n_groups):
-        # รวมกลุ่ม X (Binning) ที่อยู่ใกล้กัน (ห่างไม่เกิน 15px ถือว่าเป็นคอลัมน์เดียวกัน)
-        x_bins = []
-        for x in sorted(gx_lists[gi]):
-            if not x_bins or x - x_bins[-1][-1] > 15:
-                x_bins.append([x])
-            else:
-                x_bins[-1].append(x)
-        cluster_xs = [np.mean(b) for b in x_bins]
+        x0 = int(gi * x_split)
+        x1 = int((gi + 1) * x_split)
+        grp = pts[(pts[:, 0] >= x0) & (pts[:, 0] < x1)]
+        if len(grp) < max(5, rpg):
+            return None
 
-        # หา 5 คอลัมน์ที่มีระยะห่างใกล้เคียง 32.5 px มากที่สุด
-        if len(cluster_xs) >= 5:
-            best_xs = cluster_xs[:5]; min_cost = float('inf')
-            for i in range(len(cluster_xs) - 4):
-                cand = cluster_xs[i:i+5]
-                diffs = np.diff(cand)
-                # cost = ความแปรปรวน + ความเบี่ยงเบนจากระยะห่างเป้าหมาย (32.5px)
-                cost = np.var(diffs) + abs(np.mean(diffs) - 32.5) * 5
-                if cost < min_cost:
-                    min_cost = cost; best_xs = cand
-            xs = [int(x) for x in best_xs]
-        else:
-            print(f"  [WARN] group {gi}: found only {len(cluster_xs)} columns, fallback")
-            xs = fb[gi][0]
+        x_arr = [int(v) for v in np.sort(grp[:, 0])]
+        y_arr = [int(v) for v in np.sort(grp[:, 1])]
 
-        # ใช้ global_ys แทนเพื่อความสม่ำเสมอของแถว
-        groups.append((xs, [int(y) for y in global_ys]))
-    return groups
+        def cluster_1d(arr, max_gap):
+            if not arr: return []
+            clusters = []
+            curr = [arr[0]]
+            for v in arr[1:]:
+                if v - curr[-1] <= max_gap:
+                    curr.append(v)
+                else:
+                    clusters.append(int(np.median(curr)))
+                    curr = [v]
+            clusters.append(int(np.median(curr)))
+            return clusters
+
+        x_centers = cluster_1d(x_arr, 15)
+        y_centers = cluster_1d(y_arr, 20)
+
+        # We expect up to 5 columns and up to 'rpg' rows.
+        # If the image is cut off, we might have fewer rows. That's fine!
+        if len(x_centers) == 0 or len(y_centers) == 0:
+            return None
+
+        # Fill missing X columns if we found fewer than 5 (assuming ~45px apart)
+        while len(x_centers) < 5:
+            # Just append based on the last one + 45
+            x_centers.append(x_centers[-1] + 45)
+        if len(x_centers) > 5:
+            x_centers = x_centers[:5]
+
+        positions.append((x_centers, y_centers))
+
+    if len(positions) != n_groups:
+        return None
+    return positions
 
 
-def _fallback_positions(grid_rect,n_q):
-    gx,gy,gw,gh=grid_rect
-    n_groups=4 if n_q>50 else 2; rpg=n_q//n_groups
-    group_w=gw//n_groups; row_h=gh/rpg
-    # ค่าคงที่จากตำแหน่งจริงของกระดาษบนพิกัด 900x1200
-    bw = 32.5
-    xoff = 64 if n_groups == 4 else 148
-    return [([int((gi*group_w)+xoff+ch*bw) for ch in range(5)],[int((r+.5)*row_h) for r in range(rpg)]) for gi in range(n_groups)]
+def get_bubble_positions(warped, grid_rect, n_q):
+    """
+    พยายามใช้ตำแหน่ง bubble จากภาพจริง (Adaptive) ก่อน
+    หากหาไม่เจอจริงๆ ค่อยใช้ fallback positions
+    """
+    adapt = _adaptive_bubble_positions(warped, grid_rect, n_q)
+    if adapt:
+        print("[DEBUG] Using adaptive bubble positions")
+        return adapt
+    
+    print("[DEBUG] Adaptive failed, using fallback positions")
+    return _fallback_positions(grid_rect, n_q)
+
+
+def _fallback_positions(grid_rect, n_q):
+    """
+    Fallback positions with perspective slant compensation.
+    """
+    gx, gy, gw, gh = grid_rect
+    n_groups = 4 if n_q > 50 else 2
+
+    # Top and bottom X anchors for interpolation
+    top_x0 = [98, 144, 189, 235, 281]
+    bot_x0 = [5, 65, 130, 188, 248]
+    
+    top_x1 = [532, 576, 620, 664, 708]
+    bot_x1 = [570, 630, 700, 740, 820]
+
+    def interpolate_xs(y_val, top_x, bot_x, y_min=401, y_max=1128):
+        ratio = (y_val - y_min) / max(1, (y_max - y_min))
+        return [int(tx + ratio * (bx - tx)) for tx, bx in zip(top_x, bot_x)]
+
+    if n_q <= 30:
+        ys_abs = [int(410 + i * 48) for i in range(15)]
+        xs0_list = [interpolate_xs(y, top_x0, bot_x0) for y in ys_abs]
+        xs1_list = [interpolate_xs(y, top_x1, bot_x1) for y in ys_abs]
+        positions_abs = [(xs0_list, ys_abs), (xs1_list, ys_abs)]
+
+    elif n_q <= 50:
+        ys_abs = [int(410 + i * 48) for i in range(25)]
+        xs0_list = [interpolate_xs(y, top_x0, bot_x0) for y in ys_abs]
+        xs1_list = [interpolate_xs(y, top_x1, bot_x1) for y in ys_abs]
+        positions_abs = [(xs0_list, ys_abs), (xs1_list, ys_abs)]
+
+    else:
+        ys_abs = [int(1.42 * (i**2) + 34.95 * i + 401.36) for i in range(25)]
+        xs0_100 = [[84 + int(i * 45) for i in range(5)]] * 25
+        xs1_100 = [[289 + int(i * 45) for i in range(5)]] * 25
+        xs2_100 = [[501 + int(i * 45) for i in range(5)]] * 25
+        xs3_100 = [[711 + int(i * 45) for i in range(5)]] * 25
+        positions_abs = [(xs0_100, ys_abs), (xs1_100, ys_abs), (xs2_100, ys_abs), (xs3_100, ys_abs)]
+
+    return [([[x - gx for x in row_xs] for row_xs in xs], [y - gy for y in ys]) for xs, ys in positions_abs]
 
 def measure_bubble_ratios(warped,grid_rect,positions):
     gx,gy,gw,gh=grid_rect
@@ -577,7 +635,8 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         xs,ys=group; rpg=len(ys)
         for row,y in enumerate(ys):
             q_no=gi*rpg+row+1
-            results[q_no]=[round(ratio_at(y,x),4) for x in xs]
+            current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            results[q_no]=[round(ratio_at(y,x),4) for x in current_xs]
     return results
 
 def _compute_baselines(raw_scores, n_q):
@@ -600,9 +659,9 @@ def _compute_baselines(raw_scores, n_q):
 def _compute_decision_stats(raw_scores, n_q=None):
     """
     คืนค่าสถิติที่ใช้ตัดสิน:
-    - baselines per question
-    - norms_by_q: normalized score (ratio - baseline) ต่อ choice
-    - dynamic_fill_min: threshold สำหรับถือว่า "ฝน"
+    - baselines: per-column background level
+    - norms_by_q: normalized score (ratio - baseline)
+    - dynamic_fill_min: threshold ฝน (จำกัดไม่เกิน 0.12 เพื่อไม่ตัดดินสอสีอ่อน)
     """
     if n_q and n_q > 0:
         bls = _compute_baselines(raw_scores, n_q)
@@ -624,35 +683,23 @@ def _compute_decision_stats(raw_scores, n_q=None):
         norms_by_q[q_no] = norm
         max_norms.append(max(norm))
 
+    # ใช้ Otsu แบบง่ายๆ บน max_norm แต่จำกัดเพดานไว้ที่ 0.12
+    # เพื่อไม่ให้ตัดกรณีดินสอสีอ่อนหรือฝนไม่เต็มออก
     dynamic_fill_min = OMRConfig.NORM_FILL_MIN
     if max_norms:
         mx = np.clip(np.array(max_norms, dtype=np.float32), 0.0, 1.0)
         p90 = float(np.percentile(mx, 90))
-        p95 = float(np.percentile(mx, 95))
-        p10 = float(np.percentile(mx, 10))
-        p05 = float(np.percentile(mx, 5))
-        p01 = float(np.percentile(mx, 1))
-        mn  = float(np.min(mx))
-        # ถ้าส่วนใหญ่เป็นค่าเล็ก (เช่น กระดาษเปล่าเกือบทั้งหมด) ให้ยก threshold ขึ้นตาม tail
-        if p90 < 0.20:
-            dynamic_fill_min = max(dynamic_fill_min, p95 + 0.02)
-        else:
-            # ถ้าคะแนนต่ำสุดยังสูง (ฝนเกือบทั้งหมด/ฝนครบ) distribution จะเป็นก้อนเดียวด้านบน
-            # Otsu จะให้ threshold สูงผิด → ใช้ percentile ต่ำแทนเพื่อไม่ทำให้ตัด not_filled
-            if p10 > 0.35:
-                # ใช้ percentile ต่ำมากเพื่อครอบเคส "ฝนเบาสุด" 1-2 ข้อ
-                # และเผื่อ margin เล็กน้อยกันความแกว่ง
-                low_ref = mn
-                dynamic_fill_min = max(dynamic_fill_min, max(0.0, low_ref - 0.01))
-            else:
-                # ใช้ Otsu บน max_norm เพื่อหาเส้นแบ่ง low/high อัตโนมัติ
-                mx_u8 = (mx * 255.0).astype(np.uint8).reshape(-1, 1)
-                try:
-                    thr_u8, _ = cv2.threshold(mx_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                    dynamic_fill_min = max(dynamic_fill_min, float(thr_u8) / 255.0)
-                except Exception:
-                    pass
+        if p90 >= 0.20:
+            mx_u8 = (mx * 255.0).astype(np.uint8).reshape(-1, 1)
+            try:
+                thr_u8, _ = cv2.threshold(mx_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                otsu_thr = float(thr_u8) / 255.0
+                dynamic_fill_min = max(dynamic_fill_min, otsu_thr)
+            except Exception:
+                pass
 
+    # จำกัดเพดานสูงสุดไว้ที่ 0.12 เสมอ
+    dynamic_fill_min = min(dynamic_fill_min, 0.12)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 def decide_answers(raw_scores, n_q=None):
@@ -782,7 +829,8 @@ def analyze_bubble_drift(warped, grid_rect, positions):
         for row_idx, y in enumerate(ys):
             dists = []
             found = 0
-            for x in xs:
+            current_xs = xs[row_idx] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            for x in current_xs:
                 y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
                 x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
                 patch = g[y1:y2, x1:x2]
@@ -949,10 +997,11 @@ def _save_debug(warped,grid_rect,positions,answers,flagged,orig_path):
         xs,ys=group; rpg=len(ys)
         for row,y in enumerate(ys):
             q_no=gi*rpg+row+1; ans=answers.get(q_no)
+            current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
             if ans and ans in choices:
-                ch=choices.index(ans); cx=gx+xs[ch]; cy=gy+y
+                ch=choices.index(ans); cx=gx+current_xs[ch]; cy=gy+y
                 # snap ในพิกัด grid แล้วแปลงกลับเป็น warped
-                sy, sx = _snap(int(y), int(xs[ch]))
+                sy, sx = _snap(int(y), int(current_xs[ch]))
                 cx = gx + int(sx)
                 cy = gy + int(sy)
                 color=(0,165,255) if q_no in flagged_qs else (0,255,0)

@@ -4,6 +4,15 @@ import uuid
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
+from pathlib import Path
+
+try:
+    # pyrefly: ignore [missing-import]
+    from dotenv import load_dotenv  
+    load_dotenv()
+    load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
 
 
 # SQLAlchemy Imports
@@ -155,7 +164,6 @@ class SqlExamDetail(Base):
     __tablename__ = "exams_detail"
     exam_detail_id = Column("exam_detail_id", Integer, primary_key=True, autoincrement=True)
     question_no = Column("question_no", Integer, nullable=False)
-    correct_answer = Column("correct_answer", String(1))
     student_answer = Column("student_answer", String(1))
     status_answer = Column("status_answer", String(20))
     result_id = Column("result_id", String(100), ForeignKey("results.result_id", ondelete="CASCADE"), nullable=False)
@@ -184,15 +192,19 @@ class MySQLAdapter(BaseDBAdapter):
     def _get_session(self):
         return self.SessionLocal()
 
-    def _to_dict(self, model_obj) -> dict[str, Any]:
+    def _to_dict(self, model_obj, session=None) -> dict[str, Any]:
         if not model_obj:
             return {}
         d = {c.key: getattr(model_obj, c.key) for c in getattr(model_obj, "__mapper__").column_attrs}
         
-        # Dynamically fetch relationships that were previously JSON strings
-        if isinstance(model_obj, SqlResult):
+        own_session = False
+        if session is None:
             session = self._get_session()
-            try:
+            own_session = True
+
+        try:
+            # Dynamically fetch relationships that were previously JSON strings
+            if isinstance(model_obj, SqlResult):
                 details = session.query(SqlExamDetail).filter(SqlExamDetail.result_id == model_obj.id).order_by(SqlExamDetail.question_no).all()
                 answers_dict = {}
                 wrong_list = []
@@ -207,12 +219,13 @@ class MySQLAdapter(BaseDBAdapter):
                 d["answers"] = answers_dict
                 d["wrong"] = wrong_list
                 d["skipped"] = skipped_list
-            finally:
-                session.close()
+                
+                # Fetch student name
+                student = session.query(SqlStudent).filter(SqlStudent.id == model_obj.studentCode).first()
+                if student:
+                    d["studentName"] = student.name
 
-        if isinstance(model_obj, SqlExam):
-            session = self._get_session()
-            try:
+            if isinstance(model_obj, SqlExam):
                 keys = session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == model_obj.id).order_by(SqlExamAnswerKey.question_no).all()
                 answer_key_dict = {}
                 for key in keys:
@@ -223,7 +236,8 @@ class MySQLAdapter(BaseDBAdapter):
                 d["section"] = d.pop("section_id", None) or "All Section"
                 d["sheetType"] = d.pop("template_id", None)
                 d["subject"] = d.get("subject_id")
-            finally:
+        finally:
+            if own_session:
                 session.close()
 
         # Handle field mappings and JSON parsing
@@ -255,7 +269,14 @@ class MySQLAdapter(BaseDBAdapter):
             ).first()
             if not row:
                 raise HTTPException(status_code=404, detail=f"Exam not found: {exam_id}")
-            return self._to_dict(row)
+            d = self._to_dict(row)
+            d["subject"] = row.subject_id
+            d["subjectCode"] = row.subject_id
+            subj = session.query(SqlSubject).filter(SqlSubject.code == row.subject_id).first()
+            if subj:
+                d["subjectName"] = subj.name
+                d["subject_name"] = subj.name
+            return d
         finally:
             session.close()
 
@@ -298,7 +319,17 @@ class MySQLAdapter(BaseDBAdapter):
         session = self._get_session()
         try:
             rows = session.query(SqlExam).join(SqlSubject, SqlExam.subject_id == SqlSubject.code).filter(SqlSubject.user_email == user_email).all()
-            return [self._to_dict(r) for r in rows]
+            res = []
+            for r in rows:
+                d = self._to_dict(r, session=session)
+                d["subject"] = r.subject_id
+                d["subjectCode"] = r.subject_id
+                subj = session.query(SqlSubject).filter(SqlSubject.code == r.subject_id).first()
+                if subj:
+                    d["subjectName"] = subj.name
+                    d["subject_name"] = subj.name
+                res.append(d)
+            return res
         finally:
             session.close()
 
@@ -308,21 +339,41 @@ class MySQLAdapter(BaseDBAdapter):
             query = session.query(SqlStudent).filter(SqlStudent.user_email == user_email)
             if student_ids:
                 query = query.filter(SqlStudent.id.in_(student_ids))
-            rows = query.all()
+            students = query.all()
+            if not students:
+                return []
+            
+            student_codes = [s.id for s in students]
+            
+            # Batch fetch all enrollments in 1 query
+            enrollments = session.query(SqlStudentEnrollment).filter(SqlStudentEnrollment.student_code.in_(student_codes)).all()
+            
+            enroll_map = {}
+            section_ids = set()
+            for en in enrollments:
+                enroll_map.setdefault(en.student_code, []).append(en)
+                if en.section_id:
+                    section_ids.add(en.section_id)
+            
+            # Batch fetch all sections in 1 query
+            section_map = {}
+            if section_ids:
+                sections = session.query(SqlSection).filter(SqlSection.id.in_(section_ids)).all()
+                section_map = {sec.id: sec.id for sec in sections}
             
             res = []
-            for st in rows:
-                d = self._to_dict(st)
-                enrolls = session.query(SqlStudentEnrollment).filter(SqlStudentEnrollment.student_code == st.id).all()
-                if not enrolls:
+            for st in students:
+                d = self._to_dict(st, session=session)
+                st_enrolls = enroll_map.get(st.id, [])
+                if not st_enrolls:
                     res.append(d)
-                for en in enrolls:
-                    d_copy = d.copy()
-                    d_copy["subjectCode"] = en.subject_id
-                    sec = session.query(SqlSection).filter(SqlSection.id == en.section_id).first()
-                    if sec:
-                        d_copy["section"] = sec.id
-                    res.append(d_copy)
+                else:
+                    for en in st_enrolls:
+                        d_copy = d.copy()
+                        d_copy["subjectCode"] = en.subject_id
+                        if en.section_id in section_map:
+                            d_copy["section"] = section_map[en.section_id]
+                        res.append(d_copy)
             return res
         finally:
             session.close()
@@ -342,7 +393,21 @@ class MySQLAdapter(BaseDBAdapter):
         session = self._get_session()
         try:
             data = dict(payload)
+            overwrite = data.pop("overwrite", False)
             data["user_email"] = user_email
+            
+            exam_id = data.get("examId")
+            student_code = data.get("studentCode")
+            if exam_id and student_code:
+                existing = session.query(SqlResult).filter_by(examId=exam_id, studentCode=student_code).first()
+                if existing:
+                    if not overwrite:
+                        raise ValueError(f"duplicate_result:{student_code}")
+                    else:
+                        session.query(SqlExamDetail).filter_by(result_id=existing.id).delete()
+                        session.delete(existing)
+                        session.flush()
+
             data["id"] = uuid.uuid4().hex
 
             answers = data.pop("answers", {})
@@ -354,10 +419,18 @@ class MySQLAdapter(BaseDBAdapter):
                 if ts_key in data:
                     if not isinstance(data[ts_key], datetime):
                         data[ts_key] = datetime.now()
+
+            # Normalize imageUrl field variations
+            img_val = data.get("imageUrl") or data.get("image_url") or data.get("imageURL")
+            if img_val:
+                data["imageUrl"] = img_val
             
             # Remove any keys that are not in SqlResult columns
             allowed_keys = {c.key for c in SqlResult.__mapper__.column_attrs}
             sql_data = {k: v for k, v in data.items() if k in allowed_keys}
+            
+            if "flagged" in sql_data:
+                sql_data["flagged"] = bool(sql_data["flagged"])
 
             row = SqlResult(**sql_data)
             session.add(row)
@@ -580,7 +653,10 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 cleaned_data[k] = datetime.now()
                         else:
-                            cleaned_data[k] = v
+                            if k == "flagged" and isinstance(v, list):
+                                cleaned_data[k] = bool(v)
+                            else:
+                                cleaned_data[k] = v
                 
                 row = model_cls(**cleaned_data)
                 session.add(row)
@@ -601,17 +677,27 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 pass
                                 
-                if collection == "students" and "subjectCode" in mapped_data and "section" in mapped_data:
-                    subjectCode = mapped_data["subjectCode"]
-                    section_id = mapped_data["section"]
-                    sec_row = session.query(SqlSection).filter(SqlSection.id == section_id, SqlSection.user_email == user_email).first()
-                    if sec_row:
-                        enroll = session.query(SqlStudentEnrollment).filter(SqlStudentEnrollment.student_code == doc_id, SqlStudentEnrollment.subject_id == subjectCode).first()
-                        if not enroll:
-                            enroll = SqlStudentEnrollment(student_code=doc_id, subject_id=subjectCode, section_id=sec_row.id, user_id=user_email)
-                            session.add(enroll)
-                        else:
-                            enroll.section_id = sec_row.id
+                if collection == "students" and "section" in mapped_data:
+                    subjectCode = mapped_data.get("subjectCode")
+                    section_id = mapped_data.get("section")
+                    if section_id:
+                        sec_row = session.query(SqlSection).filter(SqlSection.id == section_id, SqlSection.user_email == user_email).first()
+                        if sec_row:
+                            subj_id = subjectCode if (subjectCode and str(subjectCode).strip()) else sec_row.subject
+                            enroll = session.query(SqlStudentEnrollment).filter(
+                                SqlStudentEnrollment.student_code == doc_id,
+                                SqlStudentEnrollment.subject_id == subj_id
+                            ).first()
+                            if not enroll:
+                                enroll = SqlStudentEnrollment(
+                                    student_code=doc_id,
+                                    subject_id=subj_id,
+                                    section_id=sec_row.id,
+                                    user_id=user_email
+                                )
+                                session.add(enroll)
+                            else:
+                                enroll.section_id = sec_row.id
 
             session.commit()
         finally:
@@ -681,6 +767,28 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 pass
                                 
+                if collection == "students" and "section" in mapped_data:
+                    subjectCode = mapped_data.get("subjectCode")
+                    section_id = mapped_data.get("section")
+                    if section_id:
+                        sec_row = session.query(SqlSection).filter(SqlSection.id == section_id, SqlSection.user_email == user_email).first()
+                        if sec_row:
+                            subj_id = subjectCode if (subjectCode and str(subjectCode).strip()) else sec_row.subject
+                            enroll = session.query(SqlStudentEnrollment).filter(
+                                SqlStudentEnrollment.student_code == doc_id,
+                                SqlStudentEnrollment.subject_id == subj_id
+                            ).first()
+                            if not enroll:
+                                enroll = SqlStudentEnrollment(
+                                    student_code=doc_id,
+                                    subject_id=subj_id,
+                                    section_id=sec_row.id,
+                                    user_id=user_email
+                                )
+                                session.add(enroll)
+                            else:
+                                enroll.section_id = sec_row.id
+
                 session.commit()
         finally:
             session.close()
@@ -731,7 +839,7 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.user_email == user_email)
                 
             rows = query.all()
-            return [self._to_dict(r) for r in rows]
+            return [self._to_dict(r, session=session) for r in rows]
         finally:
             session.close()
 
@@ -748,9 +856,13 @@ def get_db_adapter() -> BaseDBAdapter:
         return _cached_adapter
 
     db_url = os.getenv("DATABASE_URL", "mysql+pymysql://root:@localhost:3306/exam_grading")
-    if "mysql" in db_url and "charset=" not in db_url:
+    # Always use MySQL — ensure charset and correct driver prefix
+    if db_url.startswith("postgresql") or db_url.startswith("postgres"):
+        # Fallback safety: strip supabase/postgres URL and use local MySQL
+        db_url = "mysql+pymysql://root:@localhost:3306/exam_grading"
+    if "charset=" not in db_url:
         db_url += "?charset=utf8mb4" if "?" not in db_url else "&charset=utf8mb4"
-        
-    print(f"DATABASE: Using MySQL database adapter connecting to {db_url}")
+
+    print(f"DATABASE: Connecting to MySQL -> {db_url}")
     _cached_adapter = MySQLAdapter(db_url)
     return _cached_adapter

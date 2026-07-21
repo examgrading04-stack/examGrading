@@ -34,6 +34,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   Map<String, String> _subjectNames = {};
+  Map<String, Map<String, dynamic>> _examStats = {};
+  int _uniqueExamineesCount = 0;
   bool _isLoading = true;
   @override
   void initState() {
@@ -57,7 +59,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         'subjects',
       );
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
 
       setState(() {
         _exams = examsData
@@ -73,6 +75,73 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             item['subject_id'] ?? item['id'] ?? '':
                 item['subject_name'] ?? item['name'] ?? '',
         };
+
+        Set<String> uniqueExaminees = {};
+        for (var result in _results) {
+          final code = result['studentCode']?.toString() ?? '';
+          if (code.isNotEmpty) uniqueExaminees.add(code);
+        }
+        _uniqueExamineesCount = uniqueExaminees.length;
+
+        _examStats.clear();
+        for (final exam in _exams) {
+          final results = _results.where((r) => r['examId'] == exam.id).toList();
+          final count = results.length;
+          
+          final scores = results.map((r) => _getDynamicScore(r, exam).toDouble()).toList();
+          scores.sort();
+          
+          final average = count == 0 ? 0.0 : scores.fold<double>(0, (a, b) => a + b) / count;
+          final passed = scores.where((s) => s >= (exam.questions / 2)).length;
+          final passRate = count == 0 ? 0.0 : passed / count;
+          
+          final maxScore = scores.isEmpty ? 0.0 : scores.last;
+          final minScore = scores.isEmpty ? 0.0 : scores.first;
+          
+          double median = 0.0;
+          if (scores.isNotEmpty) {
+            final middle = scores.length ~/ 2;
+            if (scores.length % 2 == 1) {
+              median = scores[middle];
+            } else {
+              median = (scores[middle - 1] + scores[middle]) / 2.0;
+            }
+          }
+          
+          String modeStr = '-';
+          if (scores.isNotEmpty) {
+            final counts = <double, int>{};
+            for (var s in scores) counts[s] = (counts[s] ?? 0) + 1;
+            int maxCount = 0;
+            for (var c in counts.values) {
+              if (c > maxCount) maxCount = c;
+            }
+            final modes = counts.entries.where((e) => e.value == maxCount).map((e) => e.key).toList();
+            modes.sort();
+            if (modes.length > 2) {
+              modeStr = 'หลายค่า';
+            } else {
+              modeStr = modes.map((m) => m.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')).join(', ');
+            }
+          }
+          
+          final itemAnalysis = _calculateItemAnalysis(exam, results);
+          final avgDifficulty = _average(itemAnalysis.map((item) => item.difficulty).toList());
+          final avgDiscrimination = _average(itemAnalysis.map((item) => item.discrimination).toList());
+          
+          _examStats[exam.id] = {
+            'count': count,
+            'average': average,
+            'passRate': passRate,
+            'maxScore': maxScore,
+            'minScore': minScore,
+            'median': median,
+            'modeStr': modeStr,
+            'avgDifficulty': avgDifficulty,
+            'avgDiscrimination': avgDiscrimination,
+          };
+        }
+
         _isLoading = false;
       });
     } catch (error) {
@@ -137,7 +206,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ? const SafeArea(child: ListSkeletonLoader())
           : RefreshIndicator(
               onRefresh: _fetchData,
-              color: AppColors.primary,
+              color: AppColors.info,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
@@ -147,7 +216,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         /* Top Premium Gradient Header */ Container(
                           height: 250,
                           decoration: const BoxDecoration(
-                            color: AppColors.primary,
+                            color: AppColors.info,
                             borderRadius: BorderRadius.only(
                               bottomLeft: Radius.circular(36),
                               bottomRight: Radius.circular(36),
@@ -364,23 +433,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   Widget _buildSummaryGrid() {
-    double totalScore = 0;
-    int totalCount = 0;
-    for (var result in _results) {
-      final examId = result['examId'];
-      ExamModel? exam;
-      try {
-        exam = _exams.firstWhere((e) => e.id == examId);
-      } catch (_) {}
-      if (exam != null) {
-        totalScore += _getDynamicScore(result, exam);
-        totalCount++;
-      } else {
-        totalScore += double.tryParse(result['score']?.toString() ?? '0') ?? 0;
-        totalCount++;
-      }
-    }
-    final averageScore = totalCount == 0 ? 0.0 : totalScore / totalCount;
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -390,7 +442,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               value: '${_exams.length}',
               label: 'ข้อสอบ',
               icon: FontAwesomeIcons.fileLines,
-              color: AppColors.primary,
+              color: AppColors.info,
             ),
           ),
           const SizedBox(width: 10),
@@ -405,9 +457,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: _buildStatCard(
-              value: averageScore.toStringAsFixed(1),
-              label: 'เฉลี่ย',
-              icon: FontAwesomeIcons.star,
+              value: '$_uniqueExamineesCount',
+              label: 'ผู้เข้าสอบ',
+              icon: FontAwesomeIcons.users,
               color: AppColors.warning,
             ),
           ),
@@ -498,18 +550,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
+                    color: AppColors.infoSoft,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     FontAwesomeIcons.circleInfo,
-                    color: AppColors.primary,
+                    color: AppColors.info,
                     size: 14,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'เกณฑ์การแปลความหมายคุณภาพ',
+                  'เกณฑ์คุณภาพ',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -537,16 +589,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primarySoft,
+                              color: AppColors.infoSoft,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.2),
+                                color: AppColors.info.withValues(alpha: 0.2),
                               ),
                             ),
                             child: const Text(
                               'p',
                               style: TextStyle(
-                                color: AppColors.primaryDark,
+                                color: AppColors.infoDark,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -559,7 +611,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color: AppColors.primaryDark,
+                                color: AppColors.infoDark,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -712,27 +764,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     ExamModel exam,
     List<Map<String, dynamic>> results,
   ) {
-    final count = results.length;
-    final average = count == 0
-        ? 0.0
-        : results.fold<double>(
-                0,
-                (total, result) => total + _getDynamicScore(result, exam),
-              ) /
-              count;
-    final passed = results
-        .where(
-          (result) => _getDynamicScore(result, exam) >= (exam.questions / 2),
-        )
-        .length;
-    final passRate = count == 0 ? 0.0 : passed / count;
-    final itemAnalysis = _calculateItemAnalysis(exam, results);
-    final avgDifficulty = _average(
-      itemAnalysis.map((item) => item.difficulty).toList(),
-    );
-    final avgDiscrimination = _average(
-      itemAnalysis.map((item) => item.discrimination).toList(),
-    );
+    final stats = _examStats[exam.id] ?? {};
+    final count = stats['count'] ?? 0;
+    final average = stats['average'] ?? 0.0;
+    final passRate = stats['passRate'] ?? 0.0;
+    final maxScore = stats['maxScore'] ?? 0.0;
+    final minScore = stats['minScore'] ?? 0.0;
+    final median = stats['median'] ?? 0.0;
+    final modeStr = stats['modeStr'] ?? '-';
+    final avgDifficulty = stats['avgDifficulty'] ?? 0.0;
+    final avgDiscrimination = stats['avgDiscrimination'] ?? 0.0;
+
+    String fmt(double val) =>
+        val.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+    final String maxMinStr = count == 0
+        ? '-'
+        : '${fmt(maxScore)} / ${fmt(minScore)}';
+    final String medianStr = count == 0 ? '-' : fmt(median);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -751,12 +800,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
+                    color: AppColors.infoSoft,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     FontAwesomeIcons.solidChartBar,
-                    color: AppColors.primary,
+                    color: AppColors.info,
                     size: 18,
                   ),
                 ),
@@ -795,25 +844,43 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = (constraints.maxWidth - 16) / 3;
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                final width3 = (constraints.maxWidth - 16) / 3;
+                final width2 = (constraints.maxWidth - 8) / 2;
+                return Column(
                   children: [
-                    SizedBox(
-                      width: itemWidth,
-                      child: _buildMiniStat('ผู้สอบ', '$count'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          width: width3,
+                          child: _buildMiniStat('ผู้เข้าสอบ', '$count'),
+                        ),
+                        SizedBox(
+                          width: width3,
+                          child: _buildMiniStat(
+                            'เฉลี่ย',
+                            average.toStringAsFixed(1),
+                          ),
+                        ),
+                        SizedBox(
+                          width: width3,
+                          child: _buildMiniStat('สูงสุด/ต่ำสุด', maxMinStr),
+                        ),
+                      ],
                     ),
-                    SizedBox(
-                      width: itemWidth,
-                      child: _buildMiniStat(
-                        'เฉลี่ย',
-                        average.toStringAsFixed(1),
-                      ),
-                    ),
-                    SizedBox(
-                      width: itemWidth,
-                      child: _buildMiniStat('ผ่าน', '$passed', success: true),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(
+                          width: width2,
+                          child: _buildMiniStat('มัธยฐาน', medianStr),
+                        ),
+                        SizedBox(
+                          width: width2,
+                          child: _buildMiniStat('ฐานนิยม', modeStr),
+                        ),
+                      ],
                     ),
                   ],
                 );
@@ -883,21 +950,26 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildMiniStat(String label, String value, {bool success = false}) {
+  Widget _buildMiniStat(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 1),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 5),
           Text(
@@ -905,7 +977,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: success ? AppColors.success : AppColors.textPrimary,
+              color: AppColors.infoDark,
               fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
@@ -1073,7 +1145,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         context: context,
         type: QuickAlertType.info,
         text: 'ยังไม่มีข้อมูลการวิเคราะห์รายข้อ',
-        confirmBtnColor: AppColors.primary,
+        confirmBtnColor: AppColors.info,
       );
       return;
     }
@@ -1123,12 +1195,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.primarySoft,
+                            color: AppColors.infoSoft,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Icon(
                             FontAwesomeIcons.chartPie,
-                            color: AppColors.primary,
+                            color: AppColors.info,
                             size: 18,
                           ),
                         ),
@@ -1172,7 +1244,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
+                          color: AppColors.infoSoft,
                           border: Border(
                             bottom: BorderSide(color: AppColors.border),
                           ),
@@ -1186,7 +1258,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: AppColors.primaryDark,
+                                  color: AppColors.infoDark,
                                 ),
                               ),
                             ),
@@ -1197,7 +1269,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: AppColors.primaryDark,
+                                  color: AppColors.infoDark,
                                 ),
                               ),
                             ),
@@ -1208,7 +1280,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: AppColors.primaryDark,
+                                  color: AppColors.infoDark,
                                 ),
                               ),
                             ),
@@ -1219,7 +1291,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: AppColors.primaryDark,
+                                  color: AppColors.infoDark,
                                 ),
                               ),
                             ),

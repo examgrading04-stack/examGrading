@@ -45,14 +45,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await AuthService.instance.login(email, password);
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context); // ปิด loading
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
     } on AuthException catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -61,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
         confirmBtnColor: const Color(0xFF2563EB),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         Navigator.pop(context);
         return;
       }
@@ -102,14 +102,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await AuthService.instance.loginWithGoogle(accessToken);
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context); // close loading
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
     } on AuthException catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
         confirmBtnColor: const Color(0xFF2563EB),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -170,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF2563EB).withOpacity(0.1),
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 5),
                               ),
@@ -199,12 +199,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(color: Colors.white, width: 1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -253,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: const Color(0xFF2563EB),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                                    color: const Color(0xFF2563EB).withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
@@ -305,7 +305,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 border: Border.all(color: const Color(0xFFE2E8F0)),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.02),
+                                    color: Colors.black.withValues(alpha: 0.02),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),

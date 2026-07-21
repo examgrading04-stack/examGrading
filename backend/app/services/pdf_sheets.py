@@ -101,14 +101,14 @@ def _draw_fitted_text(
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
     """Normalize Firestore exam/student docs into the QR/text payload used by the OMR scanner."""
-    subject_code = exam.get("subject") or exam.get("subjectCode") or exam.get("code") or ""
+    subject_code = exam.get("subject") or exam.get("subjectCode") or exam.get("code") or exam.get("subject_id") or ""
     student_doc_id = student.get("id") or student.get("docId") or ""
     student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or student_doc_id
     exam_id = exam.get("id") or exam.get("examId") or ""
 
     return {
         "subject_code": subject_code,
-        "subject_name": exam.get("subjectName") or exam.get("subject_name") or "",
+        "subject_name": exam.get("subjectName") or exam.get("subject_name") or exam.get("subject_title") or "",
         "student_id": student_code,
         "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
         "exam_date": exam.get("date") or datetime.now().strftime("%Y-%m-%d"),

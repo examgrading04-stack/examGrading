@@ -170,7 +170,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                 );
                               }
                               await _loadSections();
-                              if (!mounted) return;
+                              if (!mounted || !context.mounted) return;
                               Navigator.pop(context);
                               QuickAlert.show(
                                 context: context,
@@ -232,7 +232,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
         Navigator.pop(context);
         try {
           await _deleteSectionCascade(id);
-          if (!mounted) return;
+          if (!mounted || !context.mounted) return;
           QuickAlert.show(
             context: context,
             type: QuickAlertType.success,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { AnswerKeyPage } from "./pages/AnswerKeyPage.jsx";
 import { AnswerSheet } from "./pages/AnswerSheet.jsx";
 import { AnalysisPage } from "./pages/AnalysisPage.jsx";
@@ -20,6 +20,8 @@ import {
   Input,
   PrimaryButton,
   Swal,
+  API_BASE_URL,
+  apiFetch,
 } from "./ui.jsx";
 
 function cleanProfileText(value) {
@@ -221,28 +223,30 @@ function AuthCard({ mode, setMode, auth }) {
   );
 }
 
-function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
+function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
   const [displayName, setDisplayName] = useState(
     profile?.displayName || user.displayName || "",
   );
   const [photoURL, setPhotoURL] = useState(
     profile?.photoURL || user.photoURL || "",
   );
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  async function save(event) {
-    event.preventDefault();
+  async function save(e) {
+    e.preventDefault();
     const nextDisplayName = cleanProfileText(displayName);
     const nextPhotoURL = cleanProfileText(photoURL);
-    await user.updateProfile({
+    await auth.currentUser.updateProfile({
       displayName: nextDisplayName,
       photoURL: nextPhotoURL,
     });
-    await user.reload();
+    await auth.currentUser.reload();
     await api.set(`profiles/${user.email}`, {
       displayName: nextDisplayName,
       photoURL: nextPhotoURL,
       email: user.email,
-      lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
+      lastUpdated: window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || new Date().toISOString(),
     });
     onProfileSaved?.({
       displayName: nextDisplayName,
@@ -251,6 +255,37 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
     });
     Swal().fire("สำเร็จ", "อัปเดตโปรไฟล์เรียบร้อยแล้ว", "success");
     onClose();
+  }
+
+  async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("user_email", user.email);
+
+    try {
+      const res = await apiFetch("/api/upload-profile-picture", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.url) {
+        let finalUrl = data.url;
+        if (finalUrl.startsWith("http://localhost:8000") && API_BASE_URL !== "http://localhost:8000") {
+          finalUrl = finalUrl.replace("http://localhost:8000", API_BASE_URL);
+        }
+        setPhotoURL(finalUrl);
+      }
+    } catch (err) {
+      console.error(err);
+      Swal().fire("ผิดพลาด", "ไม่สามารถอัปโหลดรูปภาพได้", "error");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = null;
+    }
   }
 
   return (
@@ -291,12 +326,31 @@ function ProfileModal({ user, profile, api, onClose, onProfileSaved }) {
             placeholder="เช่น อาจารย์สมชาย ใจดี"
           />
         </Field>
-        <Field label="URL รูปโปรไฟล์">
-          <Input
-            value={photoURL}
-            onChange={(e) => setPhotoURL(e.target.value)}
-            placeholder="https://example.com/photo.jpg"
-          />
+        <Field label="รูปโปรไฟล์ (URL หรือ อัปโหลดไฟล์)">
+          <div className="flex gap-2">
+            <Input
+              value={photoURL}
+              onChange={(e) => setPhotoURL(e.target.value)}
+              placeholder="https://example.com/photo.jpg"
+              className="flex-1"
+            />
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+            />
+            <GhostButton 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="shrink-0"
+              title="อัปโหลดรูปภาพ"
+            >
+              {uploading ? <Icon name="fa-spinner fa-spin" /> : <Icon name="fa-upload" />}
+            </GhostButton>
+          </div>
         </Field>
         <PrimaryButton className="w-full">
           <Icon name="fa-floppy-disk" /> บันทึกโปรไฟล์
@@ -471,6 +525,7 @@ function Shell({
         <ProfileModal
           user={user}
           profile={profile}
+          auth={auth}
           api={api}
           onClose={() => setProfileOpen(false)}
           onProfileSaved={onProfileSaved}

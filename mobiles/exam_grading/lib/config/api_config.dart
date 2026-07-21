@@ -2,20 +2,22 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiConfig {
   static const _dartDefinedUrl = String.fromEnvironment('FASTAPI_URL');
-  static const _androidEmulatorUrl = 'http://10.0.2.2:8000';
+  static const _defaultUrl = 'http://127.0.0.1:8000';
 
   static String get baseUrl {
     final configuredUrl = _dartDefinedUrl.isNotEmpty
         ? _dartDefinedUrl
         : dotenv.env['FASTAPI_URL'];
 
-    return _normalize(configuredUrl ?? _androidEmulatorUrl);
+    String url = _normalize(configuredUrl ?? _defaultUrl);
+
+    return url;
   }
 
   static String get source {
     if (_dartDefinedUrl.isNotEmpty) return 'dart-define';
     if ((dotenv.env['FASTAPI_URL'] ?? '').isNotEmpty) return '.env';
-    return 'android-emulator-default';
+    return 'default';
   }
 
   static Uri endpoint(String path) {

@@ -255,7 +255,11 @@ export function SubjectsPage({ data, api, refresh }) {
                 },
                 { key: "code", label: "รหัสวิชา", className: "w-24" },
                 { key: "name", label: "ชื่อวิชา" },
-                { key: "term", label: "เทอม", className: "w-12 text-center" },
+                {
+                  key: "term",
+                  label: "ภาคเรียน",
+                  className: "w-16 text-center",
+                },
                 { key: "year", label: "ปี", className: "w-20 text-center" },
                 { key: "teacher", label: "ผู้สอน", className: "truncate" },
                 {
@@ -458,14 +462,32 @@ export function SubjectsPage({ data, api, refresh }) {
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="เทอม">
-                <Input
-                  value={subjectForm.term}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, term: e.target.value })
-                  }
-                  placeholder="เช่น 1"
-                />
+              <Field label="ภาคเรียน">
+                <div className="flex items-center justify-between border border-gray-200 rounded-xl overflow-hidden h-[42px] px-2 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = parseInt(subjectForm.term) || 1;
+                      if (v > 1) setSubjectForm({ ...subjectForm, term: String(v - 1) });
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
+                  >
+                    <Icon name="fa-minus" />
+                  </button>
+                  <span className="font-semibold text-slate-700 text-sm">
+                    {subjectForm.term || "1"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = parseInt(subjectForm.term) || 1;
+                      if (v < 3) setSubjectForm({ ...subjectForm, term: String(v + 1) });
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
+                  >
+                    <Icon name="fa-plus" />
+                  </button>
+                </div>
               </Field>
               <Field label="ปี">
                 <Input

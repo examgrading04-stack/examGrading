@@ -1,7 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
-import 'dart:typed_data';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:exam_grading/data/services/auth_service.dart';
@@ -10,9 +7,9 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:quickalert/quickalert.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
+import 'package:exam_grading/presentation/screens/camera_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({Key? key}) : super(key: key);
@@ -35,10 +32,10 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  Future<void> _openAutoScanner() async {
+  Future<void> _openCustomCamera() async {
     final scannedImage = await Navigator.push<File?>(
       context,
-      MaterialPageRoute(builder: (context) => const AnswerSheetCameraScreen()),
+      MaterialPageRoute(builder: (context) => const CameraScreen()),
     );
 
     if (scannedImage != null && mounted) {
@@ -48,48 +45,7 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  Future<String?> uploadToCloudinary(File imageFile) async {
-    final cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME'];
-    final uploadPreset = dotenv.env['CLOUDINARY_UPLOAD_PRESET'];
-    if (cloudName == null || uploadPreset == null) {
-      debugPrint('Cloudinary config missing in .env');
-      return null;
-    }
-
-    final uri = Uri.parse(
-      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
-    );
-
-    final request = http.MultipartRequest('POST', uri)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-    final response = await request.send().timeout(
-      const Duration(seconds: 60),
-      onTimeout: () =>
-          throw Exception('หมดเวลาเชื่อมต่อกับ Cloudinary (Timeout)'),
-    );
-    if (response.statusCode != 200) {
-      debugPrint('Cloudinary upload failed: ${response.statusCode}');
-      return null;
-    }
-
-    final respStr = await response.stream.bytesToString();
-    final data = json.decode(respStr);
-    return data['secure_url'] as String?;
-  }
-
-  Future<void> _warmupServer() async {
-    try {
-      await http
-          .get(ApiConfig.endpoint('/api/health'))
-          .timeout(const Duration(seconds: 20));
-    } catch (_) {
-      // Ignore warmup failures; real request will surface actionable errors.
-    }
-  }
-
-  Future<void> _uploadAndProcess() async {
+  Future<void> _uploadAndProcess({bool overwrite = false}) async {
     if (_image == null) {
       QuickAlert.show(
         context: context,
@@ -104,42 +60,24 @@ class _ScanScreenState extends State<ScanScreen> {
     });
 
     try {
-      // 1. Upload to Cloudinary
-      final cloudUrl = await uploadToCloudinary(_image!);
-      if (cloudUrl == null) {
-        throw Exception('อัปโหลดรูปล้มเหลว (Cloudinary)');
-      }
-
       final uid = AuthService.instance.currentEmail ?? '';
 
-      // 2. Call FastAPI (warmup + retry for cold start hosting)
-      await _warmupServer();
+      final uri = ApiConfig.endpoint('/api/scan');
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['user_email'] = uid
+        ..fields['overwrite'] = overwrite.toString()
+        ..files.add(await http.MultipartFile.fromPath('file', _image!.path));
 
-      Future<http.Response> sendScanRequest() {
-        return http
-            .post(
-              ApiConfig.endpoint('/api/scan-cloudinary'),
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode({'image_url': cloudUrl, 'user_email': uid}),
-            )
-            .timeout(
-              const Duration(seconds: 90),
-              onTimeout: () => throw Exception(
-                'หมดเวลาเชื่อมต่อ Server: ${ApiConfig.baseUrl}',
-              ),
-            );
-      }
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('หมดเวลาเชื่อมต่อกับ Server'),
+      );
 
-      http.Response response;
-      try {
-        response = await sendScanRequest();
-      } on Exception {
-        response = await sendScanRequest();
-      }
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         QuickAlert.show(
           context: context,
           type: QuickAlertType.success,
@@ -147,18 +85,44 @@ class _ScanScreenState extends State<ScanScreen> {
           confirmBtnColor: AppColors.primary,
           onConfirmBtnTap: () {
             Navigator.pop(context); // close alert
-            Navigator.pop(context); // close screen
+            setState(() {
+              _image = null;
+            });
+          },
+        );
+      } else if (response.statusCode == 409) {
+        if (!mounted || !context.mounted) return;
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.confirm,
+          title: 'สแกนซ้ำ',
+          text:
+              'กระดาษคำตอบของนักเรียนคนนี้ถูกสแกนไปแล้ว ต้องการสแกนทับ (อัปเดตคะแนนใหม่) หรือไม่?',
+          confirmBtnText: 'สแกนทับ',
+          cancelBtnText: 'ยกเลิก',
+          confirmBtnColor: AppColors.primary,
+          onConfirmBtnTap: () {
+            Navigator.pop(context); // close alert
+            _uploadAndProcess(overwrite: true);
           },
         );
       } else {
-        throw Exception('สแกนไม่สำเร็จ (API Error): ${response.body}');
+        Map<String, dynamic>? err;
+        try {
+          err = json.decode(response.body);
+        } catch (_) {}
+        final detail =
+            err?['detail'] ?? 'สแกนไม่สำเร็จ (${response.statusCode})';
+        throw Exception(detail);
       }
     } catch (e) {
+      if (!mounted || !context.mounted) return;
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
-        title: 'เกิดข้อผิดพลาด',
-        text: e.toString(),
+        title: 'ผิดพลาด',
+        text: e.toString().replaceAll('Exception: ', ''),
+        confirmBtnColor: AppColors.primary,
       );
     } finally {
       if (mounted) {
@@ -199,9 +163,9 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
             const SizedBox(height: 28),
             const Text(
-              'เพิ่มกระดาษคำตอบ',
+              'เลือกเปลี่ยนรูปภาพ',
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primaryDark,
               ),
@@ -212,17 +176,17 @@ class _ScanScreenState extends State<ScanScreen> {
               children: [
                 _buildPickerOption(
                   icon: FontAwesomeIcons.camera,
-                  label: 'สแกนอัตโนมัติ',
+                  label: 'ถ่ายภาพ',
                   color: AppColors.primary,
                   onTap: () {
                     Navigator.pop(context);
-                    _openAutoScanner();
+                    _openCustomCamera();
                   },
                 ),
                 _buildPickerOption(
                   icon: FontAwesomeIcons.solidImage,
                   label: 'อัลบั้มภาพ',
-                  color: const Color(0xFF7C3AED), // Keep violet secondary
+                  color: const Color(0xFF7C3AED),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImage(ImageSource.gallery);
@@ -353,28 +317,23 @@ class _ScanScreenState extends State<ScanScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  GestureDetector(
-                    onTap: _showPickerBottomSheet,
-                    child: Container(
-                      height: 380,
-                      decoration: BoxDecoration(
-                        color: _image != null ? Colors.black : Colors.white,
-                        borderRadius: BorderRadius.circular(32),
-                        border: _image == null
-                            ? Border.all(color: AppColors.border, width: 2)
-                            : null,
-                        boxShadow: [
-                          if (_image != null)
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                  _image != null
+                      ? GestureDetector(
+                          onTap: _showPickerBottomSheet,
+                          child: Container(
+                            height: 420,
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(32),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ],
                             ),
-                          if (_image == null) ...AppColors.softShadow,
-                        ],
-                      ),
-                      child: _image != null
-                          ? ClipRRect(
+                            child: ClipRRect(
                               borderRadius: BorderRadius.circular(32),
                               child: Stack(
                                 fit: StackFit.expand,
@@ -383,7 +342,7 @@ class _ScanScreenState extends State<ScanScreen> {
                                   Container(
                                     decoration: BoxDecoration(
                                       color: Colors.black.withValues(
-                                        alpha: 0.3,
+                                        alpha: 0.2,
                                       ),
                                     ),
                                   ),
@@ -399,14 +358,14 @@ class _ScanScreenState extends State<ScanScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.black.withValues(
-                                            alpha: 0.45,
+                                            alpha: 0.5,
                                           ),
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
                                           border: Border.all(
                                             color: Colors.white.withValues(
-                                              alpha: 0.25,
+                                              alpha: 0.3,
                                             ),
                                             width: 1,
                                           ),
@@ -434,56 +393,148 @@ class _ScanScreenState extends State<ScanScreen> {
                                   ),
                                 ],
                               ),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 84,
-                                  height: 84,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primarySoft,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 6),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            Container(
+                              height: 280,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(32),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 84,
+                                    height: 84,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primarySoft,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        FontAwesomeIcons.image,
+                                        size: 32,
+                                        color: AppColors.primary,
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                  child: const Center(
-                                    child: Icon(
-                                      FontAwesomeIcons.camera,
-                                      size: 28,
-                                      color: AppColors.primary,
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    'ยังไม่มีรูปภาพ',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'โปรดถ่ายภาพหรือเลือกจากอัลบั้ม',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: _openCustomCamera,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: AppColors.softShadow,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Icon(
+                                            FontAwesomeIcons.camera,
+                                            color: AppColors.primary,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'ถ่ายภาพ',
+                                            style: TextStyle(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  'แตะเพื่อสแกนหรือเลือกภาพ',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'ระบบจะอ่านรหัสข้อสอบจาก QR บนกระดาษคำตอบ',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () =>
+                                        _pickImage(ImageSource.gallery),
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFF7C3AED,
+                                          ).withValues(alpha: 0.3),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: AppColors.softShadow,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Icon(
+                                            FontAwesomeIcons.solidImage,
+                                            color: const Color(0xFF7C3AED),
+                                            size: 24,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'อัลบั้มภาพ',
+                                            style: TextStyle(
+                                              color: const Color(0xFF7C3AED),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                    ),
-                  ),
+                          ],
+                        ),
                   const SizedBox(height: 32),
 
                   // Upload Button
@@ -539,426 +590,4 @@ class _ScanScreenState extends State<ScanScreen> {
       ),
     );
   }
-}
-
-class AnswerSheetCameraScreen extends StatefulWidget {
-  const AnswerSheetCameraScreen({Key? key}) : super(key: key);
-
-  @override
-  State<AnswerSheetCameraScreen> createState() =>
-      _AnswerSheetCameraScreenState();
-}
-
-class _AnswerSheetCameraScreenState extends State<AnswerSheetCameraScreen>
-    with WidgetsBindingObserver {
-  CameraController? _controller;
-  Future<void>? _initializeFuture;
-  double? _lastLuma;
-  DateTime? _stableSince;
-  DateTime _lastFrameCheck = DateTime.fromMillisecondsSinceEpoch(0);
-  bool _isCapturing = false;
-  bool _isStreaming = false;
-  bool _hasCameraError = false;
-  String _statusText = 'วางกระดาษคำตอบให้อยู่ในกรอบ';
-  Color _statusColor = Colors.white;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initializeCamera();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
-
-    if (state == AppLifecycleState.inactive) {
-      controller.dispose();
-      _controller = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _initializeCamera();
-    }
-  }
-
-  Future<void> _initializeCamera() async {
-    try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) {
-        throw CameraException('no_camera', 'ไม่พบกล้องบนอุปกรณ์นี้');
-      }
-
-      final backCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
-
-      final controller = CameraController(
-        backCamera,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      _controller = controller;
-      _initializeFuture = controller.initialize();
-      await _initializeFuture;
-
-      if (!mounted) return;
-      setState(() {});
-      await _startAutoScan();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _hasCameraError = true;
-        _statusText = 'เปิดกล้องไม่ได้: $e';
-        _statusColor = AppColors.error;
-      });
-    }
-  }
-
-  Future<void> _startAutoScan() async {
-    final controller = _controller;
-    if (controller == null ||
-        !controller.value.isInitialized ||
-        controller.value.isStreamingImages) {
-      return;
-    }
-
-    _isStreaming = true;
-    await controller.startImageStream(_handleCameraImage);
-  }
-
-  void _handleCameraImage(CameraImage image) {
-    if (_isCapturing || !mounted) return;
-
-    final now = DateTime.now();
-    if (now.difference(_lastFrameCheck).inMilliseconds < 240) return;
-    _lastFrameCheck = now;
-
-    final luma = _sampleLuma(image.planes.first.bytes);
-    final lastLuma = _lastLuma;
-    _lastLuma = luma;
-
-    if (luma < 55) {
-      _markUnstable('เพิ่มแสงอีกนิด');
-      return;
-    }
-
-    if (lastLuma == null || (luma - lastLuma).abs() > 7) {
-      _markUnstable('ถือให้นิ่งในกรอบ');
-      return;
-    }
-
-    _stableSince ??= now;
-    final stableMs = now.difference(_stableSince!).inMilliseconds;
-    if (stableMs > 1100) {
-      _captureAutomatically();
-      return;
-    }
-
-    _updateStatus('กำลังจับภาพอัตโนมัติ...', AppColors.success);
-  }
-
-  double _sampleLuma(Uint8List bytes) {
-    if (bytes.isEmpty) return 0;
-    final step = math.max(1, bytes.length ~/ 900);
-    var total = 0;
-    var count = 0;
-
-    for (var i = 0; i < bytes.length; i += step) {
-      total += bytes[i];
-      count++;
-    }
-
-    return total / count;
-  }
-
-  void _markUnstable(String message) {
-    _stableSince = null;
-    _updateStatus(message, Colors.white);
-  }
-
-  void _updateStatus(String message, Color color) {
-    if (_statusText == message && _statusColor == color) return;
-    setState(() {
-      _statusText = message;
-      _statusColor = color;
-    });
-  }
-
-  Future<void> _captureAutomatically() async {
-    final controller = _controller;
-    if (controller == null || _isCapturing) return;
-
-    setState(() {
-      _isCapturing = true;
-      _statusText = 'กำลังสแกน...';
-      _statusColor = AppColors.success;
-    });
-
-    try {
-      if (_isStreaming && controller.value.isStreamingImages) {
-        await controller.stopImageStream();
-        _isStreaming = false;
-      }
-
-      final image = await controller.takePicture();
-      if (!mounted) return;
-      Navigator.pop(context, File(image.path));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isCapturing = false;
-        _stableSince = null;
-        _statusText = 'สแกนไม่สำเร็จ ลองจัดกระดาษใหม่';
-        _statusColor = AppColors.error;
-      });
-      await _startAutoScan();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _controller?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = _controller;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: FutureBuilder<void>(
-        future: _initializeFuture,
-        builder: (context, snapshot) {
-          if (_hasCameraError) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.no_photography_outlined,
-                      color: Colors.white,
-                      size: 54,
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      _statusText,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.error,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          if (controller == null ||
-              snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: SpinKitThreeBounce(color: Colors.white, size: 24),
-            );
-          }
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildCameraPreview(controller),
-              CustomPaint(
-                painter: _AnswerSheetMaskPainter(),
-                size: Size.infinite,
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _isCapturing
-                                      ? Icons.document_scanner
-                                      : Icons.center_focus_strong,
-                                  color: _statusColor,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isCapturing ? 'Auto scan' : 'Auto',
-                                  style: TextStyle(
-                                    color: _statusColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.16),
-                          ),
-                        ),
-                        child: Text(
-                          _statusText,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _statusColor,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (_isCapturing)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  child: const Center(
-                    child: SpinKitPulse(color: Colors.white, size: 80),
-                  ),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCameraPreview(CameraController controller) {
-    final previewSize = controller.value.previewSize;
-    if (previewSize == null) {
-      return Center(child: CameraPreview(controller));
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenRatio = constraints.maxWidth / constraints.maxHeight;
-        final previewRatio = previewSize.height / previewSize.width;
-        final scale = math.max(
-          screenRatio / previewRatio,
-          previewRatio / screenRatio,
-        );
-
-        return Transform.scale(
-          scale: scale,
-          child: Center(child: CameraPreview(controller)),
-        );
-      },
-    );
-  }
-}
-
-class _AnswerSheetMaskPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final frameWidth = size.width * 0.82;
-    final frameHeight = math.min(size.height * 0.66, frameWidth * 1.42);
-    final frame = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2),
-      width: frameWidth,
-      height: frameHeight,
-    );
-
-    final overlayPath = Path()
-      ..addRect(Offset.zero & size)
-      ..addRRect(RRect.fromRectAndRadius(frame, const Radius.circular(24)))
-      ..fillType = PathFillType.evenOdd;
-
-    canvas.drawPath(
-      overlayPath,
-      Paint()..color = Colors.black.withValues(alpha: 0.54),
-    );
-
-    final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(frame, const Radius.circular(24)),
-      borderPaint,
-    );
-
-    final cornerPaint = Paint()
-      ..color = AppColors.success
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-    const cornerLength = 44.0;
-    const inset = 2.0;
-
-    void drawCorner(Offset corner, double xSign, double ySign) {
-      final start = Offset(
-        corner.dx + inset * xSign,
-        corner.dy + inset * ySign,
-      );
-      canvas.drawLine(
-        start,
-        start + Offset(cornerLength * xSign, 0),
-        cornerPaint,
-      );
-      canvas.drawLine(
-        start,
-        start + Offset(0, cornerLength * ySign),
-        cornerPaint,
-      );
-    }
-
-    drawCorner(frame.topLeft, 1, 1);
-    drawCorner(frame.topRight, -1, 1);
-    drawCorner(frame.bottomLeft, 1, -1);
-    drawCorner(frame.bottomRight, -1, -1);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

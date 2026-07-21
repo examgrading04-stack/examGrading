@@ -14,10 +14,13 @@ class PaginationBar extends StatelessWidget {
   });
 
   List<dynamic> _buildPages(int total, int current) {
-    if (total <= 7) return List.generate(total, (index) => index + 1);
-    if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
-    if (current >= total - 3) {
-      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    if (total <= 5) return List.generate(total, (index) => index + 1);
+
+    if (current <= 3) {
+      return [1, 2, 3, 4, '...', total];
+    }
+    if (current >= total - 2) {
+      return [1, '...', total - 3, total - 2, total - 1, total];
     }
     return [1, '...', current - 1, current, current + 1, '...', total];
   }
@@ -29,103 +32,97 @@ class PaginationBar extends StatelessWidget {
 
     return Column(
       children: [
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _navButton(
-              label: 'ก่อนหน้า',
-              enabled: page > 1,
-              onTap: () => onPageChanged(page - 1),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: items.map((item) {
-                    if (item == '...') {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          '...',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      );
-                    }
-                    final value = item as int;
-                    final isActive = value == page;
+        const SizedBox(height: 24),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _navButton(
+                icon: Icons.chevron_left_rounded,
+                enabled: page > 1,
+                onTap: () => onPageChanged(page - 1),
+              ),
+              const SizedBox(width: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: items.map((item) {
+                  if (item == '...') {
                     return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => onPageChanged(value),
-                        child: Container(
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: isActive ? AppColors.primary : Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isActive
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                          ),
-                          child: Text(
-                            '$value',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isActive
-                                  ? Colors.white
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        '...',
+                        style: TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 18,
                         ),
                       ),
                     );
-                  }).toList(),
-                ),
+                  }
+                  final value = item as int;
+                  final isActive = value == page;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: isActive ? null : () => onPageChanged(value),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isActive ? Colors.grey[200] : Colors.transparent,
+                        ),
+                        child: Text(
+                          '$value',
+                          style: TextStyle(
+                            fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+                            fontSize: 16,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
-            ),
-            const SizedBox(width: 8),
-            _navButton(
-              label: 'ถัดไป',
-              enabled: page < totalPages,
-              onTap: () => onPageChanged(page + 1),
-            ),
-          ],
+              const SizedBox(width: 4),
+              _navButton(
+                icon: Icons.chevron_right_rounded,
+                enabled: page < totalPages,
+                onTap: () => onPageChanged(page + 1),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
   Widget _navButton({
-    required String label,
+    required IconData icon,
     required bool enabled,
     required VoidCallback onTap,
   }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(20),
       onTap: enabled ? onTap : null,
       child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        width: 40,
+        height: 40,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.transparent,
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: enabled ? AppColors.textPrimary : AppColors.textMuted,
-          ),
+        child: Icon(
+          icon,
+          size: 24,
+          color: enabled ? AppColors.textPrimary : AppColors.textMuted.withValues(alpha: 0.5),
         ),
       ),
     );

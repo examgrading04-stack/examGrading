@@ -82,51 +82,87 @@ export function AnalysisPage({ data }) {
   const canvasRefPie = useRef(null);
   const exam = data.exams.find((item) => item.id === examId);
 
-  const results = data.results
-    .filter((result) => !examId || result.examId === examId)
-    .map((row) => {
-      let dynamicScore = row.score || 0;
-      const questionsCount = Number(exam?.questions || row.totalQuestions || 0);
-      let calculatedItemResults = row.itemResults || {};
+  const results = !examId
+    ? []
+    : data.results
+        .filter((result) => result.examId === examId)
+        .map((row) => {
+          let dynamicScore = row.score || 0;
+          const questionsCount = Number(
+            exam?.questions || row.totalQuestions || 0,
+          );
+          let calculatedItemResults = row.itemResults || {};
 
-      if (exam && (row.answers || row.itemResults)) {
-        let calculatedScore = 0;
-        let newItemResults = {};
-        for (let i = 1; i <= questionsCount; i++) {
-          const qStr = String(i);
-          const correctAns = getCorrectAnswer(exam, qStr);
+          if (exam && (row.answers || row.itemResults)) {
+            let calculatedScore = 0;
+            let newItemResults = {};
+            for (let i = 1; i <= questionsCount; i++) {
+              const qStr = String(i);
+              const correctAns = getCorrectAnswer(exam, qStr);
 
-          let isCorrect = false;
-          if (row.answers) {
-            isCorrect = row.answers[qStr] === correctAns && correctAns !== "-";
-          } else if (row.itemResults) {
-            isCorrect = row.itemResults[qStr] === true;
+              let isCorrect = false;
+              if (row.answers) {
+                isCorrect =
+                  row.answers[qStr] === correctAns && correctAns !== "-";
+              } else if (row.itemResults) {
+                isCorrect = row.itemResults[qStr] === true;
+              }
+
+              if (isCorrect) calculatedScore++;
+              newItemResults[qStr] = isCorrect;
+            }
+            dynamicScore = calculatedScore;
+            calculatedItemResults = newItemResults;
           }
 
-          if (isCorrect) calculatedScore++;
-          newItemResults[qStr] = isCorrect;
-        }
-        dynamicScore = calculatedScore;
-        calculatedItemResults = newItemResults;
-      }
-
-      return {
-        ...row,
-        score: dynamicScore,
-        itemResults: calculatedItemResults,
-      };
-    });
+          return {
+            ...row,
+            score: dynamicScore,
+            itemResults: calculatedItemResults,
+          };
+        });
   const scores = results
     .map((result) => Number(result.score || 0))
     .sort((a, b) => a - b);
   const mean = scores.length
     ? scores.reduce((sum, score) => sum + score, 0) / scores.length
-    : 0;
+    : null;
   const median = scores.length
     ? scores.length % 2
       ? scores[Math.floor(scores.length / 2)]
       : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2
-    : 0;
+    : null;
+
+  const mode = scores.length
+    ? (() => {
+        const counts = {};
+        let maxCount = 0;
+        let modeValue = null;
+        scores.forEach((s) => {
+          counts[s] = (counts[s] || 0) + 1;
+          if (counts[s] > maxCount) {
+            maxCount = counts[s];
+            modeValue = s;
+          }
+        });
+        return maxCount > 1 ? modeValue : "ไม่มี";
+      })()
+    : null;
+
+  const maxScore = scores.length ? Math.max(...scores) : null;
+  const minScore = scores.length ? Math.min(...scores) : null;
+
+  const expectedStudentsCount = !examId
+    ? null
+    : (() => {
+        if (!exam) return 0;
+        if (exam.section === "All Section" || !exam.section)
+          return data.students.length;
+        return data.students.filter(
+          (s) => String(s.section) === String(exam.section),
+        ).length;
+      })();
+
   const itemAnalysis = calculateItemAnalysis(results, exam);
   const answeredItemAnalysis = itemAnalysis.filter((item) =>
     results.some((result) => result.itemResults?.[item.question] !== undefined),
@@ -134,11 +170,11 @@ export function AnalysisPage({ data }) {
   const avgDifficulty = answeredItemAnalysis.length
     ? answeredItemAnalysis.reduce((sum, item) => sum + item.difficulty, 0) /
       answeredItemAnalysis.length
-    : 0;
+    : null;
   const avgDiscrimination = answeredItemAnalysis.length
     ? answeredItemAnalysis.reduce((sum, item) => sum + item.discrimination, 0) /
       answeredItemAnalysis.length
-    : 0;
+    : null;
   const chartLabels = answeredItemAnalysis.map(
     (item) => `ข้อ ${item.question}`,
   );
@@ -290,34 +326,38 @@ export function AnalysisPage({ data }) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
-          title="จำนวนผลการตรวจ"
-          value={results.length}
+          title="จำนวนผู้สอบ"
+          value={expectedStudentsCount !== null ? expectedStudentsCount : "-"}
           icon="fa-users"
           color="blue"
         />
         <StatCard
           title="คะแนนเฉลี่ย"
-          value={mean.toFixed(2)}
+          value={mean !== null ? mean.toFixed(2) : "-"}
           icon="fa-chart-simple"
           color="green"
         />
         <StatCard
           title="มัธยฐาน"
-          value={median.toFixed(2)}
+          value={median !== null ? median.toFixed(2) : "-"}
           icon="fa-scale-balanced"
           color="violet"
         />
         <StatCard
-          title="p เฉลี่ย"
-          value={avgDifficulty.toFixed(2)}
-          icon="fa-percent"
+          title="ฐานนิยม"
+          value={mode !== null ? mode : "-"}
+          icon="fa-chart-pie"
           color="amber"
         />
         <StatCard
-          title="D เฉลี่ย"
-          value={avgDiscrimination.toFixed(2)}
-          icon="fa-bullseye"
-          color="green"
+          title="คะแนนสูงสุด/ต่ำสุด"
+          value={
+            maxScore !== null && minScore !== null
+              ? `${maxScore} / ${minScore}`
+              : "-"
+          }
+          icon="fa-arrow-up-wide-short"
+          color="rose"
         />
       </div>
 
@@ -348,7 +388,7 @@ export function AnalysisPage({ data }) {
                 </p>
               </div>
               <div className="text-3xl font-black text-emerald-600">
-                {results.length ? mean.toFixed(2) : "-"}
+                {mean !== null ? mean.toFixed(2) : "-"}
               </div>
             </div>
           </div>
@@ -514,13 +554,15 @@ export function AnalysisPage({ data }) {
               วิเคราะห์คุณภาพข้อสอบรายข้อ
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              ค่าความยากง่ายเฉลี่ย {avgDifficulty.toFixed(2)} ·
-              ค่าอำนาจจำแนกเฉลี่ย {avgDiscrimination.toFixed(2)}
+              ค่าความยากง่ายเฉลี่ย{" "}
+              {avgDifficulty !== null ? avgDifficulty.toFixed(2) : "-"} ·
+              ค่าอำนาจจำแนกเฉลี่ย{" "}
+              {avgDiscrimination !== null ? avgDiscrimination.toFixed(2) : "-"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm text-slate-500">
             <span className="rounded-full bg-slate-100 px-3 py-1">
-              คะแนนเฉลี่ย {mean.toFixed(2)}
+              คะแนนเฉลี่ย {mean !== null ? mean.toFixed(2) : "-"}
             </span>
           </div>
         </div>

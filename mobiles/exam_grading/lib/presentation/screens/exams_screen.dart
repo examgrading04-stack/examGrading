@@ -24,6 +24,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
   int _currentPage = 1;
   List<SubjectModel> _subjects = [];
   List<ExamModel> _exams = [];
+  List<StudentModel> _students = [];
+  String? _selectedFilterSubject;
   bool _isLoading = true;
   @override
   void initState() {
@@ -35,14 +37,36 @@ class _ExamsScreenState extends State<ExamsScreen> {
     if (_uid.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final subjectDocs = await ApiService.instance.getCollection(_uid, 'subjects');
+      final subjectDocs = await ApiService.instance.getCollection(
+        _uid,
+        'subjects',
+      );
       final examDocs = await ApiService.instance.getCollection(_uid, 'exams');
+      final studentDocs = await ApiService.instance.getCollection(
+        _uid,
+        'students',
+      );
       if (mounted) {
         setState(() {
-          _subjects = subjectDocs.map((d) => SubjectModel.fromMap(
-            d['code']?.toString() ?? '', d)).toList();
-          _exams = examDocs.map((d) => ExamModel.fromMap(
-            d['id']?.toString() ?? d['exam_id']?.toString() ?? '', d)).toList();
+          _subjects = subjectDocs
+              .map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d))
+              .toList();
+          _exams = examDocs
+              .map(
+                (d) => ExamModel.fromMap(
+                  d['id']?.toString() ?? d['exam_id']?.toString() ?? '',
+                  d,
+                ),
+              )
+              .toList();
+          _students = studentDocs
+              .map(
+                (d) => StudentModel.fromMap(
+                  d['id']?.toString() ?? d['student_id']?.toString() ?? '',
+                  d,
+                ),
+              )
+              .toList();
           _isLoading = false;
         });
       }
@@ -55,19 +79,38 @@ class _ExamsScreenState extends State<ExamsScreen> {
     String subjectCode,
     String? section,
   ) async {
-    final studentDocs = await ApiService.instance.getCollection(_uid, 'students');
-    final all = studentDocs.map((d) => StudentModel.fromMap(
-      d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
+    final studentDocs = await ApiService.instance.getCollection(
+      _uid,
+      'students',
+    );
+    final all = studentDocs
+        .map(
+          (d) => StudentModel.fromMap(
+            d['id']?.toString() ?? d['student_id']?.toString() ?? '',
+            d,
+          ),
+        )
+        .toList();
     final examSection = (section ?? '').trim();
     final filtered = all.where((s) {
       final classStr = s.className;
       if (examSection.isNotEmpty) {
-        return classStr == '${subjectCode}_$examSection' || classStr == examSection;
+        return classStr == '${subjectCode}_$examSection' ||
+            classStr == examSection;
       }
       return classStr == subjectCode || classStr.startsWith('${subjectCode}_');
     }).toList();
     final source = filtered.isNotEmpty ? filtered : all;
-    return source.map((s) => {'id': s.id, 'code': s.code, 'name': s.name, 'class': s.className}).toList();
+    return source
+        .map(
+          (s) => {
+            'id': s.id,
+            'code': s.code,
+            'name': s.name,
+            'class': s.className,
+          },
+        )
+        .toList();
   }
 
   void _showExamDialog([ExamModel? exam]) {
@@ -79,13 +122,35 @@ class _ExamsScreenState extends State<ExamsScreen> {
       text: exam?.questions.toString() ?? '100',
     );
     String? selectedSubjectCode = exam?.subject;
+    String? selectedSection = exam?.section;
+    if (selectedSection != null && selectedSection.isEmpty)
+      selectedSection = null;
+
+    List<String> getAvailableSections(String? subjectCode) {
+      if (subjectCode == null) return [];
+      return _students
+          .where(
+            (s) =>
+                s.className.startsWith('${subjectCode}_') ||
+                s.className == subjectCode,
+          )
+          .map(
+            (s) => s.className.contains('_')
+                ? s.className.split('_').last
+                : s.className,
+          )
+          .toSet()
+          .toList()
+        ..sort();
+    }
+
     final isEdit = exam != null;
     if (_subjects.isEmpty && !isEdit) {
       QuickAlert.show(
         context: context,
         type: QuickAlertType.warning,
         text: 'กรุณาเพิ่มรายวิชาก่อนสร้างกระดาษคำตอบ',
-        confirmBtnColor: AppColors.primary,
+        confirmBtnColor: AppColors.warning,
       );
       return;
     }
@@ -96,6 +161,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final availableSections = getAvailableSections(selectedSubjectCode);
+            if (selectedSection != null &&
+                !availableSections.contains(selectedSection)) {
+              selectedSection = null;
+            }
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -124,32 +194,38 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      isEdit ? 'แก้ไขข้อมูลกระดาษคำตอบ' : 'สร้างกระดาษคำตอบใหม่',
+                      isEdit
+                          ? 'แก้ไขข้อมูลกระดาษคำตอบ'
+                          : 'สร้างกระดาษคำตอบใหม่',
                       style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
+                        color: AppColors.warningDark,
                       ),
                     ),
                     const SizedBox(height: 32),
+                    _buildDropdownField(
+                      'รายวิชาที่สอบ',
+                      selectedSubjectCode,
+                      _subjects,
+                      (val) => setModalState(() {
+                        selectedSubjectCode = val;
+                        selectedSection = null;
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionDropdownField(
+                      'กลุ่มเรียน (Section)',
+                      selectedSection,
+                      availableSections,
+                      selectedSubjectCode == null,
+                      (val) => setModalState(() => selectedSection = val),
+                    ),
+                    const SizedBox(height: 20),
                     _buildPopupField(
                       'ชื่อกระดาษคำตอบ',
                       nameController,
                       FontAwesomeIcons.solidFileLines,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDropdownField(
-                      'รายวิชา',
-                      selectedSubjectCode,
-                      _subjects,
-                      (val) => setModalState(() => selectedSubjectCode = val),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildDateField(
-                      context,
-                      'วันที่สอบ',
-                      dateController,
-                      (val) => setModalState(() => dateController.text = val),
                     ),
                     const SizedBox(height: 20),
                     _buildPopupField(
@@ -164,8 +240,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       height: 52,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        color: AppColors.primary,
-                        boxShadow: AppColors.primaryShadow,
+                        color: AppColors.warning,
+                        boxShadow: AppColors.warningShadow,
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
@@ -175,12 +251,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               context: context,
                               type: QuickAlertType.warning,
                               text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-                              confirmBtnColor: AppColors.primary,
+                              confirmBtnColor: AppColors.warning,
                             );
                             return;
                           }
                           final subjectCode = selectedSubjectCode!;
-                          final examSection = '';
+                          final examSection = selectedSection ?? '';
                           final studentsSnapshot = isEdit
                               ? exam.studentsSnapshot
                               : await _buildStudentsSnapshotForExam(
@@ -191,20 +267,30 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             'name': nameController.text.trim(),
                             'subject': subjectCode,
                             'date': dateController.text,
+                            'section': examSection,
                             'questions':
                                 int.tryParse(questionsController.text) ?? 100,
-                            'options': 4,
+                            'options': 5,
                             'sets': 1,
                             'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
-                            await ApiService.instance.updateDoc(_uid, 'exams', exam.id, data);
+                            await ApiService.instance.updateDoc(
+                              _uid,
+                              'exams',
+                              exam.id,
+                              data,
+                            );
                           } else {
                             data['answerKey'] = {};
-                            await ApiService.instance.setDoc(_uid, 'exams',
-                              '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}', data);
+                            await ApiService.instance.setDoc(
+                              _uid,
+                              'exams',
+                              '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}',
+                              data,
+                            );
                           }
-                          if (!mounted) return;
+                          if (!mounted || !context.mounted) return;
                           Navigator.pop(context);
                           if (!isEdit) {
                             final subjectObj = _subjects.firstWhere(
@@ -218,9 +304,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               name: nameController.text.trim(),
                               subject: subjectCode,
                               date: dateController.text,
+                              section: examSection,
                               questions:
                                   int.tryParse(questionsController.text) ?? 100,
-                              options: 4,
+                              options: 5,
                               sets: 1,
                               answerKey: {},
                               studentsSnapshot: studentsSnapshot,
@@ -239,7 +326,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               context: context,
                               type: QuickAlertType.success,
                               text: 'แก้ไขข้อมูลกระดาษคำตอบสำเร็จ',
-                              confirmBtnColor: AppColors.primary,
+                              confirmBtnColor: AppColors.warning,
                             );
                           }
                         },
@@ -289,7 +376,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         labelText: label,
         labelStyle: const TextStyle(
           fontSize: 12,
-          color: AppColors.primary,
+          color: AppColors.warning,
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
@@ -301,7 +388,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 16, right: 10),
-          child: Icon(icon, color: AppColors.primary, size: 13),
+          child: Icon(icon, color: AppColors.warning, size: 13),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         contentPadding: const EdgeInsets.symmetric(
@@ -316,7 +403,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: const BorderSide(color: AppColors.warning, width: 2.0),
         ),
       ),
     );
@@ -328,135 +415,151 @@ class _ExamsScreenState extends State<ExamsScreen> {
     List<SubjectModel> subjects,
     ValueChanged<String?> onChanged,
   ) {
-    return DropdownButtonFormField<String>(
-      borderRadius: BorderRadius.circular(16),
-      dropdownColor: Colors.white,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(
-          fontSize: 12,
-          color: AppColors.primary,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
+    return DropdownMenu<String>(
+      initialSelection: subjects.any((s) => s.code == value) ? value : null,
+      expandedInsets: EdgeInsets.zero,
+      label: Text(label),
+      enableFilter: true,
+      enableSearch: true,
+      hintText: 'พิมพ์เพื่อค้นหา...',
+      leadingIcon: const Padding(
+        padding: EdgeInsets.only(left: 16, right: 10),
+        child: Icon(
+          FontAwesomeIcons.bookOpen,
+          color: AppColors.warning,
+          size: 13,
         ),
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: const Padding(
-          padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(
-            FontAwesomeIcons.bookOpen,
-            color: AppColors.primary,
-            size: 13,
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.background,
         contentPadding: const EdgeInsets.symmetric(
           vertical: 14,
           horizontal: 16,
         ),
-        filled: true,
-        fillColor: AppColors.background,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: AppColors.warning,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: const BorderSide(color: AppColors.warning, width: 2.0),
         ),
       ),
-      value: subjects.any((s) => s.code == value) ? value : null,
-      items: subjects
-          .map(
-            (s) => DropdownMenuItem(
-              value: s.code,
-              child: Text(
-                '${s.code} ${s.name}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          )
-          .toList(),
-      onChanged: onChanged,
-      icon: const Icon(
-        Icons.keyboard_arrow_down_rounded,
-        color: AppColors.primary,
-        size: 20,
-      ),
+      onSelected: onChanged,
+      dropdownMenuEntries: subjects.map((s) {
+        return DropdownMenuEntry<String>(
+          value: s.code,
+          label: '${s.code} ${s.name}',
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildDateField(
-    BuildContext context,
+  Widget _buildSectionDropdownField(
     String label,
-    TextEditingController controller,
-    ValueChanged<String> onSelected,
+    String? value,
+    List<String> sections,
+    bool disabled,
+    ValueChanged<String?> onChanged,
   ) {
-    return TextField(
-      controller: controller,
-      readOnly: true,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
-        color: AppColors.textPrimary,
+    return DropdownMenu<String>(
+      initialSelection: value,
+      expandedInsets: EdgeInsets.zero,
+      label: Text(label),
+      enabled: !disabled,
+      enableFilter: true,
+      enableSearch: true,
+      hintText: 'พิมพ์เพื่อค้นหา...',
+      leadingIcon: const Padding(
+        padding: EdgeInsets.only(left: 16, right: 10),
+        child: Icon(FontAwesomeIcons.users, color: AppColors.warning, size: 13),
       ),
-      onTap: () async {
-        final date = await showDatePicker(
-          context: context,
-          initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-          builder: (context, child) {
-            return Theme(
-              data: Theme.of(context).copyWith(
-                colorScheme: ColorScheme.light(
-                  primary: AppColors.primary,
-                  onPrimary: Colors.white,
-                  onSurface: AppColors.textPrimary,
-                ),
-              ),
-              child: child!,
-            );
-          },
-        );
-        if (date != null) {
-          onSelected(date.toString().split(' ')[0]);
-        }
-      },
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(
-          fontSize: 12,
-          color: AppColors.primary,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        prefixIcon: const Padding(
-          padding: EdgeInsets.only(left: 16, right: 10),
-          child: Icon(
-            FontAwesomeIcons.solidCalendarDays,
-            color: AppColors.primary,
-            size: 13,
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: disabled ? Colors.grey[200] : AppColors.background,
         contentPadding: const EdgeInsets.symmetric(
           vertical: 14,
           horizontal: 16,
         ),
-        filled: true,
-        fillColor: AppColors.background,
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: AppColors.warning,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+          borderSide: const BorderSide(color: AppColors.warning, width: 2.0),
+        ),
+      ),
+      onSelected: onChanged,
+      dropdownMenuEntries: [
+        const DropdownMenuEntry<String>(value: '', label: 'ทุกกลุ่มเรียน'),
+        ...sections.map(
+          (s) => DropdownMenuEntry<String>(value: s, label: 'กลุ่มเรียน $s'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.softShadow,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedFilterSubject,
+          isExpanded: true,
+          icon: Icon(
+            FontAwesomeIcons.chevronDown,
+            size: 14,
+            color: AppColors.textSecondary,
+          ),
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          hint: const Text(
+            'ทุกรายวิชา',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedFilterSubject = (newValue == null || newValue.isEmpty)
+                  ? null
+                  : newValue;
+              _currentPage = 1;
+            });
+          },
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('ทุกรายวิชา'),
+            ),
+            ..._subjects.map<DropdownMenuItem<String>>((SubjectModel s) {
+              return DropdownMenuItem<String>(
+                value: s.code,
+                child: Text('วิชา: ${s.code} ${s.name}'),
+              );
+            }).toList(),
+          ],
         ),
       ),
     );
@@ -476,8 +579,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
         Navigator.pop(context);
         await ApiService.instance.deleteDoc(_uid, 'exams', id);
         await _fetchData();
-        if (!mounted) return;
-        QuickAlert.show(context: context, type: QuickAlertType.success, text: 'ลบกระดาษคำตอบเรียบร้อยแล้ว', confirmBtnColor: AppColors.primary);
+        if (!mounted || !context.mounted) return;
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.success,
+          text: 'ลบกระดาษคำตอบเรียบร้อยแล้ว',
+          confirmBtnColor: AppColors.warning,
+        );
       },
     );
   }
@@ -516,8 +624,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.primary,
-          boxShadow: AppColors.primaryShadow,
+          color: AppColors.warning,
+          boxShadow: AppColors.warningShadow,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.transparent,
@@ -549,9 +657,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
               background: Container(color: AppColors.surface),
             ),
           ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: _buildFilterDropdown(),
+            ),
+          ),
           if (_isLoading)
             const SliverToBoxAdapter(child: ListSkeletonLoader())
-          else if (_exams.isEmpty)
+          else if (_exams.isEmpty ||
+              (_selectedFilterSubject != null &&
+                  !_exams.any((e) => e.subject == _selectedFilterSubject)))
             SliverFillRemaining(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -559,11 +675,39 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.primarySoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.fileLines, size: 24, color: AppColors.primary))),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: const BoxDecoration(
+                          color: AppColors.warningSoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            FontAwesomeIcons.fileLines,
+                            size: 24,
+                            color: AppColors.warning,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 20),
-                      const Text('ยังไม่มีข้อมูลกระดาษคำตอบ', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text(
+                        'ยังไม่มีข้อมูลกระดาษคำตอบ',
+                        style: TextStyle(
+                          color: AppColors.warningDark,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text('แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      Text(
+                        'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -575,8 +719,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
       ),
     );
   }
+
   Widget _buildExamsList() {
-    final docs = _exams;
+    final docs = _selectedFilterSubject != null
+        ? _exams.where((e) => e.subject == _selectedFilterSubject).toList()
+        : _exams;
     final totalPages = (docs.length / _pageSize).ceil().clamp(1, 1000000);
     final page = _currentPage.clamp(1, totalPages);
     final start = (page - 1) * _pageSize;
@@ -589,8 +736,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
         children: [
           ...visibleDocs.map((exam) => _buildExamCard(exam)).toList(),
           if (docs.length > _pageSize) ...[
-            Text('แสดง ${start + 1}-$end จาก ${docs.length} รายการ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-            PaginationBar(page: page, totalPages: totalPages, onPageChanged: (nextPage) => setState(() => _currentPage = nextPage)),
+            Text(
+              'แสดง ${start + 1}-$end จาก ${docs.length} รายการ',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            PaginationBar(
+              page: page,
+              totalPages: totalPages,
+              onPageChanged: (nextPage) =>
+                  setState(() => _currentPage = nextPage),
+            ),
           ],
         ],
       ),
@@ -598,158 +757,105 @@ class _ExamsScreenState extends State<ExamsScreen> {
   }
 
   Widget _buildExamCard(ExamModel exam) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.5),
-        boxShadow: AppColors.softShadow,
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: AppColors.primaryShadow,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      FontAwesomeIcons.solidFileLines,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exam.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'วิชา: ${exam.subject}',
-                          style: const TextStyle(
-                            color: AppColors.primary,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => _openAnswerSheets(exam),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border, width: 1.5),
+              boxShadow: AppColors.softShadow,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exam.name,
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 11,
+                            fontSize: 16,
+                            color: AppColors.textPrimary,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.solidCalendarDays,
-                            size: 12,
+                        const SizedBox(height: 2),
+                        Text(
+                          'วิชา: ${exam.subject}',
+                          style: TextStyle(
+                            fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'วันที่: ${exam.date}',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'วันที่: ${exam.date}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
                           ),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${exam.questions} ข้อ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Row(
+                    children: [
+                      _buildCompactAction(
+                        icon: FontAwesomeIcons.key,
+                        iconSize: 11,
+                        color: AppColors.success,
+                        bgColor: AppColors.successSoft,
+                        onTap: () => _openAnswerKey(exam),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildCompactAction(
+                        icon: FontAwesomeIcons.solidPenToSquare,
+                        iconSize: 12,
+                        color: AppColors.warning,
+                        bgColor: AppColors.warningSoft,
+                        onTap: () => _showExamDialog(exam),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildCompactAction(
+                        icon: FontAwesomeIcons.trash,
+                        iconSize: 11,
+                        color: AppColors.error,
+                        bgColor: AppColors.errorSoft,
+                        onTap: () => _deleteExam(exam.id),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-              border: Border(
-                top: BorderSide(color: AppColors.border, width: 1.5),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      _buildSmallInfo(
-                        FontAwesomeIcons.circleQuestion,
-                        '${exam.questions} ข้อ',
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildCompactAction(
-                      icon: FontAwesomeIcons.key,
-                      iconSize: 11,
-                      color: AppColors.success,
-                      bgColor: AppColors.successSoft,
-                      onTap: () => _openAnswerKey(exam),
-                    ),
-                    const SizedBox(width: 6),
-                    _buildCompactAction(
-                      icon: FontAwesomeIcons.filePdf,
-                      iconSize: 12,
-                      color: AppColors.info,
-                      bgColor: AppColors.infoSoft,
-                      onTap: () => _openAnswerSheets(exam),
-                    ),
-                    const SizedBox(width: 6),
-                    _buildCompactAction(
-                      icon: FontAwesomeIcons.solidPenToSquare,
-                      iconSize: 12,
-                      color: AppColors.warning,
-                      bgColor: AppColors.warningSoft,
-                      onTap: () => _showExamDialog(exam),
-                    ),
-                    const SizedBox(width: 6),
-                    _buildCompactAction(
-                      icon: FontAwesomeIcons.trash,
-                      iconSize: 11,
-                      color: AppColors.error,
-                      bgColor: AppColors.errorSoft,
-                      onTap: () => _deleteExam(exam.id),
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -771,23 +877,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
           child: Icon(icon, color: color, size: iconSize),
         ),
       ),
-    );
-  }
-
-  Widget _buildSmallInfo(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 13, color: AppColors.textSecondary),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

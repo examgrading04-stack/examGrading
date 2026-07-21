@@ -36,7 +36,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       final docs = await ApiService.instance.getCollection(_uid, 'subjects');
       if (mounted) {
         setState(() {
-          _subjects = docs.map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d)).toList();
+          _subjects = docs
+              .map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d))
+              .toList();
           _isLoading = false;
         });
       }
@@ -49,7 +51,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     final isEdit = subject != null;
     final codeController = TextEditingController(text: subject?.code);
     final nameController = TextEditingController(text: subject?.name);
-    final termController = TextEditingController(text: subject?.term);
+    final termText = (subject?.term != null && subject!.term.isNotEmpty)
+        ? subject.term
+        : '1';
+    final termController = TextEditingController(text: termText);
     final yearController = TextEditingController(text: subject?.year);
     final teacherController = TextEditingController(text: subject?.teacher);
 
@@ -68,11 +73,103 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildField(
-                    'ภาคเรียน',
-                    termController,
-                    FontAwesomeIcons.layerGroup,
-                    keyboardType: TextInputType.number,
+                  child: StatefulBuilder(
+                    builder: (context, setTermState) {
+                      int termValue = int.tryParse(termController.text) ?? 1;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                FontAwesomeIcons.layerGroup,
+                                color: AppColors.textSecondary,
+                                size: 13,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'ภาคเรียน',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  if (termValue > 1) {
+                                    setTermState(() {
+                                      termValue--;
+                                      termController.text = termValue
+                                          .toString();
+                                    });
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    FontAwesomeIcons.minus,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                termValue.toString(),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  if (termValue < 3) {
+                                    setTermState(() {
+                                      termValue++;
+                                      termController.text = termValue
+                                          .toString();
+                                    });
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    FontAwesomeIcons.plus,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 11),
+                          Container(height: 1.5, color: AppColors.border),
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -88,7 +185,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
             const SizedBox(height: 20),
             _buildField(
-              'ชื่ออาจารย์ผู้สอน',
+              'ชื่อผู้สอน',
               teacherController,
               FontAwesomeIcons.userTie,
             ),
@@ -110,12 +207,22 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 };
 
                 if (isEdit) {
-                  await ApiService.instance.updateDoc(_uid, 'subjects', subject.id, data);
+                  await ApiService.instance.updateDoc(
+                    _uid,
+                    'subjects',
+                    subject.id,
+                    data,
+                  );
                 } else {
-                  await ApiService.instance.setDoc(_uid, 'subjects', codeController.text.trim(), data);
+                  await ApiService.instance.setDoc(
+                    _uid,
+                    'subjects',
+                    codeController.text.trim(),
+                    data,
+                  );
                 }
 
-                if (!mounted) return;
+                if (!mounted || !context.mounted) return;
                 Navigator.pop(context);
                 _success(
                   isEdit
@@ -218,7 +325,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       onConfirmBtnTap: () async {
         Navigator.pop(context);
         await _deleteSubjectCascade(id);
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         _success('ลบรายวิชาเรียบร้อย');
       },
     );
@@ -284,18 +391,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             ),
           ),
           const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Text(
-                'จัดการข้อมูลรายวิชาและกลุ่มเรียน',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
+            child: Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 16)),
           ),
           _buildSubjectsSection(),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -314,62 +410,59 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   Widget _buildSubjectsSectionContent() {
     final docs = _subjects;
     if (docs.isEmpty) {
-          return SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 48,
-                  horizontal: 24,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: AppColors.softShadow,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySoft,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          FontAwesomeIcons.folderOpen,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'ยังไม่มีข้อมูลรายวิชา',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'เพิ่มรายวิชาและกลุ่มเรียนก่อน เพื่อเริ่มจัดการข้อมูลผู้เรียนและการสอบ',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.softShadow,
             ),
-          );
-        }
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      FontAwesomeIcons.folderOpen,
+                      color: AppColors.primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'ยังไม่มีข้อมูลรายวิชา',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'เพิ่มรายวิชาและกลุ่มเรียนก่อน เพื่อเริ่มจัดการข้อมูลผู้เรียนและการสอบ',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return SliverToBoxAdapter(child: _buildSubjectsList(docs));
   }
 

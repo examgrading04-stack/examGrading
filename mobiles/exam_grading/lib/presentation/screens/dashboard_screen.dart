@@ -148,7 +148,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _DashboardHome extends StatefulWidget {
-  const _DashboardHome({Key? key, required this.onOpenProfile}) : super(key: key);
+  const _DashboardHome({Key? key, required this.onOpenProfile})
+    : super(key: key);
   final VoidCallback onOpenProfile;
 
   @override
@@ -173,7 +174,11 @@ class _DashboardHomeState extends State<_DashboardHome> {
     }
     try {
       final results = await ApiService.instance.getCollection(email, 'results');
-      if (mounted) setState(() { _results = results; _loading = false; });
+      if (mounted)
+        setState(() {
+          _results = results;
+          _loading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -194,15 +199,17 @@ class _DashboardHomeState extends State<_DashboardHome> {
     String title = 'พร้อมสำหรับการตรวจ';
     String subtitle = 'เลือกเมนูด้านล่างเพื่อเริ่มต้นการใช้งาน';
     if (!_loading && _results.isNotEmpty) {
-      final sorted = [..._results]..sort((a, b) {
+      final sorted = [..._results]
+        ..sort((a, b) {
           final at = a['created_at'] ?? a['createdAt'] ?? '';
           final bt = b['created_at'] ?? b['createdAt'] ?? '';
           return bt.toString().compareTo(at.toString());
         });
       final latest = sorted.first;
-      final score = latest['score'];
-      final total = latest['total'];
-      final student = (latest['studentName'] ?? latest['student_name'] ?? '').toString();
+      final score = (latest['score'] as num?)?.toInt();
+      final total = (latest['total'] as num?)?.toInt();
+      final student = (latest['studentName'] ?? latest['student_name'] ?? '')
+          .toString();
       if (score != null && total != null) {
         title = 'ผลตรวจล่าสุด: $score/$total คะแนน';
       }
@@ -253,12 +260,15 @@ class _DashboardHomeState extends State<_DashboardHome> {
           child: RefreshIndicator(
             onRefresh: _loadResults,
             child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -266,7 +276,11 @@ class _DashboardHomeState extends State<_DashboardHome> {
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
-                              child: Image.asset('images/icon.png', width: 40, height: 40),
+                              child: Image.asset(
+                                'images/icon.png',
+                                width: 40,
+                                height: 40,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             const Text(
@@ -294,7 +308,8 @@ class _DashboardHomeState extends State<_DashboardHome> {
                             child: CircleAvatar(
                               radius: 18,
                               backgroundColor: Colors.white,
-                              backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                              backgroundImage:
+                                  (photoUrl != null && photoUrl.isNotEmpty)
                                   ? NetworkImage(photoUrl)
                                   : null,
                               child: (photoUrl == null || photoUrl.isEmpty)
@@ -346,17 +361,19 @@ class _DashboardHomeState extends State<_DashboardHome> {
                   const SizedBox(height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(children: [
-                      Text(
-                        'เมนูหลัก',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                          letterSpacing: 0.5,
+                    child: Row(
+                      children: [
+                        Text(
+                          'เมนูหลัก',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 0.5,
+                          ),
                         ),
-                      ),
-                    ]),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Padding(
@@ -369,10 +386,38 @@ class _DashboardHomeState extends State<_DashboardHome> {
                       crossAxisSpacing: 16,
                       childAspectRatio: 1.15,
                       children: [
-                        _buildGridItem(context, FontAwesomeIcons.book, 'รายวิชา', 'จัดการวิชาเรียน', AppColors.primary, const SubjectsScreen()),
-                        _buildGridItem(context, FontAwesomeIcons.userGraduate, 'ผู้เรียน', 'ข้อมูลและสถานะ', AppColors.success, const StudentsScreen()),
-                        _buildGridItem(context, FontAwesomeIcons.filePen, 'ข้อสอบ', 'ตรวจและวิเคราะห์', AppColors.warning, const ExamsScreen()),
-                        _buildGridItem(context, FontAwesomeIcons.clockRotateLeft, 'ประวัติ', 'ดูผลสอบทั้งหมด', AppColors.info, const ResultsScreen()),
+                        _buildGridItem(
+                          context,
+                          FontAwesomeIcons.book,
+                          'รายวิชา',
+                          'จัดการวิชา/กลุ่มเรียน',
+                          AppColors.primary,
+                          const SubjectsScreen(),
+                        ),
+                        _buildGridItem(
+                          context,
+                          FontAwesomeIcons.userGraduate,
+                          'ผู้เรียน',
+                          'จัดการผู้เรียน',
+                          AppColors.success,
+                          const StudentsScreen(),
+                        ),
+                        _buildGridItem(
+                          context,
+                          FontAwesomeIcons.filePen,
+                          'กระดาษคำตอบ',
+                          'สร้างกระดาษคำตอบ',
+                          AppColors.warning,
+                          const ExamsScreen(),
+                        ),
+                        _buildGridItem(
+                          context,
+                          FontAwesomeIcons.clockRotateLeft,
+                          'ผลการสอบ',
+                          'ดูผลสอบทั้งหมด',
+                          AppColors.info,
+                          const ResultsScreen(),
+                        ),
                       ],
                     ),
                   ),
@@ -389,86 +434,129 @@ class _DashboardHomeState extends State<_DashboardHome> {
 
 Widget _buildHeaderCard(String title, String subtitle) {
   return Container(
+    padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(24),
-      color: Colors.white,
-      boxShadow: AppColors.softShadow,
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        children: [
-          Positioned(right: -20, top: -20, child: Container(width: 110, height: 110, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withValues(alpha: 0.05)))),
-          Positioned(left: -30, bottom: -30, child: Container(width: 100, height: 100, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withValues(alpha: 0.05)))),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))],
-                  ),
-                  child: const Icon(FontAwesomeIcons.circleCheck, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryDark, letterSpacing: 0.5)),
-                      const SizedBox(height: 4),
-                      Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      gradient: LinearGradient(
+        colors: [AppColors.primary, AppColors.primaryDark],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            FontAwesomeIcons.solidChartBar,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
 
-Widget _buildGridItem(BuildContext context, IconData icon, String title, String subtitle, Color color, Widget destination) {
+Widget _buildGridItem(
+  BuildContext context,
+  IconData icon,
+  String title,
+  String subtitle,
+  Color color,
+  Widget destination,
+) {
   return GestureDetector(
-    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => destination)),
+    onTap: () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => destination),
+    ),
     child: Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 1.5),
-        boxShadow: AppColors.softShadow,
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Positioned(right: -10, bottom: -10, child: Icon(icon, size: 60, color: color.withValues(alpha: 0.05))),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
-                    child: Icon(icon, color: color, size: 20),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                      const SizedBox(height: 2),
-                      Text(subtitle, style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
-                    ],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

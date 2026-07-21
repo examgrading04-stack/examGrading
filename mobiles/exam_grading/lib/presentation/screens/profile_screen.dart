@@ -91,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _user?['displayName']?.toString() ?? _nameController.text.trim(),
         photoURL: cloudUrl,
       );
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       setState(() {});
       QuickAlert.show(
         context: context,
@@ -101,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         confirmBtnColor: AppColors.success,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
@@ -124,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         displayName: newName,
         photoURL: _user?['photoURL']?.toString(),
       );
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       setState(() {});
       QuickAlert.show(
         context: context,
@@ -134,7 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         confirmBtnColor: AppColors.success,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
@@ -160,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onConfirmBtnTap: () async {
         Navigator.pop(context);
         await AuthService.instance.logout();
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const LoginScreen()),

@@ -56,19 +56,19 @@ export function Dashboard({ data }) {
         <StatCard
           title="ผู้เรียนทั้งหมด"
           value={data.students.length}
-          icon="fa-user-graduate"
+          icon="fa-users"
           color="green"
         />
         <StatCard
           title="ข้อสอบในระบบ"
           value={data.exams.length}
-          icon="fa-file-pen"
+          icon="fa-file-lines"
           color="violet"
         />
         <StatCard
           title="การสอบที่ประมวลผล"
           value={data.results.length}
-          icon="fa-square-poll-vertical"
+          icon="fa-clipboard-check"
           color="amber"
         />
       </div>

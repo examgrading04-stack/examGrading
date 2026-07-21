@@ -23,9 +23,18 @@ class AppColors {
 
   // Semantic
   static const Color success = Color(0xFF166534); // Forest Green
+  static const Color successDark = Color(0xFF14532D);
+  static const List<Color> successGradient = [success, successDark];
+
   static const Color warning = Color(0xFFD97706);
+  static const Color warningDark = Color(0xFFB45309);
+  static const List<Color> warningGradient = [warning, warningDark];
+
   static const Color error = Color(0xFFDC2626);
+  
   static const Color info = Color(0xFF2563EB);
+  static const Color infoDark = Color(0xFF1D4ED8);
+  static const List<Color> infoGradient = [info, infoDark];
 
   // Soft Backgrounds
   static const Color primarySoft = Color(0xFFE2E8F0); // Light Slate
@@ -46,6 +55,30 @@ class AppColors {
   static List<BoxShadow> get primaryShadow => [
     BoxShadow(
       color: primary.withValues(alpha: 0.22),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> get successShadow => [
+    BoxShadow(
+      color: success.withValues(alpha: 0.22),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> get warningShadow => [
+    BoxShadow(
+      color: warning.withValues(alpha: 0.22),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> get infoShadow => [
+    BoxShadow(
+      color: info.withValues(alpha: 0.22),
       blurRadius: 10,
       offset: const Offset(0, 4),
     ),

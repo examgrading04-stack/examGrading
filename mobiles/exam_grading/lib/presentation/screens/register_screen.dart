@@ -55,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       await AuthService.instance.register(email, password, email.split('@').first);
 
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context); // close loading
       QuickAlert.show(
         context: context,
@@ -68,7 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         },
       );
     } on AuthException catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -77,7 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         confirmBtnColor: const Color(0xFF2563EB),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !context.mounted) return;
       Navigator.pop(context);
       QuickAlert.show(
         context: context,
@@ -130,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               BoxShadow(
                                 color: const Color(
                                   0xFF2563EB,
-                                ).withOpacity(0.08),
+                                ).withValues(alpha: 0.08),
                                 blurRadius: 12,
                                 offset: const Offset(0, 6),
                               ),
@@ -165,12 +165,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         vertical: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(color: Colors.white, width: 1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -224,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   BoxShadow(
                                     color: const Color(
                                       0xFF2563EB,
-                                    ).withOpacity(0.3),
+                                    ).withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
