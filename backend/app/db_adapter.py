@@ -484,9 +484,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             return self._to_dict(row) if row else None
         finally:
             session.close()
@@ -522,9 +524,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             valid_cols = {c.key for c in getattr(model_cls, "__mapper__").column_attrs}
             
             if row:
@@ -588,7 +592,13 @@ class MySQLAdapter(BaseDBAdapter):
                                 pass
             else:
                 if hasattr(model_cls, "id"):
-                    mapped_data["id"] = doc_id
+                    if model_cls == SqlSection:
+                        try:
+                            mapped_data["id"] = int(doc_id)
+                        except (ValueError, TypeError):
+                            mapped_data.pop("id", None)
+                    else:
+                        mapped_data["id"] = doc_id
                 elif hasattr(model_cls, "code"):
                     mapped_data["code"] = doc_id
                 elif hasattr(model_cls, "email"):
@@ -725,9 +735,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             if row:
                 mapped_data = dict(data)
                         
@@ -810,9 +822,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             if row:
                 session.delete(row)
                 session.commit()
