@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import iconImage from "../images/icon.png";
 import logoImage from "../images/logo.jpg";
 
 export const Swal = () => window.Swal;
