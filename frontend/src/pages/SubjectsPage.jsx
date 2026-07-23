@@ -16,7 +16,7 @@ export function SubjectsPage({ data, api, refresh }) {
     emptyForm(["id", "code", "name", "term", "year", "teacher"]),
   );
   const [sectionForm, setSectionForm] = useState(
-    emptyForm(["id", "subject", "sec"]),
+    emptyForm(["id", "realId", "subject", "sec"]),
   );
   const [activeSubject, setActiveSubject] = useState(null);
   const [searchSubject, setSearchSubject] = useState("");
@@ -74,18 +74,53 @@ export function SubjectsPage({ data, api, refresh }) {
         "warning",
       );
     }
-    const id = sectionForm.id || sectionForm.sec;
+    if (!sectionForm.sec.trim()) {
+      return Swal().fire(
+        "กรุณากรอกกลุ่มเรียน",
+        "ชื่อกลุ่มเรียนต้องไม่เป็นค่าว่าง",
+        "warning",
+      );
+    }
+    const sectionId =
+      sectionForm.realId ||
+      (sectionForm.id && sectionForm.id !== sectionForm.sec
+        ? sectionForm.id
+        : null);
+
+    const existing = sections.find(
+      (s) =>
+        String(s.sec).trim() === String(sectionForm.sec).trim() &&
+        (s.realId || s.id) !== sectionId,
+    );
+    if (existing) {
+      return Swal().fire(
+        "กลุ่มเรียนนี้มีอยู่แล้ว",
+        `กลุ่มเรียน ${sectionForm.sec} ในวิชานี้มีอยู่ในระบบแล้ว`,
+        "warning",
+      );
+    }
+
     Swal().fire({
       title: "กำลังบันทึกกลุ่มเรียน...",
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
-    await api.set(`subjects/${subjectId}/sections/${id}`, {
-      subject: subjectId,
-      sec: sectionForm.sec,
-      created_at: new Date().toISOString(),
-    });
-    setSectionForm(emptyForm(["id", "subject", "sec"]));
+
+    if (sectionId) {
+      await api.set(`subjects/${subjectId}/sections/${sectionId}`, {
+        subject: subjectId,
+        sec: sectionForm.sec.trim(),
+        created_at: new Date().toISOString(),
+      });
+    } else {
+      await api.add(`subjects/${subjectId}/sections`, {
+        subject: subjectId,
+        sec: sectionForm.sec.trim(),
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    setSectionForm(emptyForm(["id", "realId", "subject", "sec"]));
     await refresh("บันทึกกลุ่มเรียนเรียบร้อยแล้ว");
   }
 
@@ -305,7 +340,10 @@ export function SubjectsPage({ data, api, refresh }) {
                         variant="primary"
                         className="py-1.5 px-2.5 text-sm"
                         title="จัดการกลุ่มเรียน"
-                        onClick={() => setActiveSubject(row.id)}
+                        onClick={() => {
+                          setActiveSubject(row.id);
+                          setSectionForm(emptyForm(["id", "realId", "subject", "sec"]));
+                        }}
                       >
                         <Icon name="fa-users" /> กลุ่ม
                       </GhostButton>
@@ -347,7 +385,10 @@ export function SubjectsPage({ data, api, refresh }) {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-4">
                 <GhostButton
-                  onClick={() => setActiveSubject(null)}
+                  onClick={() => {
+                    setActiveSubject(null);
+                    setSectionForm(emptyForm(["id", "realId", "subject", "sec"]));
+                  }}
                   className="py-2 px-3"
                 >
                   <Icon name="fa-arrow-left" />
@@ -466,7 +507,7 @@ export function SubjectsPage({ data, api, refresh }) {
                         className="py-2 px-3"
                         onClick={() =>
                           setSectionForm({
-                            ...emptyForm(["id", "subject", "sec"]),
+                            ...emptyForm(["id", "realId", "subject", "sec"]),
                             ...row,
                           })
                         }
@@ -578,9 +619,24 @@ export function SubjectsPage({ data, api, refresh }) {
             onSubmit={saveSection}
             className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
           >
-            <h4 className="font-extrabold">
-              {sectionForm.id ? "แก้ไขกลุ่มเรียน" : "เพิ่มกลุ่มเรียน"}
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-extrabold">
+                {sectionForm.realId || (sectionForm.id && sectionForm.id !== sectionForm.sec)
+                  ? "แก้ไขกลุ่มเรียน"
+                  : "เพิ่มกลุ่มเรียน"}
+              </h4>
+              {(sectionForm.realId || (sectionForm.id && sectionForm.id !== sectionForm.sec)) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSectionForm(emptyForm(["id", "realId", "subject", "sec"]))
+                  }
+                  className="text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  ยกเลิก
+                </button>
+              )}
+            </div>
             <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-blue-700 text-sm mb-2">
               <div className="font-bold flex items-center gap-2">
                 <Icon name="fa-book" /> {currentSubject?.code}
@@ -599,7 +655,9 @@ export function SubjectsPage({ data, api, refresh }) {
             </Field>
             <PrimaryButton className="w-full">
               <Icon name="fa-floppy-disk" />{" "}
-              {sectionForm.id ? "บันทึกการแก้ไข" : "บันทึกกลุ่มเรียน"}
+              {sectionForm.realId || (sectionForm.id && sectionForm.id !== sectionForm.sec)
+                ? "บันทึกการแก้ไข"
+                : "บันทึกกลุ่มเรียน"}
             </PrimaryButton>
           </form>
         )}

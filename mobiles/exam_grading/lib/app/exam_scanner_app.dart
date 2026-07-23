@@ -96,7 +96,11 @@ class _SplashScreenState extends State<SplashScreen> {
       FlutterNativeSplash.remove();
       await Future.delayed(const Duration(milliseconds: 300));
       // โหลด .env
-      await dotenv.load(fileName: '.env');
+      try {
+        await dotenv.load(fileName: '.env');
+      } catch (e) {
+        debugPrint('Dotenv load warning: $e');
+      }
       await Future.delayed(const Duration(milliseconds: 300));
       // โหลด session จาก SharedPreferences (แทน Firebase)
       await AuthService.instance.init();

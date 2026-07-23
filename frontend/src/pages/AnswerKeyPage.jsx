@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Icon, PrimaryButton, Swal } from "../ui.jsx";
+import { Icon, PrimaryButton, GhostButton, Swal } from "../ui.jsx";
 
 export function AnswerKeyPage({ data, api, refresh, query }) {
   const [examId, setExamId] = useState(query.examId || data.exams[0]?.id || "");
@@ -36,6 +36,34 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     await refresh("บันทึกเฉลยแล้ว");
   }
 
+  function toggleAnswer(question, option) {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      if (next[question] === option) {
+        delete next[question];
+      } else {
+        next[question] = option;
+      }
+      return next;
+    });
+  }
+
+  function clearAll() {
+    Swal().fire({
+      title: "ล้างคำตอบทั้งหมด?",
+      text: "คุณต้องการล้างเฉลยทุกข้อใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ล้างทั้งหมด",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setAnswers({});
+      }
+    });
+  }
+
   const questionNumbers = Array.from(
     { length: Number(exam?.questions || 0) },
     (_, index) => index + 1,
@@ -44,62 +72,99 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     String.fromCharCode(65 + index),
   );
 
+  const answeredCount = Object.values(answers).filter(Boolean).length;
+  const totalQuestions = Number(exam?.questions || 0);
+
   return (
     <div className="page-enter space-y-6">
-      <div className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-slate-200 border-t-4 border-t-blue-600 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => window.history.back()}
-            className="w-10 h-10 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
             title="กลับไปหน้าจัดการกระดาษคำตอบ"
           >
             <Icon name="fa-arrow-left" />
           </button>
           <div>
             <h2 className="text-xl font-bold text-slate-800">
-              {exam ? `เฉลย: ${exam.name} (${exam.subject})` : "เลือกข้อสอบ"}
+              {exam ? `เฉลยข้อสอบ: ${exam.name}` : "เลือกข้อสอบ"}
             </h2>
-            <p className="text-sm text-slate-500">
-              แตะที่ตัวเลือกด้านล่างเพื่อกำหนดคำตอบที่ถูกต้อง
+            <p className="text-sm text-slate-500 mt-0.5">
+              {exam ? `รหัสวิชา: ${exam.subject} | กำหนดแล้ว ${answeredCount} / ${totalQuestions} ข้อ` : "เลือกข้อสอบเพื่อกำหนดเฉลย"}
             </p>
           </div>
         </div>
-        <PrimaryButton onClick={save} disabled={!exam} className="px-10">
-          <Icon name="fa-floppy-disk" /> บันทึกเฉลย
-        </PrimaryButton>
-      </div>
-      {exam ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4">
-          {questionNumbers.map((question) => (
-            <div
-              key={question}
-              className="break-inside-avoid bg-white rounded-md border border-zinc-200 p-4 flex items-center justify-between mb-4 hover:border-indigo-300 transition-colors "
+
+        {exam && (
+          <div className="flex items-center gap-3">
+            <GhostButton
+              variant="danger"
+              onClick={clearAll}
+              className="py-2 px-3 text-sm"
+              title="ล้างคำตอบทั้งหมด"
             >
-              <span className="font-extrabold text-slate-700 min-w-[50px]">
-                ข้อ {question}
-              </span>
-              <div className="flex gap-1.5">
-                {options.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() =>
-                      setAnswers({ ...answers, [question]: option })
-                    }
-                    className={`w-9 h-9 rounded-full border-2 font-bold transition-all ${answers[question] === option ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200 scale-110" : "bg-white text-zinc-500 border-slate-100 hover:border-blue-200"}`}
-                  >
-                    {option}
-                  </button>
-                ))}
+              <Icon name="fa-rotate-left" /> ล้างเฉลย
+            </GhostButton>
+            <PrimaryButton onClick={save} disabled={!exam} className="px-6 py-2">
+              <Icon name="fa-floppy-disk" /> บันทึกเฉลย
+            </PrimaryButton>
+          </div>
+        )}
+      </div>
+
+      {exam ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+          {questionNumbers.map((question) => {
+            const currentSelected = answers[question];
+            return (
+              <div
+                key={question}
+                className={`bg-white rounded-xl border p-3.5 flex items-center justify-between gap-2 shadow-sm transition-all ${
+                  currentSelected
+                    ? "border-blue-200 bg-blue-50/20"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-slate-400 w-5 text-right">
+                    {question}.
+                  </span>
+                  <span className="font-bold text-slate-700 text-sm">
+                    ข้อ {question}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  {options.map((option) => {
+                    const isSelected = currentSelected === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => toggleAnswer(question, option)}
+                        className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full text-xs font-bold transition-all flex items-center justify-center shrink-0 ${
+                          isSelected
+                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-105"
+                            : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-slate-200/80"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-lg p-10 text-center text-zinc-500 ">
-          เลือกข้อสอบเพื่อกำหนดเฉลย
+        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 shadow-sm">
+          <Icon name="fa-key" className="text-4xl text-slate-300 mb-3" />
+          <p className="font-semibold text-lg text-slate-600">ไม่พบข้อมูลข้อสอบ</p>
+          <p className="text-sm text-slate-400">กรุณาเลือกข้อสอบจากหน้าจัดการกระดาษคำตอบ</p>
         </div>
       )}
     </div>
   );
 }
+

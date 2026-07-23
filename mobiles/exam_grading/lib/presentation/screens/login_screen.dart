@@ -83,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final googleSignIn = GoogleSignIn(
         scopes: ['email', 'profile'],
+        serverClientId: '185283559084-k2q60rndggmo7h6k65kl7eb4rhe8sc23.apps.googleusercontent.com',
       );
       await googleSignIn.signOut(); // บังคับให้เลือก account ใหม่ทุกครั้ง
 
