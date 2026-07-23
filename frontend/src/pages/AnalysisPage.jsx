@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { DataTable, Select, StatCard, useChart } from "../ui.jsx";
+import { DataTable, Select, StatCard, useChart, Modal } from "../ui.jsx";
 
 function itemLabel(value, type) {
   if (type === "difficulty") {
@@ -78,6 +78,7 @@ function calculateItemAnalysis(results, exam) {
 
 export function AnalysisPage({ data }) {
   const [examId, setExamId] = useState(data.exams[0]?.id || "");
+  const [infoModal, setInfoModal] = useState({ isOpen: false, type: "" });
   const canvasRef = useRef(null);
   const canvasRefPie = useRef(null);
   const exam = data.exams.find((item) => item.id === examId);
@@ -327,72 +328,57 @@ export function AnalysisPage({ data }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="จำนวนผู้สอบ"
-          value={expectedStudentsCount !== null ? expectedStudentsCount : "-"}
+          value={!examId ? "-" : results.length}
           icon="fa-users"
-          color="blue"
+          color="indigo"
         />
         <StatCard
           title="คะแนนเฉลี่ย"
           value={mean !== null ? mean.toFixed(2) : "-"}
           icon="fa-chart-simple"
-          color="green"
+          color="emerald"
         />
         <StatCard
           title="มัธยฐาน"
           value={median !== null ? median.toFixed(2) : "-"}
           icon="fa-scale-balanced"
-          color="violet"
+          color="blue"
         />
         <StatCard
           title="ฐานนิยม"
           value={mode !== null ? mode : "-"}
           icon="fa-chart-pie"
-          color="amber"
+          color="violet"
         />
         <StatCard
           title="คะแนนสูงสุด/ต่ำสุด"
           value={
-            maxScore !== null && minScore !== null
-              ? `${maxScore} / ${minScore}`
-              : "-"
+            maxScore !== null && minScore !== null ? (
+              <span className="flex items-center gap-2">
+                <span className="text-emerald-500">{maxScore}</span>
+                <span className="text-slate-400 font-medium text-2xl">/</span>
+                <span className="text-rose-500">{minScore}</span>
+              </span>
+            ) : (
+              "-"
+            )
           }
-          icon="fa-arrow-up-wide-short"
+          icon="fa-arrow-up-right-dots"
           color="rose"
         />
       </div>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_24rem]">
-        <div className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40">
-          <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-blue-500 to-indigo-500"></div>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-blue-50 text-xl text-blue-600 shadow-inner">
-                <i className="fa-solid fa-chart-column" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-800">
-                  ระดับความยากง่ายรายข้อ (p)
-                </h3>
-                <p className="mt-1 text-sm font-medium text-slate-500">
-                  สัดส่วนเปอร์เซ็นต์ผู้เรียนที่ตอบถูกในแต่ละข้อ
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-4 rounded-md border border-emerald-100 bg-emerald-50/50 px-4 py-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-right">
-                  คะแนนเฉลี่ย
-                </p>
-                <p className="text-xs font-semibold text-emerald-700/80 text-right">
-                  ผู้เข้าสอบ {results.length} คน
-                </p>
-              </div>
-              <div className="text-3xl font-black text-emerald-600">
-                {mean !== null ? mean.toFixed(2) : "-"}
-              </div>
-            </div>
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm min-w-0 flex flex-col">
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-slate-900">
+              ระดับความยากง่ายรายข้อ (p)
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              สัดส่วนเปอร์เซ็นต์ผู้เรียนที่ตอบถูกในแต่ละข้อ
+            </p>
           </div>
-          <div className="mt-8 relative h-72 w-full overflow-x-auto overflow-y-hidden rounded-md border border-slate-100 bg-slate-50/30 p-2">
+          <div className="mt-4 relative flex-1 min-h-[280px] w-full overflow-x-auto overflow-y-hidden rounded-md border border-slate-100 bg-slate-50/30 p-2">
             <div
               style={{
                 minWidth: `max(100%, ${chartLabels.length * 40}px)`,
@@ -414,20 +400,14 @@ export function AnalysisPage({ data }) {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40 flex flex-col">
-          <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-indigo-500 to-violet-500"></div>
-          <div className="flex gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-xl text-indigo-600 shadow-inner">
-              <i className="fa-solid fa-chart-pie" />
-            </div>
-            <div>
-              <h3 className="text-lg font-extrabold text-slate-800">
-                สัดส่วนคุณภาพ (D)
-              </h3>
-              <p className="mt-1 text-sm font-medium text-slate-500">
-                คัดกรองจากค่าอำนาจจำแนก
-              </p>
-            </div>
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm flex flex-col min-w-0">
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-slate-900">
+              สัดส่วนคุณภาพ (D)
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              คัดกรองจากค่าอำนาจจำแนก
+            </p>
           </div>
           <div className="relative mt-8 flex-1 min-h-[280px] flex items-center justify-center">
             {answeredItemAnalysis.length > 0 ? (
@@ -477,7 +457,7 @@ export function AnalysisPage({ data }) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
             <i className="fa-solid fa-circle-info" />
           </div>
-          <span>เกณฑ์การแปลความหมายคุณภาพข้อสอบ</span>
+          <span>เกณฑ์คุณภาพข้อสอบ</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -487,8 +467,12 @@ export function AnalysisPage({ data }) {
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-blue-700 shadow-sm border border-blue-200 text-xs">
                 p
               </span>
-              <span className="font-bold text-sm text-blue-900">
+              <span className="font-bold text-sm text-blue-900 flex items-center gap-1.5">
                 ค่าความยากง่าย (Difficulty)
+                <i
+                  className="fa-solid fa-circle-question text-blue-400 hover:text-blue-500 cursor-pointer transition-colors"
+                  onClick={() => setInfoModal({ isOpen: true, type: "p" })}
+                />
               </span>
             </div>
             <div className="p-4 space-y-2 text-sm">
@@ -519,8 +503,12 @@ export function AnalysisPage({ data }) {
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-emerald-700 shadow-sm border border-emerald-200 text-xs">
                 D
               </span>
-              <span className="font-bold text-sm text-emerald-900">
+              <span className="font-bold text-sm text-emerald-900 flex items-center gap-1.5">
                 ค่าอำนาจจำแนก (Discrimination)
+                <i
+                  className="fa-solid fa-circle-question text-emerald-400 hover:text-emerald-500 cursor-pointer transition-colors"
+                  onClick={() => setInfoModal({ isOpen: true, type: "D" })}
+                />
               </span>
             </div>
             <div className="p-4 space-y-2 text-sm">
@@ -547,34 +535,34 @@ export function AnalysisPage({ data }) {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              วิเคราะห์คุณภาพข้อสอบรายข้อ
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              ค่าความยากง่ายเฉลี่ย{" "}
-              {avgDifficulty !== null ? avgDifficulty.toFixed(2) : "-"} ·
-              ค่าอำนาจจำแนกเฉลี่ย{" "}
-              {avgDiscrimination !== null ? avgDiscrimination.toFixed(2) : "-"}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-sm text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1">
-              คะแนนเฉลี่ย {mean !== null ? mean.toFixed(2) : "-"}
-            </span>
-          </div>
+      <section className="space-y-4 mt-8">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">
+            ตารางวิเคราะห์คุณภาพข้อสอบรายข้อ
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            ข้อมูลการวิเคราะห์คุณภาพและการแปลผลรายข้อ
+          </p>
         </div>
 
         <DataTable
           columns={[
-            { key: "question", label: "ข้อ" },
+            {
+              key: "question",
+              label: "ข้อ",
+              className: "w-16 text-center",
+              render: (row) => (
+                <span className="text-base font-bold text-slate-800">
+                  {row.question}
+                </span>
+              ),
+            },
             {
               key: "answer",
               label: "เฉลย",
+              className: "text-center",
               render: (row) => (
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-black text-slate-700 border border-slate-200">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-black text-blue-700 border border-blue-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                   {row.answer}
                 </span>
               ),
@@ -582,16 +570,19 @@ export function AnalysisPage({ data }) {
             {
               key: "correctCount",
               label: "ตอบถูก",
+              className: "text-center",
               render: (row) => `${row.correctCount}/${results.length}`,
             },
             {
               key: "difficulty",
               label: "ค่าความยากง่าย",
+              className: "text-center",
               render: (row) => row.difficulty.toFixed(2),
             },
             {
               key: "difficultyLabel",
               label: "ระดับ",
+              className: "text-center",
               render: (row) => (
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${itemTone(row.difficulty, "difficulty")}`}
@@ -603,11 +594,12 @@ export function AnalysisPage({ data }) {
             {
               key: "discrimination",
               label: "ค่าอำนาจจำแนก",
+              className: "text-center",
               render: (row) => row.discrimination.toFixed(2),
             },
             {
               key: "discriminationLabel",
-              label: "แปลผล",
+              label: "ผลลัพธ์",
               render: (row) => (
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${itemTone(row.discrimination, "discrimination")}`}
@@ -621,6 +613,118 @@ export function AnalysisPage({ data }) {
           emptyText="ยังไม่มีข้อมูลรายข้อสำหรับคำนวณค่าความยากง่ายและค่าอำนาจจำแนก"
         />
       </section>
+
+      <Modal
+        isOpen={infoModal.isOpen}
+        onClose={() => setInfoModal({ ...infoModal, isOpen: false })}
+        title={
+          infoModal.type === "p"
+            ? "ค่าความยากง่าย (Difficulty)"
+            : "ค่าอำนาจจำแนก (Discrimination)"
+        }
+        maxWidth="max-w-lg"
+      >
+        <div className="text-slate-700 text-sm leading-relaxed">
+          {infoModal.type === "p" && (
+            <div className="space-y-4">
+              <p className="text-base text-slate-600">
+                <strong>ค่าความยากง่าย (p)</strong>{" "}
+                คือสัดส่วนของผู้ที่ตอบข้อสอบข้อนั้นถูก จากจำนวนผู้สอบทั้งหมด
+                ยิ่งค่าเข้าใกล้ 1 แปลว่าง่าย ยิ่งเข้าใกล้ 0 แปลว่ายาก
+              </p>
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-800 mb-3 text-base">
+                  เกณฑ์การพิจารณา:
+                </h4>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        0.80 - 1.00
+                      </span>{" "}
+                      : ข้อสอบง่ายเกินไป (ควรปรับปรุง)
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        0.40 - 0.79
+                      </span>{" "}
+                      : ข้อสอบมีความยากง่ายเหมาะสม <strong>(เก็บไว้ใช้)</strong>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        0.00 - 0.39
+                      </span>{" "}
+                      : ข้อสอบยากเกินไป (ควรปรับปรุง)
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {infoModal.type === "D" && (
+            <div className="space-y-4">
+              <p className="text-base text-slate-600">
+                <strong>ค่าอำนาจจำแนก (D)</strong>{" "}
+                คือความสามารถของข้อสอบในการแยกแยะกลุ่มผู้ที่ได้คะแนนสูง
+                (เด็กเก่ง) ออกจากกลุ่มผู้ที่ได้คะแนนต่ำ (เด็กอ่อน)
+              </p>
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-800 mb-3 text-base">
+                  เกณฑ์การพิจารณา:
+                </h4>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        0.40 ขึ้นไป
+                      </span>{" "}
+                      : ดีมาก สามารถจำแนกเด็กเก่ง/อ่อนได้ชัดเจน{" "}
+                      <strong>(เก็บไว้ใช้)</strong>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-exclamation text-amber-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        0.20 - 0.39
+                      </span>{" "}
+                      : พอใช้ (ควรพิจารณาปรับปรุงตัวเลือก)
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
+                    <div>
+                      <span className="font-bold text-slate-800">
+                        ต่ำกว่า 0.20
+                      </span>{" "}
+                      : ไม่ดี ไม่สามารถจำแนกเด็กได้ หรือมีโอกาสเฉลยผิด
+                      (ควรตัดทิ้ง)
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-end">
+            <button
+              onClick={() => setInfoModal({ ...infoModal, isOpen: false })}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm"
+            >
+              เข้าใจแล้ว
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

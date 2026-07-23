@@ -19,6 +19,8 @@ export function StudentsPage({ data, api, refresh }) {
   const [importClass, setImportClass] = useState("");
   const [searchText, setSearchText] = useState("");
   const [selectedStudents, setSelectedStudents] = useState(new Set());
+  const [lastSelectedStudentIndex, setLastSelectedStudentIndex] = useState(null);
+  const [lastShiftStudentIndex, setLastShiftStudentIndex] = useState(null);
   const fileRef = useRef(null);
 
   const importSections = importSubject
@@ -174,7 +176,7 @@ export function StudentsPage({ data, api, refresh }) {
       let count = 0;
       for (const row of rows) {
         const code =
-          row["รหัสนักเรียน"] || row.ID || row.code || row["เลขประจำตัว"];
+          row["รหัสผู้เรียน"] || row.ID || row.code || row["เลขประจำตัว"];
         const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
 
         if (code && name) {
@@ -256,7 +258,7 @@ export function StudentsPage({ data, api, refresh }) {
               <Input
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
-                placeholder="ค้นหารหัสนักเรียนหรือชื่อ"
+                placeholder="ค้นหารหัสผู้เรียนหรือชื่อ"
               />
             </div>
             <div className="w-full sm:w-48 shrink-0">
@@ -315,9 +317,11 @@ export function StudentsPage({ data, api, refresh }) {
                     if (e.target.checked) {
                       filteredStudents.forEach((s) => next.add(s.id));
                     } else {
-                        next.clear();
-                      }
+                      next.clear();
+                    }
                     setSelectedStudents(next);
+                    setLastSelectedStudentIndex(null);
+                    setLastShiftStudentIndex(null);
                   }}
                   className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                 />
@@ -327,21 +331,47 @@ export function StudentsPage({ data, api, refresh }) {
                   type="checkbox"
                   checked={selectedStudents.has(row.id)}
                   onChange={(e) => {
+                    const currentIndex = filteredStudents.findIndex(x => x.id === row.id);
                     const next = new Set(selectedStudents);
-                    if (e.target.checked) next.add(row.id);
-                    else next.delete(row.id);
+                    
+                    if (e.nativeEvent.shiftKey && lastSelectedStudentIndex !== null) {
+                      const oldStart = lastShiftStudentIndex !== null ? Math.min(lastShiftStudentIndex, lastSelectedStudentIndex) : lastSelectedStudentIndex;
+                      const oldEnd = lastShiftStudentIndex !== null ? Math.max(lastShiftStudentIndex, lastSelectedStudentIndex) : lastSelectedStudentIndex;
+                      
+                      const newStart = Math.min(currentIndex, lastSelectedStudentIndex);
+                      const newEnd = Math.max(currentIndex, lastSelectedStudentIndex);
+                      
+                      for (let i = oldStart; i <= oldEnd; i++) {
+                        if (i < newStart || i > newEnd) {
+                          next.delete(filteredStudents[i].id);
+                        }
+                      }
+
+                      const targetState = selectedStudents.has(filteredStudents[lastSelectedStudentIndex].id);
+                      for (let i = newStart; i <= newEnd; i++) {
+                        if (targetState) next.add(filteredStudents[i].id);
+                        else next.delete(filteredStudents[i].id);
+                      }
+                      setLastShiftStudentIndex(currentIndex);
+                    } else {
+                      if (e.target.checked) next.add(row.id);
+                      else next.delete(row.id);
+                      setLastSelectedStudentIndex(currentIndex);
+                      setLastShiftStudentIndex(currentIndex);
+                    }
+                    
                     setSelectedStudents(next);
                   }}
                   className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                 />
               ),
             },
-            { key: "id", label: "รหัสนักเรียน", className: "w-[150px]" },
+            { key: "id", label: "รหัสผู้เรียน", className: "w-[150px] text-left" },
             { key: "name", label: "ชื่อ-นามสกุล" },
             {
               key: "subject",
               label: "รายวิชา",
-              className: "w-[160px]",
+              className: "w-[160px] text-center",
               render: (row) => {
                 const subjectId = row.subjectCode || row.section?.split("_")[0];
                 return (
@@ -356,7 +386,7 @@ export function StudentsPage({ data, api, refresh }) {
             {
               key: "section",
               label: "กลุ่มเรียน",
-              className: "w-[100px]",
+              className: "w-[100px] text-center",
               render: (row) =>
                 data.sections.find((s) => String(s.id) === String(row.section))
                   ?.sec ||
@@ -423,7 +453,7 @@ export function StudentsPage({ data, api, refresh }) {
             </>
           )}
         </div>
-        <Field label="รหัสนักเรียน">
+        <Field label="รหัสผู้เรียน">
           <Input
             value={form.id || ""}
             onChange={(e) => setForm({ ...form, id: e.target.value })}
@@ -512,7 +542,7 @@ export function StudentsPage({ data, api, refresh }) {
 
             <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
               <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
-              <div>รหัสนักเรียน | ชื่อ-นามสกุล</div>
+              <div>รหัสผู้เรียน | ชื่อ-นามสกุล</div>
               <div className="mt-1 text-zinc-500">
                 รองรับคอลัมน์ภาษาอังกฤษ: code | name
               </div>

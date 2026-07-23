@@ -246,7 +246,9 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
       displayName: nextDisplayName,
       photoURL: nextPhotoURL,
       email: user.email,
-      lastUpdated: window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || new Date().toISOString(),
+      lastUpdated:
+        window.firebase?.firestore?.FieldValue?.serverTimestamp?.() ||
+        new Date().toISOString(),
     });
     onProfileSaved?.({
       displayName: nextDisplayName,
@@ -274,7 +276,10 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
       const data = await res.json();
       if (data.url) {
         let finalUrl = data.url;
-        if (finalUrl.startsWith("http://localhost:8000") && API_BASE_URL !== "http://localhost:8000") {
+        if (
+          finalUrl.startsWith("http://localhost:8000") &&
+          API_BASE_URL !== "http://localhost:8000"
+        ) {
           finalUrl = finalUrl.replace("http://localhost:8000", API_BASE_URL);
         }
         setPhotoURL(finalUrl);
@@ -334,21 +339,25 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
               placeholder="https://example.com/photo.jpg"
               className="flex-1"
             />
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
             />
-            <GhostButton 
-              type="button" 
+            <GhostButton
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className="shrink-0"
               title="อัปโหลดรูปภาพ"
             >
-              {uploading ? <Icon name="fa-spinner fa-spin" /> : <Icon name="fa-upload" />}
+              {uploading ? (
+                <Icon name="fa-spinner fa-spin" />
+              ) : (
+                <Icon name="fa-upload" />
+              )}
             </GhostButton>
           </div>
         </Field>
@@ -430,11 +439,16 @@ function Shell({
         className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-sm flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
         <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between h-[73px]">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 w-full">
             <AppLogo compact />
-            <span className="text-xl font-extrabold tracking-tight text-slate-800">
-              Exam Grading
-            </span>
+            <div className="flex flex-col justify-center">
+              <span className="text-xl font-black tracking-tighter text-slate-800 leading-none">
+                Exam<span className="text-indigo-600">Grading</span>
+              </span>
+              <span className="text-[10px] font-bold text-slate-400 tracking-[0.15em] uppercase mt-1">
+                Management
+              </span>
+            </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -443,7 +457,7 @@ function Shell({
             <Icon name="fa-xmark" />
           </button>
         </div>
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {routes
             .filter((item) => !item.hidden)
             .filter((item) => !item.adminOnly || user?.role === "admin")
@@ -454,31 +468,52 @@ function Shell({
                   navigate(item.id);
                   setSidebarOpen(false);
                 }}
-                className={`sidebar-menu ${routeId === item.id ? "active" : ""} w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-600`}
+                className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
+                  routeId === item.id
+                    ? "bg-indigo-50 text-indigo-700 shadow-[0_1px_2px_rgba(0,0,0,0.02)] ring-1 ring-indigo-100/50"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
               >
-                <Icon name={item.icon} />{" "}
-                <span className="font-medium">{item.label}</span>
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    routeId === item.id
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200/50"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-700"
+                  }`}
+                >
+                  <Icon name={item.icon} className="text-[13px]" />
+                </div>
+                <span
+                  className={`text-[15px] ${
+                    routeId === item.id ? "font-bold" : "font-medium"
+                  }`}
+                >
+                  {item.label}
+                </span>
               </button>
             ))}
         </nav>
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+
           {user?.role === "admin" ? (
-            <GhostButton
-              variant="primary"
+            <button
               onClick={() => navigate("admin")}
-              className="w-full"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold text-indigo-700 bg-white border border-indigo-100 shadow-sm hover:bg-indigo-50 transition-colors"
             >
               <Icon name="fa-user-shield" /> โหมดผู้ดูแลระบบ
-            </GhostButton>
+            </button>
           ) : (
-            <GhostButton variant="danger" onClick={signOut} className="w-full">
+            <button
+              onClick={signOut}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold text-rose-600 bg-white border border-rose-100 shadow-sm hover:bg-rose-50 hover:border-rose-200 transition-colors"
+            >
               <Icon name="fa-right-from-bracket" /> ออกจากระบบ
-            </GhostButton>
+            </button>
           )}
         </div>
       </aside>
       <main className="flex-1 flex flex-col h-screen overlay-y relative">
-        <header className="bg-white border-b border-slate-200 px-6 sm:px-10 shrink-0 sticky top-0 z-10 h-[73px] flex items-center w-full">
+        <header className="bg-white border-b border-slate-200 px-6 sm:px-10 shrink-0 sticky top-0 z-30 h-[73px] flex items-center w-full">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">
               <button

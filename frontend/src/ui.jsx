@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import iconImage from "../images/icon.png";
+import logoImage from "../images/logo.jpg";
 
 export const Swal = () => window.Swal;
 
@@ -67,22 +68,22 @@ export function emptyForm(fields) {
   return Object.fromEntries(fields.map((field) => [field, ""]));
 }
 
-export function AppLogo({ compact = false }) {
+export function AppLogo({ compact = false, className = "" }) {
   return (
     <div
-      className={`${compact ? "w-10 h-10 rounded-lg" : "w-16 h-16 rounded-md"} bg-white flex items-center justify-center shadow-sm border border-slate-200 overflow-hidden p-0.5`}
+      className={`${compact ? "w-10 h-10 rounded-xl" : "w-16 h-16 rounded-2xl"} bg-white flex items-center justify-center shadow-sm overflow-hidden border border-slate-200/60 ${className}`}
     >
       <img
-        src={iconImage}
+        src={logoImage}
         alt="App Logo"
-        className="w-full h-full object-contain"
+        className="w-full h-full object-cover"
       />
     </div>
   );
 }
 
-export function Icon({ name }) {
-  return <i className={`fa-solid ${name}`} aria-hidden="true" />;
+export function Icon({ name, className = "" }) {
+  return <i className={`fa-solid ${name} ${className}`.trim()} aria-hidden="true" />;
 }
 
 export function Field({ label, children }) {
@@ -139,7 +140,7 @@ export function Select(props) {
     if (!search) return options;
     const lowerSearch = search.toLowerCase();
     return options.filter((item) =>
-      String(item.label).toLowerCase().includes(lowerSearch)
+      String(item.label).toLowerCase().includes(lowerSearch),
     );
   }, [options, search]);
 
@@ -184,11 +185,22 @@ export function Select(props) {
         }}
         className={`w-full px-4 py-2 bg-white border border-slate-300 rounded-lg text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-between ${className}`}
       >
-        <span className={`truncate ${selected ? "text-slate-800" : "text-slate-400"}`}>
+        <span
+          className={`truncate ${selected ? "text-slate-800" : "text-slate-400"}`}
+        >
           {selected?.label || placeholder || "เลือกข้อมูล"}
         </span>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-400 shrink-0 ml-2">
-          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="w-4 h-4 text-slate-400 shrink-0 ml-2"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
         </svg>
       </button>
       {open && !disabled && (
@@ -198,8 +210,17 @@ export function Select(props) {
           {searchable && options.length > 5 && (
             <div className="p-2 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
               <div className="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2">
-                  <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <input
                   ref={inputRef}
@@ -227,7 +248,9 @@ export function Select(props) {
                         ? "bg-blue-50 text-blue-700 font-medium"
                         : "text-slate-700 hover:bg-slate-50"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    title={typeof item.label === 'string' ? item.label : undefined}
+                    title={
+                      typeof item.label === "string" ? item.label : undefined
+                    }
                   >
                     {item.label}
                   </button>
@@ -316,50 +339,66 @@ export function StatCard({ title, value, icon, color }) {
   const styles = {
     blue: {
       text: "text-blue-600",
-      bg: "bg-blue-50",
+      bg: "bg-blue-100",
+      border: "border-l-blue-500",
     },
     indigo: {
       text: "text-indigo-600",
-      bg: "bg-indigo-50",
+      bg: "bg-indigo-100",
+      border: "border-l-indigo-500",
     },
     green: {
       text: "text-emerald-600",
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-100",
+      border: "border-l-emerald-500",
     },
     emerald: {
       text: "text-emerald-600",
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-100",
+      border: "border-l-emerald-500",
     },
     violet: {
       text: "text-violet-600",
-      bg: "bg-violet-50",
+      bg: "bg-violet-100",
+      border: "border-l-violet-500",
     },
     amber: {
       text: "text-amber-600",
-      bg: "bg-amber-50",
+      bg: "bg-amber-100",
+      border: "border-l-amber-500",
     },
     rose: {
       text: "text-rose-600",
-      bg: "bg-rose-50",
+      bg: "bg-rose-100",
+      border: "border-l-rose-500",
     },
   };
   const s = styles[color] || styles.blue;
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-full relative overflow-hidden">
+    <div
+      className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 ${s.border} shadow-sm flex flex-col justify-between h-full`}
+    >
       <div className="flex justify-between items-start mb-2">
-        <p className="text-slate-500 text-sm font-semibold leading-tight pr-4">
+        <p className="text-slate-600 text-sm font-bold leading-tight pr-2">
           {title}
         </p>
-        <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${s.bg} ${s.text}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+        <div
+          className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${s.bg} ${s.text}`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2.5}
+            stroke="currentColor"
+            className="w-5 h-5"
+          >
             {getStatIconPath(icon)}
           </svg>
         </div>
       </div>
       <div>
-        <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
-          {value}
-        </h3>
+        <h3 className="text-3xl font-black text-slate-800 mt-1">{value}</h3>
       </div>
     </div>
   );
@@ -367,33 +406,117 @@ export function StatCard({ title, value, icon, color }) {
 
 function getStatIconPath(name) {
   switch (name) {
-    case 'fa-users':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />;
-    case 'fa-chart-simple':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />;
-    case 'fa-scale-balanced':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />;
-    case 'fa-chart-pie':
+    case "fa-users":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+        />
+      );
+    case "fa-chart-simple":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+        />
+      );
+    case "fa-scale-balanced":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z"
+        />
+      );
+    case "fa-chart-pie":
       return (
         <>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"
+          />
         </>
       );
-    case 'fa-arrow-up-wide-short':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />;
-    case 'fa-file-lines':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />;
-    case 'fa-clipboard-check':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 019 9v.375M10.125 2.25A3.375 3.375 0 0113.5 5.625v1.875a3.375 3.375 0 003.375 3.375h1.875a3.375 3.375 0 003.375-3.375M10.5 15l1.5 1.5 3-3.75" />;
-    case 'fa-book':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />;
-    case 'fa-percent':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />;
-    case 'fa-bullseye':
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" />;
+    case "fa-arrow-up-wide-short":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5"
+        />
+      );
+    case "fa-file-lines":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+        />
+      );
+    case "fa-clipboard-check":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 019 9v.375M10.125 2.25A3.375 3.375 0 0113.5 5.625v1.875a3.375 3.375 0 003.375 3.375h1.875a3.375 3.375 0 003.375-3.375M10.5 15l1.5 1.5 3-3.75"
+        />
+      );
+    case "fa-book":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+        />
+      );
+    case "fa-percent":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+        />
+      );
+    case "fa-bullseye":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5"
+        />
+      );
+    case "fa-check-circle":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      );
+    case "fa-flag":
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 3v1.5M3 21v-6m0 0l2.77-.693a14.45 14.45 0 012.228-.188 14.433 14.433 0 013.295.396c.148.04.303.078.461.115 1.135.267 2.308.411 3.498.411 1.765 0 3.468-.328 5.061-.926.24-.09.516-.16.8-.206v-10.5a20.082 20.082 0 00-6.19-.926 14.433 14.433 0 00-3.295.396c-.148.04-.303.078-.461.115-1.135.267-2.308.411-3.498.411a14.45 14.45 0 00-2.228-.188 20.076 20.076 0 00-2.77.693V21z"
+        />
+      );
     default:
-      return <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />;
+      return (
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+        />
+      );
   }
 }
 
@@ -428,14 +551,14 @@ export function DataTable({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3.5 text-left font-bold whitespace-nowrap ${column.className || ""}`}
+                  className={`px-4 py-3.5 font-bold whitespace-nowrap ${column.className || "text-left"}`}
                 >
                   {column.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {rows.length ? (
               visibleRows.map((row) => (
                 <tr
@@ -445,7 +568,7 @@ export function DataTable({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-4 py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || ""}`}
+                      className={`px-4 py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
                     >
                       {column.render ? column.render(row) : row[column.key]}
                     </td>

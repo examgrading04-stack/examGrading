@@ -135,6 +135,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
   const [loading, setLoading] = useState(false);
   const [logCollection, setLogCollection] = useState(LOG_COLLECTIONS[0]);
   const [selectedLogs, setSelectedLogs] = useState(new Set());
+  const [lastSelectedLogIndex, setLastSelectedLogIndex] = useState(null);
+  const [lastShiftLogIndex, setLastShiftLogIndex] = useState(null);
   const [loginForm, setLoginForm] = useState({ aname: "", apassword: "" });
   const [userForm, setUserForm] = useState({
     id: "",
@@ -989,9 +991,35 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                               type="checkbox"
                               checked={selectedLogs.has(log.id)}
                               onChange={(e) => {
+                                const currentIndex = filteredLogs.findIndex(x => x.id === log.id);
                                 const newSet = new Set(selectedLogs);
-                                if (e.target.checked) newSet.add(log.id);
-                                else newSet.delete(log.id);
+                                
+                                if (e.nativeEvent.shiftKey && lastSelectedLogIndex !== null) {
+                                  const oldStart = lastShiftLogIndex !== null ? Math.min(lastShiftLogIndex, lastSelectedLogIndex) : lastSelectedLogIndex;
+                                  const oldEnd = lastShiftLogIndex !== null ? Math.max(lastShiftLogIndex, lastSelectedLogIndex) : lastSelectedLogIndex;
+                                  
+                                  const newStart = Math.min(currentIndex, lastSelectedLogIndex);
+                                  const newEnd = Math.max(currentIndex, lastSelectedLogIndex);
+                                  
+                                  for (let i = oldStart; i <= oldEnd; i++) {
+                                    if (i < newStart || i > newEnd) {
+                                      newSet.delete(filteredLogs[i].id);
+                                    }
+                                  }
+
+                                  const targetState = selectedLogs.has(filteredLogs[lastSelectedLogIndex].id);
+                                  for (let i = newStart; i <= newEnd; i++) {
+                                    if (targetState) newSet.add(filteredLogs[i].id);
+                                    else newSet.delete(filteredLogs[i].id);
+                                  }
+                                  setLastShiftLogIndex(currentIndex);
+                                } else {
+                                  if (e.target.checked) newSet.add(log.id);
+                                  else newSet.delete(log.id);
+                                  setLastSelectedLogIndex(currentIndex);
+                                  setLastShiftLogIndex(currentIndex);
+                                }
+                                
                                 setSelectedLogs(newSet);
                               }}
                               className="w-4 h-4 rounded bg-zinc-800 border-zinc-600 text-emerald-500 focus:ring-emerald-500/20"

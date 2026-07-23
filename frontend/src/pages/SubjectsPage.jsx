@@ -121,7 +121,11 @@ export function SubjectsPage({ data, api, refresh }) {
   }
 
   const [selectedSubjects, setSelectedSubjects] = useState(new Set());
+  const [lastSelectedSubjectIndex, setLastSelectedSubjectIndex] = useState(null);
+  const [lastShiftSubjectIndex, setLastShiftSubjectIndex] = useState(null);
   const [selectedSections, setSelectedSections] = useState(new Set());
+  const [lastSelectedSectionIndex, setLastSelectedSectionIndex] = useState(null);
+  const [lastShiftSectionIndex, setLastShiftSectionIndex] = useState(null);
 
   async function deleteSelectedSubjects() {
     if (selectedSubjects.size === 0) return;
@@ -235,6 +239,8 @@ export function SubjectsPage({ data, api, refresh }) {
                           next.clear();
                         }
                         setSelectedSubjects(next);
+                        setLastSelectedSubjectIndex(null);
+                        setLastShiftSubjectIndex(null);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                     />
@@ -244,9 +250,35 @@ export function SubjectsPage({ data, api, refresh }) {
                       type="checkbox"
                       checked={selectedSubjects.has(row.id)}
                       onChange={(e) => {
+                        const currentIndex = filteredSubjects.findIndex(x => x.id === row.id);
                         const next = new Set(selectedSubjects);
-                        if (e.target.checked) next.add(row.id);
-                        else next.delete(row.id);
+                        
+                        if (e.nativeEvent.shiftKey && lastSelectedSubjectIndex !== null) {
+                          const oldStart = lastShiftSubjectIndex !== null ? Math.min(lastShiftSubjectIndex, lastSelectedSubjectIndex) : lastSelectedSubjectIndex;
+                          const oldEnd = lastShiftSubjectIndex !== null ? Math.max(lastShiftSubjectIndex, lastSelectedSubjectIndex) : lastSelectedSubjectIndex;
+                          
+                          const newStart = Math.min(currentIndex, lastSelectedSubjectIndex);
+                          const newEnd = Math.max(currentIndex, lastSelectedSubjectIndex);
+                          
+                          for (let i = oldStart; i <= oldEnd; i++) {
+                            if (i < newStart || i > newEnd) {
+                              next.delete(filteredSubjects[i].id);
+                            }
+                          }
+
+                          const targetState = selectedSubjects.has(filteredSubjects[lastSelectedSubjectIndex].id);
+                          for (let i = newStart; i <= newEnd; i++) {
+                            if (targetState) next.add(filteredSubjects[i].id);
+                            else next.delete(filteredSubjects[i].id);
+                          }
+                          setLastShiftSubjectIndex(currentIndex);
+                        } else {
+                          if (e.target.checked) next.add(row.id);
+                          else next.delete(row.id);
+                          setLastSelectedSubjectIndex(currentIndex);
+                          setLastShiftSubjectIndex(currentIndex);
+                        }
+                        
                         setSelectedSubjects(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -261,7 +293,7 @@ export function SubjectsPage({ data, api, refresh }) {
                   className: "w-16 text-center",
                 },
                 { key: "year", label: "ปี", className: "w-20 text-center" },
-                { key: "teacher", label: "ผู้สอน", className: "truncate" },
+                { key: "teacher", label: "ผู้สอน", className: "truncate text-left" },
                 {
                   key: "actions",
                   label: "",
@@ -368,6 +400,8 @@ export function SubjectsPage({ data, api, refresh }) {
                           next.clear();
                         }
                         setSelectedSections(next);
+                        setLastSelectedSectionIndex(null);
+                        setLastShiftSectionIndex(null);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                     />
@@ -377,9 +411,35 @@ export function SubjectsPage({ data, api, refresh }) {
                       type="checkbox"
                       checked={selectedSections.has(row.id)}
                       onChange={(e) => {
+                        const currentIndex = filteredSections.findIndex(x => x.id === row.id);
                         const next = new Set(selectedSections);
-                        if (e.target.checked) next.add(row.id);
-                        else next.delete(row.id);
+                        
+                        if (e.nativeEvent.shiftKey && lastSelectedSectionIndex !== null) {
+                          const oldStart = lastShiftSectionIndex !== null ? Math.min(lastShiftSectionIndex, lastSelectedSectionIndex) : lastSelectedSectionIndex;
+                          const oldEnd = lastShiftSectionIndex !== null ? Math.max(lastShiftSectionIndex, lastSelectedSectionIndex) : lastSelectedSectionIndex;
+                          
+                          const newStart = Math.min(currentIndex, lastSelectedSectionIndex);
+                          const newEnd = Math.max(currentIndex, lastSelectedSectionIndex);
+                          
+                          for (let i = oldStart; i <= oldEnd; i++) {
+                            if (i < newStart || i > newEnd) {
+                              next.delete(filteredSections[i].id);
+                            }
+                          }
+
+                          const targetState = selectedSections.has(filteredSections[lastSelectedSectionIndex].id);
+                          for (let i = newStart; i <= newEnd; i++) {
+                            if (targetState) next.add(filteredSections[i].id);
+                            else next.delete(filteredSections[i].id);
+                          }
+                          setLastShiftSectionIndex(currentIndex);
+                        } else {
+                          if (e.target.checked) next.add(row.id);
+                          else next.delete(row.id);
+                          setLastSelectedSectionIndex(currentIndex);
+                          setLastShiftSectionIndex(currentIndex);
+                        }
+                        
                         setSelectedSections(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -389,11 +449,12 @@ export function SubjectsPage({ data, api, refresh }) {
                 {
                   key: "subject",
                   label: "รายวิชา",
+                  className: "text-left",
                   render: (row) =>
                     data.subjects.find((subject) => subject.id === row.subject)
                       ?.name || row.subject,
                 },
-                { key: "sec", label: "กลุ่มเรียน" },
+                { key: "sec", label: "กลุ่มเรียน", className: "text-center" },
                 {
                   key: "actions",
                   label: "",

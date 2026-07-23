@@ -26,10 +26,39 @@ export function ReportsPage({ data }) {
       ? `${subject.code} ${subject.name}`
       : exam.subject || "ไม่ระบุวิชา";
     const results = data.results.filter((result) => result.examId === exam.id);
-    const average = results.length
-      ? results.reduce((sum, result) => sum + Number(result.score || 0), 0) /
-        results.length
+    const scores = results
+      .map((r) => Number(r.score || 0))
+      .sort((a, b) => a - b);
+
+    const average = scores.length
+      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
       : 0;
+
+    let median = 0;
+    if (scores.length > 0) {
+      const mid = Math.floor(scores.length / 2);
+      median =
+        scores.length % 2 !== 0
+          ? scores[mid]
+          : (scores[mid - 1] + scores[mid]) / 2;
+    }
+
+    let mode = 0;
+    if (scores.length > 0) {
+      const counts = {};
+      let maxCount = 0;
+      scores.forEach((s) => {
+        counts[s] = (counts[s] || 0) + 1;
+        if (counts[s] > maxCount) {
+          maxCount = counts[s];
+          mode = s;
+        }
+      });
+    }
+
+    const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const minScore = scores.length > 0 ? Math.min(...scores) : 0;
+
     const sectionName =
       exam.section === "All Section" || !exam.section
         ? "All Section"
@@ -43,6 +72,10 @@ export function ReportsPage({ data }) {
       sectionName,
       participantCount: results.length,
       average,
+      median,
+      mode,
+      maxScore,
+      minScore,
     };
   });
 
@@ -68,10 +101,15 @@ export function ReportsPage({ data }) {
     }
     const exportRows = reportRows.map((row, index) => ({
       ลำดับ: index + 1,
-      ข้อสอบ: `${row.name} ${row.sectionName !== "All Section" ? `(${row.sectionName})` : ""}`,
+      ข้อสอบ: row.name,
       รายวิชา: row.subjectName,
+      กลุ่มเรียน: row.sectionName,
       จำนวนผู้สอบ: row.participantCount,
+      คะแนนเต็ม: row.questions || 0,
       คะแนนเฉลี่ย: row.average.toFixed(2),
+      มัธยฐาน: row.median.toFixed(2),
+      ฐานนิยม: row.mode,
+      "สูงสุด/ต่ำสุด": `${row.maxScore}/${row.minScore}`,
     }));
     const ws = window.XLSX.utils.json_to_sheet(exportRows);
     const wb = window.XLSX.utils.book_new();
@@ -134,32 +172,24 @@ export function ReportsPage({ data }) {
           title="จำนวนข้อสอบทั้งหมด"
           value={totalExams}
           icon="fa-file-lines"
-          color="blue"
+          color="violet"
         />
         <StatCard
           title="ยอดผู้เข้าสอบทั้งหมด"
           value={totalParticipants}
           icon="fa-users"
-          color="violet"
+          color="indigo"
         />
       </div>
 
-      <section className="rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40 relative overflow-hidden">
-        <div className="absolute left-0 top-0 h-1 w-full bg-slate-50 from-blue-500 to-emerald-500"></div>
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-50 text-slate-500 border border-slate-100">
-              <i className="fa-solid fa-table" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                ตารางสรุปผลรายข้อสอบ
-              </h2>
-              <p className="text-sm text-slate-500 mt-0.5">
-                ข้อมูลสรุปผู้เข้าสอบและคะแนนเฉลี่ยในแต่ละชุดข้อสอบ
-              </p>
-            </div>
-          </div>
+      <section className="space-y-4 mt-6">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">
+            ตารางสรุปผลรายข้อสอบ
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            ข้อมูลสรุปผู้เข้าสอบและคะแนนเฉลี่ยในแต่ละชุดข้อสอบ
+          </p>
         </div>
 
         <DataTable
@@ -167,42 +197,98 @@ export function ReportsPage({ data }) {
             {
               key: "name",
               label: "ข้อสอบ",
+              className: "w-[120px] sm:w-[150px] md:w-[180px] text-left",
+              truncate: false,
               render: (row) => (
-                <div className="flex flex-col">
-                  <span className="font-bold text-slate-800">{row.name}</span>
-                  {row.sectionName && row.sectionName !== "All Section" && (
-                    <span className="text-xs text-slate-500 font-medium mt-0.5">
-                      {row.sectionName}
-                    </span>
-                  )}
+                <div
+                  className="font-bold text-slate-800 truncate w-[120px] sm:w-[150px] md:w-[180px] text-left py-2"
+                  title={row.name}
+                >
+                  {row.name}
                 </div>
               ),
             },
             {
               key: "subject",
-              label: "รายวิชา",
+              label: "ชื่อวิชา",
+              className: "w-[100px] sm:w-[130px] md:w-[160px] text-left",
+              truncate: false,
               render: (row) => (
-                <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
+                <div
+                  className="text-sm font-semibold text-slate-700 w-full truncate text-left"
+                  title={row.subjectName}
+                >
                   {row.subjectName}
+                </div>
+              ),
+            },
+            {
+              key: "section",
+              label: "กลุ่มเรียน",
+              className: "text-center",
+              render: (row) => (
+                <span className="font-medium text-slate-600">
+                  {row.sectionName}
                 </span>
               ),
             },
             {
               key: "participantCount",
               label: "จำนวนผู้สอบ",
+              className: "text-center",
               render: (row) => (
-                <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                  <Icon name="fa-user" className="text-slate-400 text-xs" />{" "}
-                  {row.participantCount} คน
+                <span className="flex items-center justify-center gap-1.5 font-medium text-slate-700">
+                  <Icon name="fa-user" className="text-slate-400 text-[10px]" />{" "}
+                  {row.participantCount}
+                </span>
+              ),
+            },
+            {
+              key: "totalScore",
+              label: "คะแนนเต็ม",
+              className: "text-center",
+              render: (row) => (
+                <span className="font-bold text-blue-600">
+                  {row.questions || "-"}
                 </span>
               ),
             },
             {
               key: "average",
               label: "คะแนนเฉลี่ย",
+              className: "text-center",
               render: (row) => (
-                <span className="font-bold text-slate-700">
+                <span className="font-semibold text-slate-700">
                   {row.average.toFixed(2)}
+                </span>
+              ),
+            },
+            {
+              key: "median",
+              label: "มัธยฐาน",
+              className: "text-center",
+              render: (row) => (
+                <span className="font-semibold text-slate-700">
+                  {row.median.toFixed(2)}
+                </span>
+              ),
+            },
+            {
+              key: "mode",
+              label: "ฐานนิยม",
+              className: "text-center",
+              render: (row) => (
+                <span className="font-semibold text-slate-700">{row.mode}</span>
+              ),
+            },
+            {
+              key: "maxmin",
+              label: "สูงสุด/ต่ำสุด",
+              className: "text-center",
+              render: (row) => (
+                <span className="font-semibold text-slate-600">
+                  <span className="text-emerald-600">{row.maxScore}</span> /{" "}
+                  <span className="text-rose-600">{row.minScore}</span>
                 </span>
               ),
             },

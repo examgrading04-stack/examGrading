@@ -25,6 +25,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   const [searchExam, setSearchExam] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [selectedExams, setSelectedExams] = useState(new Set());
+  const [lastSelectedExamIndex, setLastSelectedExamIndex] = useState(null);
+  const [lastShiftExamIndex, setLastShiftExamIndex] = useState(null);
 
   const filteredExams = data.exams.filter((exam) => {
     if (
@@ -226,7 +228,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-                  ข้อมูลกระดาษคำตอบทั้งหมด
+                  กระดาษคำตอบทั้งหมด
                 </h2>
                 <p className="mt-2 text-sm text-slate-500">
                   สร้างกระดาษคำตอบและพิมพ์กระดาษคำตอบ
@@ -288,6 +290,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                           next.clear();
                         }
                         setSelectedExams(next);
+                        setLastSelectedExamIndex(null);
+                        setLastShiftExamIndex(null);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                     />
@@ -297,9 +301,58 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                       type="checkbox"
                       checked={selectedExams.has(row.id)}
                       onChange={(e) => {
+                        const currentIndex = filteredExams.findIndex(
+                          (x) => x.id === row.id,
+                        );
                         const next = new Set(selectedExams);
-                        if (e.target.checked) next.add(row.id);
-                        else next.delete(row.id);
+
+                        if (
+                          e.nativeEvent.shiftKey &&
+                          lastSelectedExamIndex !== null
+                        ) {
+                          const oldStart =
+                            lastShiftExamIndex !== null
+                              ? Math.min(
+                                  lastShiftExamIndex,
+                                  lastSelectedExamIndex,
+                                )
+                              : lastSelectedExamIndex;
+                          const oldEnd =
+                            lastShiftExamIndex !== null
+                              ? Math.max(
+                                  lastShiftExamIndex,
+                                  lastSelectedExamIndex,
+                                )
+                              : lastSelectedExamIndex;
+
+                          const newStart = Math.min(
+                            currentIndex,
+                            lastSelectedExamIndex,
+                          );
+                          const newEnd = Math.max(
+                            currentIndex,
+                            lastSelectedExamIndex,
+                          );
+
+                          for (let i = oldStart; i <= oldEnd; i++) {
+                            if (i < newStart || i > newEnd) {
+                              next.delete(filteredExams[i].id);
+                            }
+                          }
+
+                          const targetState = selectedExams.has(filteredExams[lastSelectedExamIndex].id);
+                          for (let i = newStart; i <= newEnd; i++) {
+                            if (targetState) next.add(filteredExams[i].id);
+                            else next.delete(filteredExams[i].id);
+                          }
+                          setLastShiftExamIndex(currentIndex);
+                        } else {
+                          if (e.target.checked) next.add(row.id);
+                          else next.delete(row.id);
+                          setLastSelectedExamIndex(currentIndex);
+                          setLastShiftExamIndex(currentIndex);
+                        }
+
                         setSelectedExams(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -309,6 +362,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 {
                   key: "name",
                   label: "ชื่อกระดาษคำตอบ",
+                  className: "w-[280px] sm:w-[200px] text-left",
                   render: (row) => {
                     const subj = data.subjects.find(
                       (s) =>
@@ -344,7 +398,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 {
                   key: "questions",
                   label: "จำนวนข้อ",
-                  className: "w-24 text-center",
+                  className: "w-25 text-center pl-8",
                   render: (row) => (
                     <span className="font-bold text-zinc-700">
                       {row.questions} ข้อ
@@ -354,6 +408,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 {
                   key: "date",
                   label: "วันที่สร้าง",
+                  className: "pl-6 text-slate-600",
                   render: (row) => {
                     const displayDate =
                       row.date ||
@@ -541,132 +596,117 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       </div>
 
       {sheetModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 overflow-hidden">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-zinc-950/40 backdrop-blur-xl animate-in fade-in duration-300"
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
             onClick={() => setSheetModal(null)}
           />
-          <div className="relative bg-white backdrop-blur-md rounded-[2rem] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 border border-zinc-200/80">
-            <div className="px-8 py-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/70">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-md bg-indigo-600 flex items-center justify-center text-white text-xl">
-                  <Icon name="fa-users-rectangle" />
+          <div className="relative bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <Icon name="fa-file-lines" className="text-lg" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-zinc-900 tracking-tight">
-                    เตรียมกระดาษคำตอบ
+                  <h4 className="text-lg font-bold text-slate-800">
+                    เตรียมพิมพ์กระดาษคำตอบ
                   </h4>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-wider">
+                  <div className="flex items-center gap-2 mt-0.5 text-sm">
+                    <span className="font-semibold text-slate-700">
                       {sheetModal.subject?.code}
                     </span>
-                    <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 text-[10px] font-black">
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-600">
                       {sheetModal.exam.section === "All Section" ||
                       !sheetModal.exam.section
-                        ? "All Section"
-                        : `Sec ${data.sections.find((s) => String(s.id) === String(sheetModal.exam.section))?.sec || sheetModal.exam.section}`}
+                        ? "ทุกกลุ่มเรียน"
+                        : `กลุ่มเรียน ${data.sections.find((s) => String(s.id) === String(sheetModal.exam.section))?.sec || sheetModal.exam.section}`}
                     </span>
-                    <p className="text-xs text-zinc-500 font-medium">
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-600 truncate max-w-[200px]">
                       {sheetModal.exam.name}
-                    </p>
+                    </span>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => setSheetModal(null)}
-                className="w-10 h-10 rounded-full bg-zinc-100 text-zinc-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center"
+                className="w-8 h-8 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors flex items-center justify-center"
               >
-                <Icon name="fa-xmark" className="text-xl" />
+                <Icon name="fa-xmark" className="text-lg" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
                   const info = getTemplateInfo(sheetModal.exam.questions);
-                  const style = badgeStyles[info.color] || badgeStyles.amber;
-                  const labelColor =
-                    info.color === "emerald"
-                      ? "text-emerald-500"
-                      : info.color === "blue"
-                        ? "text-indigo-500"
-                        : "text-amber-500";
-
                   return (
                     <>
-                      <div
-                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
-                      >
-                        <p
-                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
-                        >
-                          นักเรียน
+                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <p className="text-sm font-semibold text-slate-500 mb-1">
+                          จำนวนผู้เข้าสอบ
                         </p>
-                        <p className="text-2xl font-black">
+                        <p className="text-2xl font-bold text-slate-800">
                           {sheetModal.students.length}{" "}
-                          <span className="text-xs font-normal opacity-70">
+                          <span className="text-sm font-normal text-slate-500">
                             คน
                           </span>
                         </p>
                       </div>
-                      <div
-                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
-                      >
-                        <p
-                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
-                        >
-                          รูปแบบ
+                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
+                        <p className="text-sm font-semibold text-slate-500 mb-1">
+                          จำนวนข้อ
                         </p>
-                        <p className="text-sm font-black mt-2">
-                          <Icon name={info.icon} className="mr-1 opacity-80" />{" "}
-                          {info.label}
+                        <p className="text-2xl font-bold text-slate-800">
+                          {sheetModal.exam.questions}{" "}
+                          <span className="text-sm font-normal text-slate-500">
+                            ข้อ
+                          </span>
                         </p>
                       </div>
                       <div
-                        className={`${style} p-4 rounded-lg border flex flex-col items-center justify-center text-center`}
+                        className={`p-4 rounded-lg border shadow-sm flex flex-col justify-center ${badgeStyles[info.color] || "bg-white border-slate-200 text-slate-800"}`}
                       >
-                        <p
-                          className={`text-[12px] font-black ${labelColor} uppercase tracking-widest mb-1 opacity-80`}
-                        >
-                          จำนวนข้อ
+                        <p className="text-sm font-semibold opacity-70 mb-1 text-inherit">
+                          รูปแบบกระดาษ
                         </p>
-                        <p className="text-2xl font-black">
-                          {sheetModal.exam.questions}{" "}
-                          <span className="text-xs font-normal opacity-70">
-                            ข้อ
-                          </span>
+                        <p className="text-base font-bold flex items-center gap-2 mt-1 text-inherit">
+                          <Icon name={info.icon} className="opacity-80" />
+                          {info.label}
                         </p>
                       </div>
                     </>
                   );
                 })()}
               </div>
-              <div className="space-y-3">
-                <h5 className="font-black text-zinc-600 text-[14px] flex items-center gap-2 uppercase tracking-widest px-1">
-                  <Icon name="fa-list-ul" /> ตรวจสอบรายชื่อในกลุ่มเรียน
+              <div className="space-y-3 bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
+                <h5 className="font-bold text-slate-800 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Icon name="fa-list-ul" className="text-slate-400" />{" "}
+                  รายชื่อผู้เข้าสอบในกลุ่มเรียนนี้
                 </h5>
                 {sheetModal.students.length === 0 ? (
-                  <div className="text-center py-10 bg-zinc-50/70 rounded-lg border border-dashed border-zinc-100">
-                    <p className="text-zinc-400 text-sm font-bold">
-                      ไม่พบรายชื่อนักเรียนในกลุ่มเรียนนี้
+                  <div className="text-center py-8">
+                    <p className="text-slate-500 text-sm">
+                      ไม่พบรายชื่อผู้เรียนในกลุ่มเรียนนี้
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col">
                     {sheetModal.students.map((st, i) => (
                       <div
                         key={st.id}
-                        className="p-4 rounded-lg bg-white border border-zinc-100 flex items-center gap-4"
+                        className="py-3 px-2 border-b border-slate-100 last:border-0 flex items-center gap-4 hover:bg-slate-50"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-[14px] font-black text-indigo-600">
+                        <div className="w-8 text-center text-sm font-semibold text-slate-400">
                           {i + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-700 text-[15px] leading-tight">
+                          <p className="font-bold text-slate-700 text-sm">
                             {st.name}
                           </p>
-                          <p className="text-[14px] font-bold text-slate-400 mt-0.5 tracking-tight">
-                            ID: {st.id || st.code}
-                          </p>
+                        </div>
+                        <div className="text-sm text-slate-500 w-32 text-right">
+                          {st.id || st.code}
                         </div>
                       </div>
                     ))}
@@ -674,7 +714,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 )}
               </div>
             </div>
-            <div className="px-8 py-6 bg-zinc-50/70 border-t border-zinc-100">
+            <div className="px-6 py-4 bg-white border-t border-slate-200">
               <PrimaryButton
                 disabled={pdfLoading || sheetModal.students.length === 0}
                 onClick={() =>
