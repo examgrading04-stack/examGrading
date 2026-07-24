@@ -10,7 +10,7 @@ import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 
 class SubjectsScreen extends StatefulWidget {
-  const SubjectsScreen({Key? key}) : super(key: key);
+  const SubjectsScreen({super.key});
 
   @override
   State<SubjectsScreen> createState() => _SubjectsScreenState();
@@ -627,7 +627,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
           if (subjects.length > _pageSize) ...[
             const SizedBox(height: 4),
             Text(

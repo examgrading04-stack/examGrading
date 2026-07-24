@@ -30,7 +30,11 @@ class ExamModel {
       id: id,
       name: map['name']?.toString() ?? '',
       subject: map['subject']?.toString() ?? '',
-      date: _parseDate(map['date']?.toString() ?? map['createdAt']?.toString() ?? map['created_at']?.toString()),
+      date: _parseDate(
+        map['date']?.toString() ??
+            map['createdAt']?.toString() ??
+            map['created_at']?.toString(),
+      ),
       questions: int.tryParse(map['questions']?.toString() ?? '') ?? 0,
       options: int.tryParse(map['options']?.toString() ?? '') ?? 0,
       sets: int.tryParse(map['sets']?.toString() ?? '') ?? 0,

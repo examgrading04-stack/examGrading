@@ -26,7 +26,7 @@ class SectionOption {
 }
 
 class StudentsScreen extends StatefulWidget {
-  const StudentsScreen({Key? key}) : super(key: key);
+  const StudentsScreen({super.key});
   @override
   State<StudentsScreen> createState() => _StudentsScreenState();
 }
@@ -42,7 +42,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
   String? _filterSubjectId;
   String? _filterSectionId;
   final ScrollController _scrollController = ScrollController();
-  
+
   @override
   void initState() {
     super.initState();
@@ -60,25 +60,51 @@ class _StudentsScreenState extends State<StudentsScreen> {
     if (email.isEmpty) return;
     setState(() => _isLoading = true);
     try {
-      final subjectDocs = await ApiService.instance.getCollection(email, 'subjects');
-      final subjects = subjectDocs.map((d) => SubjectModel.fromMap(
-        d['code']?.toString() ?? '', d)).toList();
+      final subjectDocs = await ApiService.instance.getCollection(
+        email,
+        'subjects',
+      );
+      final subjects = subjectDocs
+          .map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d))
+          .toList();
       List<SectionOption> options = [];
       for (var subjectDoc in subjectDocs) {
-        final subjectId = subjectDoc['id']?.toString() ?? subjectDoc['subject_id']?.toString() ?? subjectDoc['code']?.toString() ?? '';
+        final subjectId =
+            subjectDoc['id']?.toString() ??
+            subjectDoc['subject_id']?.toString() ??
+            subjectDoc['code']?.toString() ??
+            '';
         final subjectCode = subjectDoc['code']?.toString() ?? '';
         final sectionDocs = await ApiService.instance.getNestedCollection(
-          email, 'subjects', subjectId, 'sections');
+          email,
+          'subjects',
+          subjectId,
+          'sections',
+        );
         for (var sectionDoc in sectionDocs) {
-          final sectionId = sectionDoc['id']?.toString() ?? sectionDoc['section_id']?.toString() ?? '';
+          final sectionId =
+              sectionDoc['id']?.toString() ??
+              sectionDoc['section_id']?.toString() ??
+              '';
           final sec = sectionDoc['sec']?.toString() ?? '';
           final id = '${subjectCode}_$sectionId';
-          options.add(SectionOption(id, subjectCode, sec, subjectId, sectionId));
+          options.add(
+            SectionOption(id, subjectCode, sec, subjectId, sectionId),
+          );
         }
       }
-      final studentDocs = await ApiService.instance.getCollection(email, 'students');
-      final students = studentDocs.map((d) => StudentModel.fromMap(
-        d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
+      final studentDocs = await ApiService.instance.getCollection(
+        email,
+        'students',
+      );
+      final students = studentDocs
+          .map(
+            (d) => StudentModel.fromMap(
+              d['id']?.toString() ?? d['student_id']?.toString() ?? '',
+              d,
+            ),
+          )
+          .toList();
       if (!mounted || !context.mounted) return;
       setState(() {
         _subjects = subjects;
@@ -189,7 +215,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             );
                             return;
                           }
-                          final selectedOpt = _sections.firstWhere((s) => s.id == selectedSectionId);
+                          final selectedOpt = _sections.firstWhere(
+                            (s) => s.id == selectedSectionId,
+                          );
                           final data = {
                             'id': codeController.text,
                             'code': codeController.text,
@@ -200,10 +228,18 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           };
                           if (isEdit) {
                             await ApiService.instance.updateDoc(
-                              _uid, 'students', student.id, data);
+                              _uid,
+                              'students',
+                              student.id,
+                              data,
+                            );
                           } else {
                             await ApiService.instance.setDoc(
-                              _uid, 'students', codeController.text, data);
+                              _uid,
+                              'students',
+                              codeController.text,
+                              data,
+                            );
                           }
                           await _fetchData();
                           if (!mounted || !context.mounted) return;
@@ -314,7 +350,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
         labelStyle: const TextStyle(
           fontSize: 12,
           color: AppColors.success,
@@ -332,10 +371,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: sections.map((s) {
-        return DropdownMenuEntry<String>(
-          value: s.id,
-          label: s.displayName,
-        );
+        return DropdownMenuEntry<String>(value: s.id, label: s.displayName);
       }).toList(),
     );
   }
@@ -625,10 +661,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
 
   Widget _buildStudentsContent() {
     final students = _students.where((student) {
-      if (_filterSectionId != null) return student.className == _filterSectionId;
+      if (_filterSectionId != null) {
+        return student.className == _filterSectionId;
+      }
       if (_filterSubjectId != null) {
-        final subjectCode = _subjects.firstWhere((s) => s.id == _filterSubjectId).code;
-        return student.className.startsWith('${subjectCode}_') || student.className == subjectCode;
+        final subjectCode = _subjects
+            .firstWhere((s) => s.id == _filterSubjectId)
+            .code;
+        return student.className.startsWith('${subjectCode}_') ||
+            student.className == subjectCode;
       }
       return true;
     }).toList();
@@ -640,11 +681,36 @@ class _StudentsScreenState extends State<StudentsScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              Container(width: 64, height: 64, decoration: const BoxDecoration(color: AppColors.successSoft, shape: BoxShape.circle), child: const Center(child: Icon(FontAwesomeIcons.usersSlash, size: 24, color: AppColors.success))),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.successSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    FontAwesomeIcons.usersSlash,
+                    size: 24,
+                    color: AppColors.success,
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
-              const Text('ยังไม่มีรายชื่อผู้เรียน', style: TextStyle(color: AppColors.successDark, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'ยังไม่มีรายชื่อผู้เรียน',
+                style: TextStyle(
+                  color: AppColors.successDark,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 6),
-              Text('เพิ่มผู้เรียนใหม่ หรือปรับตัวกรองเพื่อแสดงผลรายการ', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(
+                'เพิ่มผู้เรียนใหม่ หรือปรับตัวกรองเพื่อแสดงผลรายการ',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -817,7 +883,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
           if (students.length > _pageSize) ...[
             const SizedBox(height: 4),
             Text(

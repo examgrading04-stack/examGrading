@@ -6,7 +6,7 @@ import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/presentation/widgets/vector_logo.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -53,7 +53,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      await AuthService.instance.register(email, password, email.split('@').first);
+      await AuthService.instance.register(
+        email,
+        password,
+        email.split('@').first,
+      );
 
       if (!mounted || !context.mounted) return;
       Navigator.pop(context); // close loading

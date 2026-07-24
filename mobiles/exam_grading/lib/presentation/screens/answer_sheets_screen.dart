@@ -20,10 +20,10 @@ class AnswerSheetsScreen extends StatefulWidget {
   final ExamModel exam;
   final SubjectModel subject;
   const AnswerSheetsScreen({
-    Key? key,
+    super.key,
     required this.exam,
     required this.subject,
-  }) : super(key: key);
+  });
   @override
   State<AnswerSheetsScreen> createState() => _AnswerSheetsScreenState();
 }
@@ -57,8 +57,18 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
     }
     */
     try {
-      final snapDocs = await ApiService.instance.getCollection(_uid, 'students');
-      final all = snapDocs.map((d) => StudentModel.fromMap(d['id']?.toString() ?? d['student_id']?.toString() ?? '', d)).toList();
+      final snapDocs = await ApiService.instance.getCollection(
+        _uid,
+        'students',
+      );
+      final all = snapDocs
+          .map(
+            (d) => StudentModel.fromMap(
+              d['id']?.toString() ?? d['student_id']?.toString() ?? '',
+              d,
+            ),
+          )
+          .toList();
       final filtered = all.where((s) {
         final classStr = s.className;
         final examSec = widget.exam.section?.toString() ?? '';

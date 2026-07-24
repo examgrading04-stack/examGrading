@@ -865,8 +865,11 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
     import hashlib
     # Find user in users collection
     users = db.get_collection("users")
-    if not users:
-        # Create default admin if no users exist
+    
+    has_default_admin = any(u.get("username") == "admin" or u.get("email") == "admin@localhost" for u in users)
+    
+    if not has_default_admin:
+        # Create default admin if it doesn't exist
         default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
         db.set_doc("users", "admin@localhost", None, {
             "email": "admin@localhost",

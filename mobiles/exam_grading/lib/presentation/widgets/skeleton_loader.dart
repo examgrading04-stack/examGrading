@@ -7,11 +7,11 @@ class SkeletonLoader extends StatelessWidget {
   final double borderRadius;
 
   const SkeletonLoader({
-    Key? key,
+    super.key,
     required this.width,
     required this.height,
     this.borderRadius = 12,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +31,7 @@ class SkeletonLoader extends StatelessWidget {
 }
 
 class ListSkeletonLoader extends StatelessWidget {
-  const ListSkeletonLoader({Key? key}) : super(key: key);
+  const ListSkeletonLoader({super.key});
 
   @override
   Widget build(BuildContext context) {

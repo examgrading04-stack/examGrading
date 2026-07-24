@@ -575,7 +575,10 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 setattr(row, k, datetime.now())
                         else:
-                            setattr(row, k, v)
+                            if k in ("user_email", "user_id", "userEmail") and v == "":
+                                setattr(row, k, None)
+                            else:
+                                setattr(row, k, v)
                             
                 if collection == "exams" and "answerKey" in mapped_data:
                     session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id).delete()
@@ -655,6 +658,8 @@ class MySQLAdapter(BaseDBAdapter):
                         else:
                             if k == "flagged" and isinstance(v, list):
                                 cleaned_data[k] = bool(v)
+                            elif k in ("user_email", "user_id", "userEmail") and v == "":
+                                cleaned_data[k] = None
                             else:
                                 cleaned_data[k] = v
                 

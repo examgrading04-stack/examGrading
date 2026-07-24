@@ -9,7 +9,7 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 class AnswerKeyScreen extends StatefulWidget {
   final ExamModel exam;
 
-  const AnswerKeyScreen({Key? key, required this.exam}) : super(key: key);
+  const AnswerKeyScreen({super.key, required this.exam});
 
   @override
   State<AnswerKeyScreen> createState() => _AnswerKeyScreenState();
@@ -20,7 +20,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   // Map<SetIndex, Map<QuestionNumber, AnswerLetter>>
   // e.g. { '0': { '1': 'A', '2': 'C' } }
   Map<String, Map<String, String>> _answerKeys = {};
-  int _currentSetIndex = 0;
+  final int _currentSetIndex = 0;
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -132,9 +132,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   Map<String, Map<String, String>> _parseAnswerKey(dynamic raw) {
     if (raw is! Map) return {};
     if (raw.isNotEmpty && raw.values.first is String) {
-      return {
-        '0': raw.map((k, v) => MapEntry(k.toString(), v.toString()))
-      };
+      return {'0': raw.map((k, v) => MapEntry(k.toString(), v.toString()))};
     }
     return raw.map((setIndex, answers) {
       final answerMap = answers is Map ? answers : <dynamic, dynamic>{};

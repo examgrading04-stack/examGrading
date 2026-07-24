@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({Key? key}) : super(key: key);
+  const CameraScreen({super.key});
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -97,8 +97,9 @@ class _CameraScreenState extends State<CameraScreen>
 
   Future<void> _takePicture() async {
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized || _isCapturing)
+    if (controller == null || !controller.value.isInitialized || _isCapturing) {
       return;
+    }
 
     setState(() {
       _isCapturing = true;

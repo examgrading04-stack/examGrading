@@ -12,7 +12,7 @@ import 'package:exam_grading/presentation/screens/profile_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -148,8 +148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _DashboardHome extends StatefulWidget {
-  const _DashboardHome({Key? key, required this.onOpenProfile})
-    : super(key: key);
+  const _DashboardHome({super.key, required this.onOpenProfile});
   final VoidCallback onOpenProfile;
 
   @override
@@ -174,11 +173,12 @@ class _DashboardHomeState extends State<_DashboardHome> {
     }
     try {
       final results = await ApiService.instance.getCollection(email, 'results');
-      if (mounted)
+      if (mounted) {
         setState(() {
           _results = results;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

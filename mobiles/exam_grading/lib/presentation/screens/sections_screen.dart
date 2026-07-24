@@ -11,7 +11,7 @@ import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 
 class SectionsScreen extends StatefulWidget {
   final SubjectModel subject;
-  const SectionsScreen({Key? key, required this.subject}) : super(key: key);
+  const SectionsScreen({super.key, required this.subject});
 
   @override
   State<SectionsScreen> createState() => _SectionsScreenState();
@@ -506,7 +506,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
           if (sections.length > _pageSize) ...[
             const SizedBox(height: 4),
             Text(

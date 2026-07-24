@@ -13,7 +13,7 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/data/models/student_model.dart';
 
 class ExamsScreen extends StatefulWidget {
-  const ExamsScreen({Key? key}) : super(key: key);
+  const ExamsScreen({super.key});
   @override
   State<ExamsScreen> createState() => _ExamsScreenState();
 }
@@ -123,8 +123,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
     );
     String? selectedSubjectCode = exam?.subject;
     String? selectedSection = exam?.section;
-    if (selectedSection != null && selectedSection.isEmpty)
+    if (selectedSection != null && selectedSection.isEmpty) {
       selectedSection = null;
+    }
 
     List<String> getAvailableSections(String? subjectCode) {
       if (subjectCode == null) return [];
@@ -558,7 +559,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 value: s.code,
                 child: Text('วิชา: ${s.code} ${s.name}'),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -734,7 +735,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 80),
       child: Column(
         children: [
-          ...visibleDocs.map((exam) => _buildExamCard(exam)).toList(),
+          ...visibleDocs.map((exam) => _buildExamCard(exam)),
           if (docs.length > _pageSize) ...[
             Text(
               'แสดง ${start + 1}-$end จาก ${docs.length} รายการ',

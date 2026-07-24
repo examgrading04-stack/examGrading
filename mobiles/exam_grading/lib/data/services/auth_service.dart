@@ -130,8 +130,9 @@ class AuthService {
     if (displayName != null) _currentUser!['displayName'] = displayName;
     if (photoURL != null) _currentUser!['photoURL'] = photoURL;
     final prefs = await SharedPreferences.getInstance();
-    if (displayName != null)
+    if (displayName != null) {
       await prefs.setString(_keyDisplayName, displayName);
+    }
     if (photoURL != null) await prefs.setString(_keyPhotoURL, photoURL);
   }
 

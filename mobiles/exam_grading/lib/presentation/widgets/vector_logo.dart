@@ -1,10 +1,9 @@
-﻿import 'dart:ui';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class VectorLogo extends StatelessWidget {
   final double size;
 
-  const VectorLogo({Key? key, this.size = 100}) : super(key: key);
+  const VectorLogo({super.key, this.size = 100});
 
   @override
   Widget build(BuildContext context) {

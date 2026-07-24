@@ -22,7 +22,14 @@ import {
   Swal,
   API_BASE_URL,
   apiFetch,
+  SplitScreenAuthLayout,
+  PasswordInput,
+  AuthInput,
+  Checkbox,
 } from "./ui.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import RegisterPage from "./pages/RegisterPage.jsx";
+import { Loader } from "./components/Loader.jsx";
 
 function cleanProfileText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -56,171 +63,6 @@ function AvatarImage({ src, name, iconFallback = false }) {
   }
 
   return fallbackName.slice(0, 1).toUpperCase();
-}
-
-function AuthCard({ mode, setMode, auth }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const isRegister = mode === "register";
-
-  async function submit(event) {
-    event.preventDefault();
-    if (isRegister && password !== confirm) {
-      Swal().fire("รหัสผ่านไม่ตรงกัน", "กรุณาตรวจสอบรหัสผ่านอีกครั้ง", "error");
-      return;
-    }
-    if (isRegister && password.length < 6) {
-      Swal().fire(
-        "รหัสผ่านสั้นเกินไป",
-        "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
-        "error",
-      );
-      return;
-    }
-    Swal().fire({
-      title: isRegister ? "กำลังสร้างบัญชี..." : "กำลังเข้าสู่ระบบ...",
-      allowOutsideClick: false,
-      didOpen: () => Swal().showLoading(),
-    });
-    try {
-      if (isRegister)
-        await auth.createUserWithEmailAndPassword(email, password);
-      else await auth.signInWithEmailAndPassword(email, password);
-      sessionStorage.setItem("justLoggedIn", "true");
-      Swal().close();
-    } catch (error) {
-      Swal().fire(
-        isRegister ? "สมัครสมาชิกไม่สำเร็จ" : "เข้าสู่ระบบไม่สำเร็จ",
-        error.message,
-        "error",
-      );
-    }
-  }
-
-  async function googleLogin() {
-    const provider = new window.firebase.auth.GoogleAuthProvider();
-    try {
-      await auth.signInWithPopup(provider);
-      sessionStorage.setItem("justLoggedIn", "true");
-    } catch (error) {
-      if (
-        !["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(
-          error.code,
-        )
-      ) {
-        Swal().fire("Login Error", error.message, "error");
-      }
-    }
-  }
-
-  async function resetPassword() {
-    const result = await Swal().fire({
-      title: "รีเซ็ตรหัสผ่าน",
-      input: "email",
-      inputLabel: "กรอกอีเมลที่ใช้สมัคร",
-      inputPlaceholder: "example@email.com",
-      showCancelButton: true,
-      confirmButtonText: "ส่งลิงก์รีเซ็ต",
-    });
-    if (!result.isConfirmed || !result.value) return;
-    try {
-      await auth.sendPasswordResetEmail(result.value);
-      Swal().fire("สำเร็จ", "ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว", "success");
-    } catch (error) {
-      Swal().fire("เกิดข้อผิดพลาด", error.message, "error");
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="bg-white p-8 sm:p-10 rounded-lg shadow-sm border border-slate-200 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <AppLogo />
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
-            {isRegister ? "สร้างบัญชีผู้ใช้งาน" : "ระบบตรวจและวิเคราะห์ข้อสอบ"}
-          </h1>
-          <p className="text-slate-500 mt-2 font-medium">
-            {isRegister
-              ? "กรอกข้อมูลเพื่อเริ่มต้นใช้งานระบบ"
-              : "ลงชื่อเข้าใช้งานระบบ"}
-          </p>
-        </div>
-
-        <form className="space-y-4" onSubmit={submit}>
-          <Field label="ชื่อผู้ใช้ หรือ อีเมล (Username / Email)">
-            <Input
-              type="text"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="example@email.com"
-              required
-            />
-          </Field>
-          <Field label="รหัสผ่าน (Password)">
-            <Input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="กรอกรหัสผ่าน"
-              required
-            />
-          </Field>
-          {isRegister && (
-            <Field label="ยืนยันรหัสผ่าน">
-              <Input
-                type="password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                placeholder="ยืนยันรหัสผ่านอีกครั้ง"
-                required
-              />
-            </Field>
-          )}
-          {!isRegister && (
-            <button
-              type="button"
-              onClick={resetPassword}
-              className="text-blue-600 text-sm font-semibold hover:underline"
-            >
-              ลืมรหัสผ่าน?
-            </button>
-          )}
-          <PrimaryButton type="submit" className="w-full">
-            {isRegister ? "ลงทะเบียนสมาชิก" : "เข้าสู่ระบบ"}
-          </PrimaryButton>
-        </form>
-
-        {!isRegister && (
-          <GhostButton
-            type="button"
-            onClick={googleLogin}
-            className="w-full mt-4"
-          >
-            <img
-              src="https://img.icons8.com/color/24/000000/google-logo.png"
-              className="w-5 h-5"
-              alt=""
-            />{" "}
-            เข้าสู่ระบบด้วย Google
-          </GhostButton>
-        )}
-
-        <p className="mt-8 text-center text-slate-500 text-sm">
-          {isRegister ? "มีบัญชีอยู่แล้ว?" : "ยังไม่มีบัญชี?"}{" "}
-          <button
-            type="button"
-            onClick={() => setMode(isRegister ? "login" : "register")}
-            className="text-blue-600 font-bold hover:underline"
-          >
-            {isRegister ? "เข้าสู่ระบบ" : "สมัครสมาชิกใหม่"}
-          </button>
-        </p>
-      </div>
-    </div>
-  );
 }
 
 function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
@@ -383,6 +225,7 @@ function Shell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const route = routeById[routeId] || routeById.dashboard;
   const displayName = user.displayName || user.email || "อาจารย์ผู้สอน";
   const effectiveDisplayName = profile?.displayName || displayName;
@@ -422,8 +265,12 @@ function Shell({
     });
 
     if (res.isConfirmed) {
+      setIsLoggingOut(true);
       await api?.log("User signed out");
-      await auth.signOut();
+      setTimeout(async () => {
+        await auth.signOut();
+        setIsLoggingOut(false);
+      }, 1000);
     }
   }
 
@@ -494,7 +341,6 @@ function Shell({
             ))}
         </nav>
         <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-
           {user?.role === "admin" ? (
             <button
               onClick={() => navigate("admin")}
@@ -566,6 +412,11 @@ function Shell({
           onProfileSaved={onProfileSaved}
         />
       )}
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm transition-opacity">
+          <Loader />
+        </div>
+      )}
     </div>
   );
 }
@@ -629,6 +480,20 @@ export default function App() {
               if (adminsDoc.exists) role = "admin";
             }
           }
+
+          if (role === "admin") {
+            await services.auth.signOut();
+            Swal().fire(
+              "ไม่อนุญาตให้เข้าสู่ระบบที่นี่",
+              "บัญชีผู้ดูแลระบบ กรุณาเข้าสู่ระบบผ่านปุ่ม 'สำหรับเจ้าหน้าที่' เท่านั้น",
+              "error",
+            );
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
+
           const userData = { ...nextUser, role };
           setUser(userData);
           setProfile(await loadProfile(services, userData));
@@ -949,17 +814,9 @@ export default function App() {
 
   if (loading || !firebase) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="loader">
-          <span>Scan</span>
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader />
       </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <AuthCard mode={authMode} setMode={setAuthMode} auth={firebase.auth} />
     );
   }
 
@@ -969,29 +826,80 @@ export default function App() {
   }
 
   if (routeId === "admin") {
-    if (user.role === "admin") {
+    if (user && user.role !== "admin") {
       return (
-        <AdminPage
-          firebase={firebase}
-          user={user}
-          signOut={signOut}
-          navigate={navigate}
-        />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800 p-6 text-center">
+          <Icon
+            name="fa-shield-halved"
+            className="text-5xl text-red-500 mb-4"
+          />
+          <h2 className="text-2xl font-bold mb-4">
+            คุณไม่มีสิทธิ์เข้าถึงหน้านี้
+          </h2>
+          <p className="mb-6 text-slate-500">
+            หน้านี้สงวนไว้สำหรับผู้ดูแลระบบเท่านั้น
+          </p>
+          <PrimaryButton onClick={() => navigate("/")}>
+            กลับสู่หน้าหลัก
+          </PrimaryButton>
+        </div>
       );
     }
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
-        <Icon name="fa-shield-halved" className="text-5xl text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold mb-4">
-          คุณไม่มีสิทธิ์เข้าถึงหน้านี้
-        </h2>
-        <p className="mb-6 text-slate-500">
-          หน้านี้สงวนไว้สำหรับผู้ดูแลระบบเท่านั้น
-        </p>
-        <PrimaryButton onClick={() => navigate("/")}>
-          กลับสู่หน้าหลัก
-        </PrimaryButton>
-      </div>
+      <AdminPage
+        firebase={firebase}
+        user={user}
+        signOut={signOut}
+        navigate={navigate}
+      />
+    );
+  }
+
+  if (!user) {
+    const isRegister = authMode === "register";
+    return (
+      <SplitScreenAuthLayout
+        isRegister={isRegister}
+        title={isRegister ? "สร้างบัญชีผู้ใช้งาน" : "ยินดีต้อนรับกลับมา"}
+        subtitle={
+          isRegister
+            ? "กรอกข้อมูลของคุณเพื่อเริ่มต้นใช้งานระบบ"
+            : "กรุณาเข้าสู่ระบบด้วยบัญชีผู้ใช้งานของคุณ"
+        }
+        rightTitle={
+          isRegister ? "เริ่มต้นใช้งานระบบประเมินผล" : "ระบบตรวจข้อสอบอัตโนมัติ"
+        }
+        rightSubtitle={
+          isRegister
+            ? "สมัครสมาชิกวันนี้เพื่อจัดการห้องเรียนและการสอบอย่างมืออาชีพ"
+            : "รวดเร็ว แม่นยำ และปลอดภัยสำหรับผู้สอนทุกคน"
+        }
+      >
+        <div
+          className={`transition-opacity duration-300 ${!isRegister ? "opacity-100 block" : "opacity-0 hidden"}`}
+        >
+          {!isRegister && (
+            <LoginPage
+              setMode={setAuthMode}
+              auth={firebase.auth}
+              navigate={navigate}
+              hideLayout={true}
+            />
+          )}
+        </div>
+        <div
+          className={`transition-opacity duration-300 ${isRegister ? "opacity-100 block" : "opacity-0 hidden"}`}
+        >
+          {isRegister && (
+            <RegisterPage
+              setMode={setAuthMode}
+              auth={firebase.auth}
+              navigate={navigate}
+              hideLayout={true}
+            />
+          )}
+        </div>
+      </SplitScreenAuthLayout>
     );
   }
 

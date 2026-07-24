@@ -13,7 +13,7 @@ import 'package:exam_grading/presentation/screens/login_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }

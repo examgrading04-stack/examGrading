@@ -6,7 +6,9 @@ class SectionModel {
 
   factory SectionModel.fromMap(String id, Map<String, dynamic> map) {
     return SectionModel(
-        id: id, sec: map['sec']?.toString() ?? map['code']?.toString() ?? '');
+      id: id,
+      sec: map['sec']?.toString() ?? map['code']?.toString() ?? '',
+    );
   }
 
   Map<String, dynamic> toMap() {

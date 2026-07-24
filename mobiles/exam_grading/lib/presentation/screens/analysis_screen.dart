@@ -34,7 +34,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   Map<String, String> _subjectNames = {};
-  Map<String, Map<String, dynamic>> _examStats = {};
+  final Map<String, Map<String, dynamic>> _examStats = {};
   int _uniqueExamineesCount = 0;
   bool _isLoading = true;
   @override
@@ -85,19 +85,25 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
         _examStats.clear();
         for (final exam in _exams) {
-          final results = _results.where((r) => r['examId'] == exam.id).toList();
+          final results = _results
+              .where((r) => r['examId'] == exam.id)
+              .toList();
           final count = results.length;
-          
-          final scores = results.map((r) => _getDynamicScore(r, exam).toDouble()).toList();
+
+          final scores = results
+              .map((r) => _getDynamicScore(r, exam).toDouble())
+              .toList();
           scores.sort();
-          
-          final average = count == 0 ? 0.0 : scores.fold<double>(0, (a, b) => a + b) / count;
+
+          final average = count == 0
+              ? 0.0
+              : scores.fold<double>(0, (a, b) => a + b) / count;
           final passed = scores.where((s) => s >= (exam.questions / 2)).length;
           final passRate = count == 0 ? 0.0 : passed / count;
-          
+
           final maxScore = scores.isEmpty ? 0.0 : scores.last;
           final minScore = scores.isEmpty ? 0.0 : scores.first;
-          
+
           double median = 0.0;
           if (scores.isNotEmpty) {
             final middle = scores.length ~/ 2;
@@ -107,28 +113,41 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               median = (scores[middle - 1] + scores[middle]) / 2.0;
             }
           }
-          
+
           String modeStr = '-';
           if (scores.isNotEmpty) {
             final counts = <double, int>{};
-            for (var s in scores) counts[s] = (counts[s] ?? 0) + 1;
+            for (var s in scores) {
+              counts[s] = (counts[s] ?? 0) + 1;
+            }
             int maxCount = 0;
             for (var c in counts.values) {
               if (c > maxCount) maxCount = c;
             }
-            final modes = counts.entries.where((e) => e.value == maxCount).map((e) => e.key).toList();
+            final modes = counts.entries
+                .where((e) => e.value == maxCount)
+                .map((e) => e.key)
+                .toList();
             modes.sort();
             if (modes.length > 2) {
               modeStr = 'หลายค่า';
             } else {
-              modeStr = modes.map((m) => m.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')).join(', ');
+              modeStr = modes
+                  .map(
+                    (m) => m.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), ''),
+                  )
+                  .join(', ');
             }
           }
-          
+
           final itemAnalysis = _calculateItemAnalysis(exam, results);
-          final avgDifficulty = _average(itemAnalysis.map((item) => item.difficulty).toList());
-          final avgDiscrimination = _average(itemAnalysis.map((item) => item.discrimination).toList());
-          
+          final avgDifficulty = _average(
+            itemAnalysis.map((item) => item.difficulty).toList(),
+          );
+          final avgDiscrimination = _average(
+            itemAnalysis.map((item) => item.discrimination).toList(),
+          );
+
           _examStats[exam.id] = {
             'count': count,
             'average': average,
@@ -176,8 +195,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   int _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
-    if (exam.answerKey.isEmpty)
+    if (exam.answerKey.isEmpty) {
       return int.tryParse(result['score']?.toString() ?? '0') ?? 0;
+    }
     int calcScore = 0;
     final answers = result['answers'] as Map?;
     final itemResults = result['itemResults'] as Map?;

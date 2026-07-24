@@ -74,12 +74,16 @@ class PaginationBar extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isActive ? Colors.grey[200] : Colors.transparent,
+                          color: isActive
+                              ? Colors.grey[200]
+                              : Colors.transparent,
                         ),
                         child: Text(
                           '$value',
                           style: TextStyle(
-                            fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+                            fontWeight: isActive
+                                ? FontWeight.w500
+                                : FontWeight.normal,
                             fontSize: 16,
                             color: AppColors.primaryDark,
                           ),
@@ -122,7 +126,9 @@ class PaginationBar extends StatelessWidget {
         child: Icon(
           icon,
           size: 24,
-          color: enabled ? AppColors.textPrimary : AppColors.textMuted.withValues(alpha: 0.5),
+          color: enabled
+              ? AppColors.textPrimary
+              : AppColors.textMuted.withValues(alpha: 0.5),
         ),
       ),
     );

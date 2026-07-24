@@ -10,7 +10,7 @@ import 'package:exam_grading/presentation/screens/register_screen.dart';
 import 'package:exam_grading/presentation/widgets/vector_logo.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -81,9 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const Center(child: SpinKitCircle(color: Colors.white, size: 70.0)),
       );
 
-      final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
+      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
       await googleSignIn.signOut(); // บังคับให้เลือก account ใหม่ทุกครั้ง
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
@@ -170,7 +168,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                                color: const Color(
+                                  0xFF2563EB,
+                                ).withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 5),
                               ),
@@ -253,7 +253,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: const Color(0xFF2563EB),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                    color: const Color(
+                                      0xFF2563EB,
+                                    ).withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
@@ -277,7 +279,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Divider
                           Row(
                             children: [
-                              Expanded(child: Divider(color: const Color(0xFFE2E8F0))),
+                              Expanded(
+                                child: Divider(color: const Color(0xFFE2E8F0)),
+                              ),
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 10),
                                 child: Text(
@@ -288,7 +292,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              Expanded(child: Divider(color: const Color(0xFFE2E8F0))),
+                              Expanded(
+                                child: Divider(color: const Color(0xFFE2E8F0)),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -302,7 +308,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.02),
@@ -343,7 +351,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         const Text(
                           'ยังไม่มีบัญชี? ',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 14,
+                          ),
                         ),
                         TextButton(
                           onPressed: () => Navigator.push(
@@ -432,9 +443,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     )
                   : null,
               hintText: hintText,
-              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
+              hintStyle: const TextStyle(
+                color: Color(0xFFCBD5E1),
+                fontSize: 13,
+              ),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 14,
+              ),
             ),
           ),
         ),

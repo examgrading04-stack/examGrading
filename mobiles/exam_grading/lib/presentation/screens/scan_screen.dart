@@ -12,7 +12,7 @@ import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/screens/camera_screen.dart';
 
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({Key? key}) : super(key: key);
+  const ScanScreen({super.key});
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
