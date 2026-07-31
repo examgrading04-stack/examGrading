@@ -140,9 +140,9 @@ export function ResultsPage({ data, api, refresh, query }) {
 
   return (
     <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4 space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
+      <div className="flex flex-col gap-4 mb-2">
         <div className="flex-1 min-w-0 pr-4">
-          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl truncate">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight truncate">
             {currentExam ? (
               <div className="flex flex-col gap-1">
                 <span className="text-xl sm:text-2xl text-slate-500">
@@ -171,51 +171,11 @@ export function ResultsPage({ data, api, refresh, query }) {
               : "เลือกข้อสอบเพื่อดูรายละเอียดผลคะแนนแยกตามกลุ่มเรียน"}
           </p>
         </div>
-        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-start sm:items-end gap-3 print:hidden">
-          <div className="w-full sm:w-56 max-w-full">
-            <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
-              ค้นหาผู้เรียน
-            </label>
-            <Input
-              value={searchResult}
-              onChange={(e) => setSearchResult(e.target.value)}
-              placeholder="รหัส หรือ ชื่อ-สกุล..."
-              className="bg-white"
-            />
-          </div>
-          <div className="w-full sm:w-80">
-            <label className="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">
-              เลือกข้อสอบ
-            </label>
-            <Select
-              value={selectedExamId}
-              onChange={(e) => setSelectedExamId(e.target.value)}
-              className="w-full bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">ดูผลการตรวจคะแนนทั้งหมด</option>
-              {data.exams.map((exam) => {
-                const secName =
-                  exam.section === "All Section" || !exam.section
-                    ? "All Section"
-                    : data.sections?.find(
-                        (s) => String(s.id) === String(exam.section),
-                      )?.sec || exam.section;
-                return (
-                  <option key={exam.id} value={exam.id}>
-                    {exam.subject}{" "}
-                    {secName !== "All Section" ? `(${secName})` : ""} -{" "}
-                    {exam.name}
-                  </option>
-                );
-              })}
-            </Select>
-          </div>
-        </div>
       </div>
 
       {/* Stats Dashboard */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
             title="จำนวนกระดาษคำตอบ"
             value={stats.count}
@@ -236,6 +196,42 @@ export function ResultsPage({ data, api, refresh, query }) {
           />
         </div>
       )}
+
+      {/* Search and Filter */}
+      <div className="w-full flex flex-col sm:flex-row items-start sm:items-end gap-3 print:hidden">
+        <div className="w-full sm:w-56 max-w-full">
+          <Input
+            value={searchResult}
+            onChange={(e) => setSearchResult(e.target.value)}
+            placeholder="รหัส หรือ ชื่อ-สกุล..."
+            className="bg-white"
+          />
+        </div>
+        <div className="w-full sm:w-80">
+          <Select
+            value={selectedExamId}
+            onChange={(e) => setSelectedExamId(e.target.value)}
+            className="w-full bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">ดูผลการตรวจคะแนนทั้งหมด</option>
+            {data.exams.map((exam) => {
+              const secName =
+                exam.section === "All Section" || !exam.section
+                  ? "All Section"
+                  : data.sections?.find(
+                      (s) => String(s.id) === String(exam.section),
+                    )?.sec || exam.section;
+              return (
+                <option key={exam.id} value={exam.id}>
+                  {exam.subject}{" "}
+                  {secName !== "All Section" ? `(${secName})` : ""} -{" "}
+                  {exam.name}
+                </option>
+              );
+            })}
+          </Select>
+        </div>
+      </div>
 
       {/* Main Table Section */}
       <section className="space-y-4 print:hidden">
@@ -381,7 +377,7 @@ export function ResultsPage({ data, api, refresh, query }) {
 
       {/* Print-only Table (shows all rows) */}
       <div className="hidden print:block mt-8">
-        <h3 className="text-xl font-bold mb-4">รายละเอียดผลคะแนน</h3>
+        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4">รายละเอียดผลคะแนน</h3>
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b-2 border-black">
@@ -677,10 +673,30 @@ function StudentAnswersView({ result, exam }) {
             </h4>
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-slate-100 rounded-lg border border-slate-200">
-                <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors rounded-l-lg" title="ย่อ"><Icon name="fa-minus" className="text-xs" /></button>
-                <span className="text-xs font-semibold px-2 w-[50px] text-center">{Math.round(zoom * 100)}%</span>
-                <button onClick={() => setZoom(z => Math.min(3, z + 0.25))} className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors" title="ขยาย"><Icon name="fa-plus" className="text-xs" /></button>
-                <button onClick={() => setZoom(1)} className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors border-l border-slate-300 rounded-r-lg" title="คืนค่าเดิม"><Icon name="fa-rotate-right" className="text-xs" /></button>
+                <button
+                  onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+                  className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors rounded-l-lg"
+                  title="ย่อ"
+                >
+                  <Icon name="fa-minus" className="text-xs" />
+                </button>
+                <span className="text-xs font-semibold px-2 w-[50px] text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
+                  className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors"
+                  title="ขยาย"
+                >
+                  <Icon name="fa-plus" className="text-xs" />
+                </button>
+                <button
+                  onClick={() => setZoom(1)}
+                  className="p-1 px-2.5 hover:bg-slate-200 text-slate-600 transition-colors border-l border-slate-300 rounded-r-lg"
+                  title="คืนค่าเดิม"
+                >
+                  <Icon name="fa-rotate-right" className="text-xs" />
+                </button>
               </div>
               <a
                 href={result.imageUrl}
@@ -696,20 +712,23 @@ function StudentAnswersView({ result, exam }) {
               </a>
             </div>
           </div>
-          <div 
+          <div
             ref={imgContainerRef}
             onMouseDown={handleMouseDown}
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
-            className={`bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner overflow-auto max-h-[700px] text-center relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className={`bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner overflow-auto max-h-[700px] text-center relative ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           >
             <img
               src={result.imageUrl}
               alt="Scanned answer sheet"
               loading="lazy"
               draggable="false"
-              style={{ height: `${zoom * 600}px`, transition: isDragging ? 'none' : 'height 0.2s ease-out' }}
+              style={{
+                height: `${zoom * 600}px`,
+                transition: isDragging ? "none" : "height 0.2s ease-out",
+              }}
               className="object-contain shadow-md border border-slate-200 bg-white inline-block pointer-events-none"
             />
           </div>

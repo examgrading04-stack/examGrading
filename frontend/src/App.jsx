@@ -279,13 +279,19 @@ function Shell({
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 lg:hidden"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-sm flex flex-col z-40 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
+        className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 shadow-sm flex flex-col z-50 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
-        <div className="p-4 px-6 border-b border-slate-100 flex items-center justify-between h-[73px]">
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className={`lg:hidden absolute top-4 -right-12 w-10 h-10 flex items-center justify-center rounded-full bg-slate-900/50 text-white hover:bg-slate-900/70 backdrop-blur-md transition-all duration-300 shadow-sm ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          <Icon name="fa-xmark" className="text-xl" />
+        </button>
+        <div className="p-4 px-6 border-b border-slate-100 flex items-center h-[73px]">
           <div className="flex items-center gap-3 w-full">
             <AppLogo compact />
             <div className="flex flex-col justify-center">
@@ -297,12 +303,6 @@ function Shell({
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-slate-600"
-          >
-            <Icon name="fa-xmark" />
-          </button>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {routes
@@ -369,7 +369,7 @@ function Shell({
                 <Icon name="fa-bars" />
               </button>
               {route.icon && (
-                <div className="w-10 h-10 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50">
+                <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 text-blue-600 items-center justify-center border border-blue-100/50">
                   <Icon name={route.icon} />
                 </div>
               )}

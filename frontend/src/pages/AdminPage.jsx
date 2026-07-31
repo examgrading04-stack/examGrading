@@ -542,15 +542,21 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 lg:hidden"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col z-40 transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col z-50 transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
-        <div className="p-4 px-6 border-b border-slate-800 flex items-center justify-between h-[73px]">
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className={`lg:hidden absolute top-4 -right-12 w-10 h-10 flex items-center justify-center rounded-full bg-slate-900/50 text-white hover:bg-slate-900/70 backdrop-blur-md transition-all duration-300 shadow-sm ${sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          <Icon name="fa-xmark" className="text-xl" />
+        </button>
+        <div className="p-4 px-6 border-b border-slate-800 flex items-center h-[73px]">
           <div className="flex items-center gap-3 w-full">
             <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shadow-md shrink-0">
               <Icon name="fa-user-shield" />
@@ -559,12 +565,6 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
               Admin<span className="text-indigo-400 font-medium">Panel</span>
             </span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-white"
-          >
-            <Icon name="fa-xmark" />
-          </button>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
@@ -640,16 +640,10 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
             <div className="flex items-center gap-4">
               <button
                 onClick={refresh}
-                className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+                className="hidden"
                 disabled={loading}
               >
-                <Icon
-                  name="fa-rotate"
-                  className={loading ? "animate-spin" : ""}
-                />{" "}
-                รีเฟรช
               </button>
-              <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
               <div className="flex items-center gap-3">
                 <span className="hidden sm:flex flex-col items-end">
                   <span className="text-sm font-semibold text-slate-800 leading-none">
@@ -668,10 +662,10 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
         </header>
 
         <div
-          className={`p-4 lg:p-8 max-w-[1600px] mx-auto w-full flex-1 ${activePage === "dashboard" ? "flex flex-col h-[calc(100vh-73px)] overflow-hidden" : "space-y-6"}`}
+          className={`p-4 lg:p-8 max-w-[1600px] mx-auto w-full flex-1 ${activePage === "dashboard" ? "flex flex-col min-h-[calc(100vh-73px)] lg:h-[calc(100vh-73px)] lg:overflow-hidden" : "space-y-6"}`}
         >
           {activePage === "dashboard" && (
-            <div className="flex flex-col flex-1 min-h-0 space-y-6">
+            <div className="flex flex-col lg:flex-1 lg:min-h-0 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
                 <AdminStatCard
                   color="indigo"
@@ -693,24 +687,24 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-                <section className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0 relative">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:flex-1 lg:min-h-0">
+                <section className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:min-h-0 relative">
                   <h3 className="text-lg font-bold mb-4 text-slate-800 shrink-0">
                     สถิติการตรวจข้อสอบ (6 เดือนล่าสุด)
                   </h3>
-                  <div className="flex-1 w-full min-h-0 relative">
+                  <div className="flex-1 w-full min-h-[250px] lg:min-h-0 relative">
                     <canvas ref={chartRef} />
                   </div>
                 </section>
 
-                <section className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-0">
+                <section className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:min-h-0">
                   <h3 className="text-lg font-bold mb-4 text-slate-800 shrink-0">
                     กิจกรรมล่าสุดในระบบ
                   </h3>
                   <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                    {data.logs.slice(0, 5).map((log) => (
+                    {data.logs.slice(0, 5).map((log, index) => (
                       <div
-                        key={log.id}
+                        key={log.id || log.logid || `recent-log-${index}`}
                         className="border-l-4 border-indigo-500 pl-3 py-1"
                       >
                         <p
@@ -863,7 +857,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
 
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto relative">
-                  <table className="w-full text-left border-collapse text-sm table-fixed text-slate-600">
+                  <table className="w-full text-left border-collapse text-sm text-slate-600">
                     <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10 border-b border-slate-200">
                       <tr>
                         <th className="p-3 w-16 text-center border-b border-slate-200 font-bold">
@@ -889,7 +883,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                     <tbody>
                       {paginatedUsers.map((user, index) => (
                         <tr
-                          key={user.id}
+                          key={user.id || `user-${index}`}
                           className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                         >
                           <td className="p-4 text-center">
@@ -970,7 +964,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   </table>
                 </div>
                 {filteredUsers.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm bg-slate-50">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm bg-slate-50">
                     <span className="text-slate-500 font-medium">
                       แสดง {(usersPage - 1) * PAGE_SIZE + 1}-
                       {Math.min(usersPage * PAGE_SIZE, filteredUsers.length)}{" "}
@@ -1018,7 +1012,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
               </div>
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto relative">
-                  <table className="w-full text-left border-collapse text-sm text-slate-600 font-mono table-fixed">
+                  <table className="w-full text-left border-collapse text-sm text-slate-600 font-mono">
                     <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                       <tr>
                         <th className="p-3 w-12 text-center border-b border-slate-200">
@@ -1055,9 +1049,9 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedLogs.map((log) => (
+                      {paginatedLogs.map((log, index) => (
                         <tr
-                          key={log.id}
+                          key={log.id || log.logid || `log-${index}`}
                           className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
                         >
                           <td className="p-3 text-center border-b border-slate-100">
@@ -1193,7 +1187,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   </table>
                 </div>
                 {filteredLogs.length > 0 && (
-                  <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm bg-slate-50">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm bg-slate-50">
                     <span className="text-slate-500 font-medium">
                       แสดง {(logsPage - 1) * PAGE_SIZE + 1}-
                       {Math.min(logsPage * PAGE_SIZE, filteredLogs.length)} จาก{" "}
@@ -1216,9 +1210,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
 
       {loading && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
-          <p className="loader">
-            <span>Scan</span>
-          </p>
+          <Loader />
         </div>
       )}
 

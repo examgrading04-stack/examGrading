@@ -69,7 +69,7 @@ export default function AdminLoginPage({ setSession, writeAnonymousLog }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 px-6 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
       {/* Clean Dark Background */}
       <div className="absolute inset-0 z-0 bg-slate-900">
         <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-blue-900/20 to-transparent"></div>
@@ -90,8 +90,8 @@ export default function AdminLoginPage({ setSession, writeAnonymousLog }) {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-slate-800/80 backdrop-blur-md py-8 px-8 shadow-2xl sm:rounded-2xl sm:px-10 border border-slate-700/80 relative">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 w-full max-w-sm mx-auto sm:max-w-md">
+        <div className="bg-slate-800/80 backdrop-blur-md py-8 px-6 sm:px-10 shadow-2xl rounded-2xl border border-slate-700/80 relative">
           <form onSubmit={login} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[13px] font-bold text-slate-300 ml-1">

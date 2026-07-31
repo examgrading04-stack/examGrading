@@ -121,10 +121,12 @@ export function SubjectsPage({ data, api, refresh }) {
   }
 
   const [selectedSubjects, setSelectedSubjects] = useState(new Set());
-  const [lastSelectedSubjectIndex, setLastSelectedSubjectIndex] = useState(null);
+  const [lastSelectedSubjectIndex, setLastSelectedSubjectIndex] =
+    useState(null);
   const [lastShiftSubjectIndex, setLastShiftSubjectIndex] = useState(null);
   const [selectedSections, setSelectedSections] = useState(new Set());
-  const [lastSelectedSectionIndex, setLastSelectedSectionIndex] = useState(null);
+  const [lastSelectedSectionIndex, setLastSelectedSectionIndex] =
+    useState(null);
   const [lastShiftSectionIndex, setLastShiftSectionIndex] = useState(null);
 
   async function deleteSelectedSubjects() {
@@ -187,20 +189,44 @@ export function SubjectsPage({ data, api, refresh }) {
     await refresh("ลบกลุ่มเรียนที่เลือกเรียบร้อยแล้ว");
   }
   return (
-    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-      <section className="space-y-6">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-[auto_1fr] gap-x-6 gap-y-3 items-start">
+      <div className="order-1 xl:row-start-1 xl:col-start-1 min-w-0">
         {!activeSubject ? (
-          <>
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                รายวิชาทั้งหมด
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                จัดการรายวิชาและกลุ่มเรียนที่เปิดสอน
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <GhostButton
+                onClick={() => setActiveSubject(null)}
+                className="py-2 px-3"
+              >
+                <Icon name="fa-arrow-left" />
+              </GhostButton>
               <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-                  ข้อมูลรายวิชาทั้งหมด
-                </h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  จัดการรายวิชาและกลุ่มเรียนที่เปิดสอน
+                <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                  กลุ่มเรียน: {currentSubject?.name}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  กลุ่มเรียนทั้งหมดในรายวิชานี้
                 </p>
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+      <section className="space-y-3 order-3 xl:row-start-2 xl:col-start-1 min-w-0">
+        {!activeSubject ? (
+          <>
             <div className="flex flex-col xl:flex-row xl:items-center gap-4">
               <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                 <div className="w-full sm:w-56 max-w-full shrink-0">
@@ -250,23 +276,48 @@ export function SubjectsPage({ data, api, refresh }) {
                       type="checkbox"
                       checked={selectedSubjects.has(row.id)}
                       onChange={(e) => {
-                        const currentIndex = filteredSubjects.findIndex(x => x.id === row.id);
+                        const currentIndex = filteredSubjects.findIndex(
+                          (x) => x.id === row.id,
+                        );
                         const next = new Set(selectedSubjects);
-                        
-                        if (e.nativeEvent.shiftKey && lastSelectedSubjectIndex !== null) {
-                          const oldStart = lastShiftSubjectIndex !== null ? Math.min(lastShiftSubjectIndex, lastSelectedSubjectIndex) : lastSelectedSubjectIndex;
-                          const oldEnd = lastShiftSubjectIndex !== null ? Math.max(lastShiftSubjectIndex, lastSelectedSubjectIndex) : lastSelectedSubjectIndex;
-                          
-                          const newStart = Math.min(currentIndex, lastSelectedSubjectIndex);
-                          const newEnd = Math.max(currentIndex, lastSelectedSubjectIndex);
-                          
+
+                        if (
+                          e.nativeEvent.shiftKey &&
+                          lastSelectedSubjectIndex !== null
+                        ) {
+                          const oldStart =
+                            lastShiftSubjectIndex !== null
+                              ? Math.min(
+                                  lastShiftSubjectIndex,
+                                  lastSelectedSubjectIndex,
+                                )
+                              : lastSelectedSubjectIndex;
+                          const oldEnd =
+                            lastShiftSubjectIndex !== null
+                              ? Math.max(
+                                  lastShiftSubjectIndex,
+                                  lastSelectedSubjectIndex,
+                                )
+                              : lastSelectedSubjectIndex;
+
+                          const newStart = Math.min(
+                            currentIndex,
+                            lastSelectedSubjectIndex,
+                          );
+                          const newEnd = Math.max(
+                            currentIndex,
+                            lastSelectedSubjectIndex,
+                          );
+
                           for (let i = oldStart; i <= oldEnd; i++) {
                             if (i < newStart || i > newEnd) {
                               next.delete(filteredSubjects[i].id);
                             }
                           }
 
-                          const targetState = selectedSubjects.has(filteredSubjects[lastSelectedSubjectIndex].id);
+                          const targetState = selectedSubjects.has(
+                            filteredSubjects[lastSelectedSubjectIndex].id,
+                          );
                           for (let i = newStart; i <= newEnd; i++) {
                             if (targetState) next.add(filteredSubjects[i].id);
                             else next.delete(filteredSubjects[i].id);
@@ -278,7 +329,7 @@ export function SubjectsPage({ data, api, refresh }) {
                           setLastSelectedSubjectIndex(currentIndex);
                           setLastShiftSubjectIndex(currentIndex);
                         }
-                        
+
                         setSelectedSubjects(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -288,12 +339,16 @@ export function SubjectsPage({ data, api, refresh }) {
                 { key: "code", label: "รหัสวิชา", className: "w-24" },
                 { key: "name", label: "ชื่อวิชา" },
                 {
-                  key: "term",
-                  label: "ภาคเรียน",
-                  className: "w-16 text-center",
+                  key: "termYear",
+                  label: "ภาค/ปี",
+                  className: "w-20 text-center",
+                  render: (row) => `${row.term || "-"}/${row.year || "-"}`,
                 },
-                { key: "year", label: "ปี", className: "w-20 text-center" },
-                { key: "teacher", label: "ผู้สอน", className: "truncate text-left" },
+                {
+                  key: "teacher",
+                  label: "ผู้สอน",
+                  className: "truncate text-left",
+                },
                 {
                   key: "actions",
                   label: "",
@@ -344,24 +399,6 @@ export function SubjectsPage({ data, api, refresh }) {
           </>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-4">
-                <GhostButton
-                  onClick={() => setActiveSubject(null)}
-                  className="py-2 px-3"
-                >
-                  <Icon name="fa-arrow-left" />
-                </GhostButton>
-                <div>
-                  <h3 className="text-xl font-extrabold">
-                    กลุ่มเรียน: {currentSubject?.name}
-                  </h3>
-                  <p className="text-sm text-zinc-500">
-                    กลุ่มเรียนทั้งหมดในรายวิชานี้
-                  </p>
-                </div>
-              </div>
-            </div>
             <div className="flex flex-col xl:flex-row xl:items-center gap-4">
               <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                 <div className="w-full sm:w-56 max-w-full shrink-0">
@@ -411,23 +448,48 @@ export function SubjectsPage({ data, api, refresh }) {
                       type="checkbox"
                       checked={selectedSections.has(row.id)}
                       onChange={(e) => {
-                        const currentIndex = filteredSections.findIndex(x => x.id === row.id);
+                        const currentIndex = filteredSections.findIndex(
+                          (x) => x.id === row.id,
+                        );
                         const next = new Set(selectedSections);
-                        
-                        if (e.nativeEvent.shiftKey && lastSelectedSectionIndex !== null) {
-                          const oldStart = lastShiftSectionIndex !== null ? Math.min(lastShiftSectionIndex, lastSelectedSectionIndex) : lastSelectedSectionIndex;
-                          const oldEnd = lastShiftSectionIndex !== null ? Math.max(lastShiftSectionIndex, lastSelectedSectionIndex) : lastSelectedSectionIndex;
-                          
-                          const newStart = Math.min(currentIndex, lastSelectedSectionIndex);
-                          const newEnd = Math.max(currentIndex, lastSelectedSectionIndex);
-                          
+
+                        if (
+                          e.nativeEvent.shiftKey &&
+                          lastSelectedSectionIndex !== null
+                        ) {
+                          const oldStart =
+                            lastShiftSectionIndex !== null
+                              ? Math.min(
+                                  lastShiftSectionIndex,
+                                  lastSelectedSectionIndex,
+                                )
+                              : lastSelectedSectionIndex;
+                          const oldEnd =
+                            lastShiftSectionIndex !== null
+                              ? Math.max(
+                                  lastShiftSectionIndex,
+                                  lastSelectedSectionIndex,
+                                )
+                              : lastSelectedSectionIndex;
+
+                          const newStart = Math.min(
+                            currentIndex,
+                            lastSelectedSectionIndex,
+                          );
+                          const newEnd = Math.max(
+                            currentIndex,
+                            lastSelectedSectionIndex,
+                          );
+
                           for (let i = oldStart; i <= oldEnd; i++) {
                             if (i < newStart || i > newEnd) {
                               next.delete(filteredSections[i].id);
                             }
                           }
 
-                          const targetState = selectedSections.has(filteredSections[lastSelectedSectionIndex].id);
+                          const targetState = selectedSections.has(
+                            filteredSections[lastSelectedSectionIndex].id,
+                          );
                           for (let i = newStart; i <= newEnd; i++) {
                             if (targetState) next.add(filteredSections[i].id);
                             else next.delete(filteredSections[i].id);
@@ -439,7 +501,7 @@ export function SubjectsPage({ data, api, refresh }) {
                           setLastSelectedSectionIndex(currentIndex);
                           setLastShiftSectionIndex(currentIndex);
                         }
-                        
+
                         setSelectedSections(next);
                       }}
                       className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
@@ -492,13 +554,13 @@ export function SubjectsPage({ data, api, refresh }) {
         )}
       </section>
 
-      <aside className="space-y-6">
+      <aside className="space-y-6 order-2 xl:row-start-1 xl:col-start-2 xl:row-span-2">
         {!activeSubject ? (
           <form
             onSubmit={saveSubject}
             className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
           >
-            <h4 className="font-extrabold">
+            <h4 className="text-lg font-bold text-slate-800">
               {subjectForm.id ? "แก้ไขรายวิชา" : "เพิ่มรายวิชา"}
             </h4>
             <Field label="รหัสวิชา">
@@ -529,7 +591,8 @@ export function SubjectsPage({ data, api, refresh }) {
                     type="button"
                     onClick={() => {
                       const v = parseInt(subjectForm.term) || 1;
-                      if (v > 1) setSubjectForm({ ...subjectForm, term: String(v - 1) });
+                      if (v > 1)
+                        setSubjectForm({ ...subjectForm, term: String(v - 1) });
                     }}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
                   >
@@ -542,7 +605,8 @@ export function SubjectsPage({ data, api, refresh }) {
                     type="button"
                     onClick={() => {
                       const v = parseInt(subjectForm.term) || 1;
-                      if (v < 3) setSubjectForm({ ...subjectForm, term: String(v + 1) });
+                      if (v < 3)
+                        setSubjectForm({ ...subjectForm, term: String(v + 1) });
                     }}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
                   >
@@ -578,7 +642,7 @@ export function SubjectsPage({ data, api, refresh }) {
             onSubmit={saveSection}
             className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
           >
-            <h4 className="font-extrabold">
+            <h4 className="text-lg font-bold text-slate-800">
               {sectionForm.id ? "แก้ไขกลุ่มเรียน" : "เพิ่มกลุ่มเรียน"}
             </h4>
             <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-blue-700 text-sm mb-2">

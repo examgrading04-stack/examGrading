@@ -223,19 +223,21 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   return (
     <>
       <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8 items-start">
-          <section className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-[auto_1fr] gap-x-6 gap-y-3 items-start">
+          <div className="order-1 xl:row-start-1 xl:col-start-1 min-w-0">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                   กระดาษคำตอบทั้งหมด
                 </h2>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500">
                   สร้างกระดาษคำตอบและพิมพ์กระดาษคำตอบ
                 </p>
               </div>
             </div>
+          </div>
 
+          <section className="space-y-3 order-3 xl:row-start-2 xl:col-start-1 min-w-0">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                 <div className="w-full sm:w-56 max-w-full shrink-0">
@@ -272,7 +274,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 </button>
               )}
             </div>
-
             <DataTable
               columns={[
                 {
@@ -340,7 +341,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                             }
                           }
 
-                          const targetState = selectedExams.has(filteredExams[lastSelectedExamIndex].id);
+                          const targetState = selectedExams.has(
+                            filteredExams[lastSelectedExamIndex].id,
+                          );
                           for (let i = newStart; i <= newEnd; i++) {
                             if (targetState) next.add(filteredExams[i].id);
                             else next.delete(filteredExams[i].id);
@@ -504,9 +507,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
           <form
             onSubmit={createExam}
-            className="bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-6 space-y-4 h-fit sticky top-8"
+            className="bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-6 space-y-4 h-fit xl:sticky xl:top-8 order-2 xl:row-start-1 xl:col-start-2 xl:row-span-2"
           >
-            <h4 className="font-extrabold text-zinc-900">
+            <h4 className="text-lg font-bold text-slate-800">
               {form.id ? "แก้ไขข้อมูลกระดาษคำตอบ" : "สร้างกระดาษคำตอบใหม่"}
             </h4>
             <Field label="รายวิชาที่สอบ">

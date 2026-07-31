@@ -125,7 +125,7 @@ export function ReportsPage({ data }) {
     <div className="page-enter mx-auto max-w-[1600px] space-y-6 px-4 pb-20">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             รายงานผลการตรวจทั้งหมด
           </h2>
           <p className="mt-2 text-sm text-slate-500">
@@ -184,7 +184,7 @@ export function ReportsPage({ data }) {
 
       <section className="space-y-4 mt-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
             ตารางสรุปผลรายข้อสอบ
           </h2>
           <p className="mt-1 text-sm text-slate-500">

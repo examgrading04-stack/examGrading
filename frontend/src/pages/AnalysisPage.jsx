@@ -288,7 +288,7 @@ export function AnalysisPage({ data }) {
     <div className="page-enter mx-auto max-w-[1600px] space-y-6 px-4 pb-20">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             ภาพรวมสถิติและคุณภาพข้อสอบ
             {exam?.section && (
               <span className="ml-3 rounded-full bg-slate-100 px-3 py-1 text-sm font-black uppercase text-slate-600 border border-slate-200">
@@ -368,10 +368,10 @@ export function AnalysisPage({ data }) {
         />
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_24rem]">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm min-w-0 flex flex-col">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">
               ระดับความยากง่ายรายข้อ (p)
             </h3>
             <p className="mt-1 text-sm text-slate-500">
@@ -402,7 +402,7 @@ export function AnalysisPage({ data }) {
 
         <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm flex flex-col min-w-0">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">
               สัดส่วนคุณภาพ (D)
             </h3>
             <p className="mt-1 text-sm text-slate-500">
@@ -537,7 +537,7 @@ export function AnalysisPage({ data }) {
 
       <section className="space-y-4 mt-8">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
             ตารางวิเคราะห์คุณภาพข้อสอบรายข้อ
           </h2>
           <p className="mt-1 text-sm text-slate-500">

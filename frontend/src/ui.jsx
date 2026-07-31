@@ -377,14 +377,14 @@ export function StatCard({ title, value, icon, color }) {
   const s = styles[color] || styles.blue;
   return (
     <div
-      className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 ${s.border} shadow-sm flex flex-col justify-between h-full`}
+      className={`bg-white p-3 sm:p-4 rounded-xl border border-slate-200 border-l-4 ${s.border} shadow-sm flex flex-col justify-between h-full`}
     >
       <div className="flex justify-between items-start mb-2">
-        <p className="text-slate-600 text-sm font-bold leading-tight pr-2">
+        <p className="text-slate-600 text-xs sm:text-sm font-bold leading-tight pr-2">
           {title}
         </p>
         <div
-          className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${s.bg} ${s.text}`}
+          className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-lg flex items-center justify-center ${s.bg} ${s.text}`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -399,7 +399,9 @@ export function StatCard({ title, value, icon, color }) {
         </div>
       </div>
       <div>
-        <h3 className="text-3xl font-black text-slate-800 mt-1">{value}</h3>
+        <h3 className="text-xl sm:text-3xl font-black text-slate-800 mt-1">
+          {value}
+        </h3>
       </div>
     </div>
   );
@@ -546,13 +548,13 @@ export function DataTable({
   return (
     <div className="rounded-md border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto relative">
-        <table className="w-full text-sm table-fixed">
+        <table className="w-full text-sm">
           <thead className="bg-slate-100/90 backdrop-blur-sm text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3.5 font-bold whitespace-nowrap ${column.className || "text-left"}`}
+                  className={`px-3 sm:px-4 py-2 sm:py-3.5 font-bold whitespace-nowrap ${column.className || "text-left"}`}
                 >
                   {column.label}
                 </th>
@@ -569,7 +571,7 @@ export function DataTable({
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-4 py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
+                      className={`px-3 sm:px-4 py-2 sm:py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
                     >
                       {column.render ? column.render(row) : row[column.key]}
                     </td>
@@ -596,7 +598,7 @@ export function DataTable({
         </table>
       </div>
       {rows.length > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs sm:text-sm">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs sm:text-sm">
           <span className="text-slate-500">
             แสดง {startItem}-{endItem} จาก {rows.length} รายการ
           </span>
@@ -649,7 +651,7 @@ export function Pagination({
   const items = buildPages(safeCount, safePage);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center justify-center gap-1">
       <button
         type="button"
         onClick={() => onChange?.(null, Math.max(safePage - 1, 1))}
@@ -817,7 +819,7 @@ export function SplitScreenAuthLayout({
 
       {/* Form Pane */}
       <div
-        className={`absolute top-0 h-full w-full lg:w-[45%] flex flex-col justify-center px-6 sm:px-12 lg:px-16 py-6 z-20 bg-white transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[0_0_60px_rgba(0,0,0,0.15)] overflow-y-auto ${
+        className={`absolute top-0 h-full w-full lg:w-[45%] flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-8 z-20 bg-white transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[0_0_60px_rgba(0,0,0,0.15)] overflow-y-auto ${
           isRegister
             ? "left-0 lg:rounded-r-[40px]"
             : "left-0 lg:left-[55%] lg:rounded-l-[40px]"
