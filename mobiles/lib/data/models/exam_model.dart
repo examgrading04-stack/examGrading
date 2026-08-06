@@ -7,7 +7,8 @@ class ExamModel {
   int options;
   int sets;
   String? section;
-  Map<String, Map<String, String>> answerKey;
+  String? sheetType;
+  Map<String, Map<String, dynamic>> answerKey;
   List<Map<String, dynamic>> studentsSnapshot;
 
   ExamModel({
@@ -19,6 +20,7 @@ class ExamModel {
     required this.options,
     required this.sets,
     this.section,
+    this.sheetType,
     required this.answerKey,
     this.studentsSnapshot = const [],
   });
@@ -39,6 +41,7 @@ class ExamModel {
       options: int.tryParse(map['options']?.toString() ?? '') ?? 0,
       sets: int.tryParse(map['sets']?.toString() ?? '') ?? 0,
       section: map['section']?.toString(),
+      sheetType: map['sheetType']?.toString(),
       answerKey: _parseAnswerKey(rawAnswerKey),
       studentsSnapshot: _parseStudentsSnapshot(map['studentsSnapshot']),
     );
@@ -53,6 +56,7 @@ class ExamModel {
       'options': options,
       'sets': sets,
       if (section != null) 'section': section,
+      if (sheetType != null) 'sheetType': sheetType,
       'answerKey': answerKey,
       'studentsSnapshot': studentsSnapshot,
     };
@@ -79,12 +83,12 @@ class ExamModel {
         .toList();
   }
 
-  static Map<String, Map<String, String>> _parseAnswerKey(dynamic raw) {
+  static Map<String, Map<String, dynamic>> _parseAnswerKey(dynamic raw) {
     if (raw is! Map) return {};
 
     // Check if it's a flat map (e.g., {"1": "A", "2": "B"})
     if (raw.isNotEmpty && raw.values.first is! Map) {
-      return {'0': raw.map((k, v) => MapEntry(k.toString(), v.toString()))};
+      return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
     }
 
     return raw.map((setIndex, answers) {
@@ -92,8 +96,7 @@ class ExamModel {
       return MapEntry(
         setIndex.toString(),
         answerMap.map(
-          (question, answer) =>
-              MapEntry(question.toString(), answer.toString()),
+          (question, answer) => MapEntry(question.toString(), answer),
         ),
       );
     });

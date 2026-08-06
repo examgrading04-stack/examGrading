@@ -123,6 +123,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
     );
     String? selectedSubjectCode = exam?.subject;
     String? selectedSection = exam?.section;
+    String? selectedSheetType = exam?.sheetType ?? '30-A-E';
     if (selectedSection != null && selectedSection.isEmpty) {
       selectedSection = null;
     }
@@ -230,10 +231,70 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildPopupField(
-                      'จำนวนข้อ',
+                      'กำหนดเฉลยได้กี่ข้อ',
                       questionsController,
                       FontAwesomeIcons.circleQuestion,
                       keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownMenu<String>(
+                      initialSelection: selectedSheetType,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('รูปแบบกระดาษคำตอบ'),
+                      enableFilter: false,
+                      enableSearch: false,
+                      leadingIcon: const Padding(
+                        padding: EdgeInsets.only(left: 16, right: 10),
+                        child: Icon(
+                          FontAwesomeIcons.fileLines,
+                          color: AppColors.warning,
+                          size: 13,
+                        ),
+                      ),
+                      inputDecorationTheme: InputDecorationTheme(
+                        filled: true,
+                        fillColor: AppColors.background,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
+                        ),
+                        labelStyle: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: AppColors.border,
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: AppColors.warning,
+                            width: 2.0,
+                          ),
+                        ),
+                      ),
+                      onSelected: (val) =>
+                          setModalState(() => selectedSheetType = val),
+                      dropdownMenuEntries: const [
+                        DropdownMenuEntry<String>(
+                          value: '30-A-E',
+                          label: '30 ข้อ (A-E)',
+                        ),
+                        DropdownMenuEntry<String>(
+                          value: '50-A-E',
+                          label: '50 ข้อ (A-E)',
+                        ),
+                        DropdownMenuEntry<String>(
+                          value: '100-A-E',
+                          label: '100 ข้อ (A-E)',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 36),
                     Container(
@@ -273,6 +334,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 int.tryParse(questionsController.text) ?? 100,
                             'options': 5,
                             'sets': 1,
+                            'sheetType': selectedSheetType,
                             'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
