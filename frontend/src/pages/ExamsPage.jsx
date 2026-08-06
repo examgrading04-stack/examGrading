@@ -19,6 +19,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     section: "",
     name: "",
     questions: "",
+    sheetType: "30",
   });
   const [sheetModal, setSheetModal] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -144,7 +145,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     });
     const subject = data.subjects.find((item) => item.id === form.subject);
     const questions = Number(form.questions);
-    const sheetType = questions <= 30 ? 30 : questions <= 50 ? 50 : 100;
 
     const payload = {
       name: form.name,
@@ -152,13 +152,20 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       subjectName: subject?.name || "",
       section: form.section || "All Section",
       questions,
-      sheetType,
+      sheetType: Number(form.sheetType || 30),
       answerKey: {},
     };
 
     if (isEdit) {
       await api.update("exams", form.id, payload);
-      setForm({ subject: "", section: "", name: "", questions: "", id: null });
+      setForm({
+        subject: "",
+        section: "",
+        name: "",
+        questions: "",
+        sheetType: "30",
+        id: null,
+      });
       await refresh("แก้ไขกระดาษคำตอบสำเร็จ");
       return;
     }
@@ -174,7 +181,14 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     await api.set(`exams/${id}`, payload);
     const exam = { id, ...payload };
 
-    setForm({ subject: "", section: "", name: "", questions: "", id: null });
+    setForm({
+      subject: "",
+      section: "",
+      name: "",
+      questions: "",
+      sheetType: "30",
+      id: null,
+    });
     await refresh("สร้างกระดาษคำตอบสำเร็จ");
     openSheetModal(exam);
   }
@@ -451,6 +465,10 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                                     (s) => String(s.id) === String(row.section),
                                   )?.sec || row.section,
                             questions: row.questions || 50,
+                            sheetType: String(row.sheetType || 30).replace(
+                              "-A-E",
+                              "",
+                            ),
                           });
                         }}
                         title="แก้ไขข้อมูลกระดาษคำตอบ"
@@ -550,26 +568,39 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 required
               />
             </Field>
-            <Field label="จำนวนข้อ">
+            <Field label="จำนวนข้อที่ต้องการกำหนดเฉลย">
               <Input
                 type="number"
                 min="1"
-                max="100"
+                max={Number(form.sheetType || 100)}
                 value={form.questions}
                 onChange={(e) =>
                   setForm({ ...form, questions: e.target.value })
                 }
-                placeholder="50"
+                placeholder="จำนวนข้อสอบ"
                 required
               />
             </Field>
-            {form.questions && (
-              <div
-                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.questions).color]}`}
+            <Field label="รูปแบบกระดาษคำตอบ (Templates)">
+              <Select
+                value={form.sheetType}
+                onChange={(e) =>
+                  setForm({ ...form, sheetType: e.target.value })
+                }
+                required
               >
-                <Icon name={getTemplateInfo(form.questions).icon} />
+                <option value="30">แบบ 30 ข้อ</option>
+                <option value="50">แบบ 50 ข้อ</option>
+                <option value="100">แบบ 100 ข้อ</option>
+              </Select>
+            </Field>
+            {form.sheetType && (
+              <div
+                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType).color]}`}
+              >
+                <Icon name={getTemplateInfo(form.sheetType).icon} />
                 <span className="text-xs font-bold">
-                  {getTemplateInfo(form.questions).label}
+                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType).label}
                 </span>
               </div>
             )}
@@ -587,6 +618,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     section: "",
                     name: "",
                     questions: "",
+                    sheetType: "30",
                     id: null,
                   })
                 }

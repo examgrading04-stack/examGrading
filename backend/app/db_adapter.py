@@ -183,6 +183,7 @@ class SqlExamAnswerKey(Base):
     answer_key_id = Column("answer_key_id", Integer, primary_key=True, autoincrement=True)
     question_no = Column("question_no", Integer, nullable=False)
     correct_answer = Column("correct_answer", String(1), nullable=False)
+    score = Column("score", Float, nullable=False, default=1.0)
     exam_id = Column("exam_id", String(100), nullable=False)
     user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
@@ -377,7 +378,13 @@ class MySQLAdapter(BaseDBAdapter):
                 for q_str, ans in answer_key.items():
                     try:
                         q_no = int(q_str)
-                        session.add(SqlExamAnswerKey(exam_id=exam_id, user_id=user_email, question_no=q_no, correct_answer=ans))
+                        if isinstance(ans, dict):
+                            c_ans = str(ans.get("answer", ""))
+                            q_score = float(ans.get("score", 1.0))
+                        else:
+                            c_ans = str(ans)
+                            q_score = 1.0
+                        session.add(SqlExamAnswerKey(exam_id=exam_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                     except ValueError:
                         pass
 
@@ -755,8 +762,13 @@ class MySQLAdapter(BaseDBAdapter):
                         for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                if isinstance(ans, str) or isinstance(ans, int):
-                                    session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=str(ans)))
+                                if isinstance(ans, dict):
+                                    c_ans = str(ans.get("answer", ""))
+                                    q_score = float(ans.get("score", 1.0))
+                                else:
+                                    c_ans = str(ans)
+                                    q_score = 1.0
+                                session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                             except ValueError:
                                 pass
                                 
@@ -854,8 +866,13 @@ class MySQLAdapter(BaseDBAdapter):
                         for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                if isinstance(ans, str) or isinstance(ans, int):
-                                    session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=str(ans)))
+                                if isinstance(ans, dict):
+                                    c_ans = str(ans.get("answer", ""))
+                                    q_score = float(ans.get("score", 1.0))
+                                else:
+                                    c_ans = str(ans)
+                                    q_score = 1.0
+                                session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                             except ValueError:
                                 pass
                                 

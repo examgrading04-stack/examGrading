@@ -180,7 +180,14 @@ def normalize_answer_key(exam: dict[str, Any], answer_set: str = "0") -> dict[in
     normalized = {}
     for question, answer in raw.items():
         try:
-            normalized[int(question)] = str(answer).upper()
+            q_no = int(question)
+            if isinstance(answer, dict):
+                normalized[q_no] = {
+                    "answer": str(answer.get("answer", "")).upper(),
+                    "score": float(answer.get("score", 1.0))
+                }
+            else:
+                normalized[q_no] = str(answer).upper()
         except (TypeError, ValueError):
             continue
     return normalized
