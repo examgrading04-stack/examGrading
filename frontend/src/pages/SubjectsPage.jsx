@@ -12,9 +12,11 @@ import {
 } from "../ui.jsx";
 
 export function SubjectsPage({ data, api, refresh }) {
-  const [subjectForm, setSubjectForm] = useState(
-    emptyForm(["id", "code", "name", "term", "year", "teacher"]),
-  );
+  const [subjectForm, setSubjectForm] = useState({
+    ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
+    term: "1",
+    year: String(new Date().getFullYear() + 543),
+  });
   const [sectionForm, setSectionForm] = useState(
     emptyForm(["id", "subject", "sec"]),
   );
@@ -56,12 +58,22 @@ export function SubjectsPage({ data, api, refresh }) {
       year: subjectForm.year,
       teacher: subjectForm.teacher,
     };
-    if (subjectForm.id) await api.update("subjects", subjectForm.id, payload);
-    else await api.set(`subjects/${payload.code}`, payload);
-    setSubjectForm(
-      emptyForm(["id", "code", "name", "term", "year", "teacher"]),
-    );
-    await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
+    try {
+      if (subjectForm.id) await api.update("subjects", subjectForm.id, payload);
+      else await api.set(`subjects/${payload.code}`, payload);
+      setSubjectForm({
+        ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
+        term: "1",
+        year: String(new Date().getFullYear() + 543),
+      });
+      await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถบันทึกรายวิชาได้",
+        "error",
+      );
+    }
   }
 
   async function saveSection(event) {
@@ -80,13 +92,21 @@ export function SubjectsPage({ data, api, refresh }) {
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
-    await api.set(`subjects/${subjectId}/sections/${id}`, {
-      subject: subjectId,
-      sec: sectionForm.sec,
-      created_at: new Date().toISOString(),
-    });
-    setSectionForm(emptyForm(["id", "subject", "sec"]));
-    await refresh("บันทึกกลุ่มเรียนเรียบร้อยแล้ว");
+    try {
+      await api.set(`subjects/${subjectId}/sections/${id}`, {
+        subject: subjectId,
+        sec: sectionForm.sec,
+        created_at: new Date().toISOString(),
+      });
+      setSectionForm(emptyForm(["id", "subject", "sec"]));
+      await refresh("บันทึกกลุ่มเรียนเรียบร้อยแล้ว");
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถบันทึกกลุ่มเรียนได้",
+        "error",
+      );
+    }
   }
 
   async function deleteSubject(subject) {
@@ -377,6 +397,10 @@ export function SubjectsPage({ data, api, refresh }) {
                               "teacher",
                             ]),
                             ...row,
+                            term: row.term || "1",
+                            year:
+                              row.year ||
+                              String(new Date().getFullYear() + 543),
                           })
                         }
                       >

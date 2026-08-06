@@ -23,9 +23,6 @@ import {
   API_BASE_URL,
   apiFetch,
   SplitScreenAuthLayout,
-  PasswordInput,
-  AuthInput,
-  Checkbox,
 } from "./ui.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -443,20 +440,62 @@ export default function App() {
   useEffect(() => {
     const services = bootFirebase();
     setFirebase(services);
+    let userDocInterval = null;
+
     const unsubscribe = services.auth.onAuthStateChanged(async (nextUser) => {
+      if (userDocInterval) {
+        clearInterval(userDocInterval);
+        userDocInterval = null;
+      }
+
       if (nextUser) {
         try {
+          const userEmail =
+            nextUser.email || nextUser.username || nextUser.id || nextUser.uid;
+
+          if (userEmail) {
+            userDocInterval = setInterval(async () => {
+              try {
+                const snapshot = await services.db
+                  .collection("users")
+                  .doc(userEmail)
+                  .get();
+                if (snapshot.exists && snapshot.data().status === "suspended") {
+                  if (userDocInterval) {
+                    clearInterval(userDocInterval);
+                    userDocInterval = null;
+                  }
+                  await services.auth.signOut();
+                  setTimeout(() => {
+                    Swal().fire(
+                      "ถูกระงับการใช้งาน",
+                      "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+                      "error",
+                    );
+                  }, 500);
+                  setUser(null);
+                  setProfile(null);
+                  setLoading(false);
+                }
+              } catch (e) {
+                // Ignore fetch errors during polling
+              }
+            }, 5000);
+          }
+
           const userDoc = await services.db
             .collection("users")
-            .doc(nextUser.email)
+            .doc(userEmail)
             .get();
           if (userDoc.exists && userDoc.data().status === "suspended") {
             await services.auth.signOut();
-            Swal().fire(
-              "เข้าสู่ระบบไม่สำเร็จ",
-              "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
-              "error",
-            );
+            setTimeout(() => {
+              Swal().fire(
+                "เข้าสู่ระบบไม่สำเร็จ",
+                "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+                "error",
+              );
+            }, 500);
             setUser(null);
             setProfile(null);
             setLoading(false);
@@ -509,7 +548,10 @@ export default function App() {
       setLoading(false);
       if (nextUser) await loadData(services, nextUser);
     });
-    return unsubscribe;
+    return () => {
+      if (userDocInterval) clearInterval(userDocInterval);
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -860,7 +902,7 @@ export default function App() {
     return (
       <SplitScreenAuthLayout
         isRegister={isRegister}
-        title={isRegister ? "สร้างบัญชีผู้ใช้งาน" : "ยินดีต้อนรับกลับมา"}
+        title={isRegister ? "สร้างบัญชีผู้ใช้งาน" : "ยินดีต้อนรับ"}
         subtitle={
           isRegister
             ? "กรอกข้อมูลของคุณเพื่อเริ่มต้นใช้งานระบบ"

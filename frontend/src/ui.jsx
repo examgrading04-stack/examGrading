@@ -236,11 +236,11 @@ export function Select(props) {
           )}
           <div className={`${menuClass} py-1`}>
             {displayOptions.length > 0 ? (
-              displayOptions.map((item) => {
+              displayOptions.map((item, index) => {
                 const isSelected = item.value === String(value ?? "");
                 return (
                   <button
-                    key={item.value}
+                    key={item.value ?? index}
                     type="button"
                     disabled={item.disabled}
                     onClick={() => selectValue(item.value)}
@@ -563,21 +563,25 @@ export function DataTable({
           </thead>
           <tbody className="divide-y divide-slate-200">
             {rows.length ? (
-              visibleRows.map((row) => (
-                <tr
-                  key={row.id || JSON.stringify(row)}
-                  className="hover:bg-slate-50/50 transition-colors"
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={`px-3 sm:px-4 py-2 sm:py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
-                    >
-                      {column.render ? column.render(row) : row[column.key]}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              visibleRows.map((row, index) => {
+                const rowKey =
+                  row._key || (row.id != null ? `${row.id}_${index}` : index);
+                return (
+                  <tr
+                    key={rowKey}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={`px-3 sm:px-4 py-2 sm:py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
+                      >
+                        {column.render ? column.render(row) : row[column.key]}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-16 text-center">

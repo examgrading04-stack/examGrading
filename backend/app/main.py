@@ -1,8 +1,7 @@
-import json
 import os
 import uuid
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 

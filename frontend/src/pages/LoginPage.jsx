@@ -21,6 +21,22 @@ export default function LoginPage({ setMode, auth, navigate, hideLayout }) {
       didOpen: () => Swal().showLoading(),
     });
     try {
+      // Check if user is blocked before calling auth API
+      const cleanEmail = email.trim();
+      const userDoc = await window.firebase
+        .firestore()
+        .collection("users")
+        .doc(cleanEmail)
+        .get();
+      if (userDoc.exists && userDoc.data().status === "suspended") {
+        Swal().fire(
+          "ถูกระงับการใช้งาน",
+          "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+          "error",
+        );
+        return;
+      }
+
       if (auth.setPersistence && window.firebase?.auth?.Auth?.Persistence) {
         const persistenceType = rememberMe
           ? window.firebase.auth.Auth.Persistence.LOCAL
@@ -45,7 +61,7 @@ export default function LoginPage({ setMode, auth, navigate, hideLayout }) {
           : window.firebase.auth.Auth.Persistence.SESSION;
         await auth.setPersistence(persistenceType);
       }
-      
+
       await auth.signInWithPopup(provider);
       sessionStorage.setItem("justLoggedIn", "true");
     } catch (error) {
@@ -181,7 +197,7 @@ export default function LoginPage({ setMode, auth, navigate, hideLayout }) {
 
   return (
     <SplitScreenAuthLayout
-      title="ยินดีต้อนรับกลับมา"
+      title="ยินดีต้อนรับ"
       subtitle="กรอกอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบ"
       rightTitle="จัดการข้อมูลนักเรียนและข้อสอบได้อย่างง่ายดาย"
       rightSubtitle="เข้าสู่ระบบเพื่อใช้งานกระดานควบคุมและตรวจข้อสอบทันที"

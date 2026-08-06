@@ -5,7 +5,10 @@ import {
   PasswordInput,
   AuthInput,
   Icon,
+  API_BASE_URL,
 } from "../ui.jsx";
+
+const BASE_URL = API_BASE_URL || "http://127.0.0.1:8000";
 
 export default function RegisterPage({ setMode, auth, navigate, hideLayout }) {
   const [email, setEmail] = useState("");
@@ -32,9 +35,26 @@ export default function RegisterPage({ setMode, auth, navigate, hideLayout }) {
       didOpen: () => Swal().showLoading(),
     });
     try {
-      await auth.createUserWithEmailAndPassword(email, password);
-      sessionStorage.setItem("justLoggedIn", "true");
-      Swal().close();
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "สมัครสมาชิกไม่สำเร็จ");
+      }
+
+      Swal()
+        .fire({
+          title: "ลงทะเบียนสำเร็จ",
+          text: "กรุณาเข้าสู่ระบบด้วยบัญชีที่เพิ่งสร้างใหม่",
+          icon: "success",
+          confirmButtonText: "ตกลง",
+        })
+        .then(() => {
+          setMode("login");
+        });
     } catch (error) {
       Swal().fire("สมัครสมาชิกไม่สำเร็จ", error.message, "error");
     }
@@ -67,8 +87,17 @@ export default function RegisterPage({ setMode, auth, navigate, hideLayout }) {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[13px] font-bold text-slate-700 ml-1">
-            ยืนยันรหัสผ่าน
+          <label className="text-[13px] font-bold text-slate-700 ml-1 flex justify-between items-center">
+            <span>ยืนยันรหัสผ่าน</span>
+            {confirm.length > 0 && (
+              <span
+                className={`text-[11px] ${password === confirm ? "text-emerald-600" : "text-rose-500"}`}
+              >
+                {password === confirm
+                  ? "✓ รหัสผ่านตรงกัน"
+                  : "✗ รหัสผ่านไม่ตรงกัน"}
+              </span>
+            )}
           </label>
           <PasswordInput
             value={confirm}
