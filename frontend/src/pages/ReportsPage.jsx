@@ -79,6 +79,19 @@ export function ReportsPage({ data }) {
     };
   });
 
+  const availableSubjectsMap = new Map();
+  data.subjects?.forEach((s) => {
+    availableSubjectsMap.set(s.id, `${s.code} ${s.name}`);
+  });
+  rows.forEach((row) => {
+    if (row.subjectKey && !availableSubjectsMap.has(row.subjectKey)) {
+      availableSubjectsMap.set(row.subjectKey, row.subjectName);
+    }
+  });
+  const availableSubjectsList = Array.from(availableSubjectsMap.entries()).map(
+    ([key, name]) => ({ key, name })
+  );
+
   const reportRows = selectedSubject
     ? rows.filter((row) => row.subjectKey === selectedSubject)
     : rows;
@@ -143,9 +156,9 @@ export function ReportsPage({ data }) {
               className="w-full bg-white text-slate-900 border-slate-200"
             >
               <option value="">ทุกรายวิชา</option>
-              {data.subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.code} {subject.name}
+              {availableSubjectsList.map((subject) => (
+                <option key={subject.key} value={subject.key}>
+                  {subject.name}
                 </option>
               ))}
             </Select>
