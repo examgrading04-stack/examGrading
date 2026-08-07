@@ -934,7 +934,19 @@ def scan_answer_sheet(image_input,force_questions=0,debug=False):
 
 def calculate_score(answers,answer_key):
     correct,wrong,skipped=[],[],[]
-    for q_no,key in answer_key.items():
+    total_score = 0.0
+    earned_score = 0.0
+
+    for q_no,key_data in answer_key.items():
+        q_score = 1.0
+        if isinstance(key_data, dict):
+            key = key_data.get("answer", "")
+            q_score = float(key_data.get("score", 1.0))
+        else:
+            key = key_data
+
+        total_score += q_score
+
         # รองรับทั้ง key แบบ int และ str จากหลายแหล่งข้อมูล
         a=answers.get(q_no)
         if a is None:
@@ -952,10 +964,13 @@ def calculate_score(answers,answer_key):
         if isinstance(key, str):
             key = key.strip().upper()
         if a is None: skipped.append(q_no)
-        elif a==key: correct.append(q_no)
+        elif a==key: 
+            correct.append(q_no)
+            earned_score += q_score
         else: wrong.append({"question":q_no,"student":a,"correct":key})
+    
     total=len(answer_key)
-    return {"score":len(correct),"total":total,"percent":round(len(correct)/total*100,1) if total else 0,
+    return {"score":earned_score,"total":total,"percent":round(earned_score/total_score*100,1) if total_score else 0,
             "correct":correct,"wrong":wrong,"skipped":skipped}
 
 def _save_debug(warped,grid_rect,positions,answers,flagged,orig_path):

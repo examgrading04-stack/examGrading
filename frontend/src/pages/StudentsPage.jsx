@@ -12,14 +12,18 @@ import {
 } from "../ui.jsx";
 
 export function StudentsPage({ data, api, refresh }) {
-  const [form, setForm] = useState(emptyForm(["id", "name", "section"]));
+  const [form, setForm] = useState(
+    emptyForm(["id", "name", "section", "subjectCode"]),
+  );
+  const [isEditing, setIsEditing] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importSubject, setImportSubject] = useState("");
   const [importClass, setImportClass] = useState("");
   const [searchText, setSearchText] = useState("");
   const [selectedStudents, setSelectedStudents] = useState(new Set());
-  const [lastSelectedStudentIndex, setLastSelectedStudentIndex] = useState(null);
+  const [lastSelectedStudentIndex, setLastSelectedStudentIndex] =
+    useState(null);
   const [lastShiftStudentIndex, setLastShiftStudentIndex] = useState(null);
   const fileRef = useRef(null);
 
@@ -34,6 +38,25 @@ export function StudentsPage({ data, api, refresh }) {
 
   async function saveStudent(event) {
     event.preventDefault();
+
+    if (!form.subjectCode) {
+      Swal().fire({
+        title: "กรุณาเลือกวิชา",
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+
+    if (!form.section) {
+      Swal().fire({
+        title: "กรุณาเลือกกลุ่มเรียน",
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+
     Swal().fire({
       title: "กำลังบันทึกผู้เรียน...",
       allowOutsideClick: false,
@@ -43,10 +66,11 @@ export function StudentsPage({ data, api, refresh }) {
       id: form.id,
       name: form.name,
       section: form.section,
-      subjectCode: importSubject || "",
+      subjectCode: form.subjectCode || "",
     };
     await api.set(`students/${payload.id}`, payload);
-    setForm(emptyForm(["id", "name", "section"]));
+    setForm(emptyForm(["id", "name", "section", "subjectCode"]));
+    setIsEditing(false);
     await refresh("บันทึกผู้เรียนแล้ว");
   }
 
@@ -174,6 +198,7 @@ export function StudentsPage({ data, api, refresh }) {
       });
 
       let count = 0;
+      let skipped = 0;
       for (const row of rows) {
         const code =
           row["รหัสผู้เรียน"] || row.ID || row.code || row["เลขประจำตัว"];
@@ -190,16 +215,21 @@ export function StudentsPage({ data, api, refresh }) {
             "วิชา",
             "รหัสวิชา",
           ]);
-          const subject_code = resolveSubjectId(rawSubject);
+          const subject_code =
+            resolveSubjectId(rawSubject) || importSubject || "";
 
-          const payload = {
-            id: String(code),
-            name: String(name),
-            section: section_id,
-            subjectCode: subject_code,
-          };
-          await api.set(`students/${payload.id}`, payload);
-          count += 1;
+          if (subject_code && section_id) {
+            const payload = {
+              id: String(code),
+              name: String(name),
+              section: section_id,
+              subjectCode: subject_code,
+            };
+            await api.set(`students/${payload.id}`, payload);
+            count += 1;
+          } else {
+            skipped += 1;
+          }
         }
       }
 
@@ -207,7 +237,13 @@ export function StudentsPage({ data, api, refresh }) {
       setImportOpen(false);
       setImportSubject("");
       setImportClass("");
-      await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
+      if (skipped > 0) {
+        await refresh(
+          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} คนเนื่องจากไม่มีข้อมูลวิชาหรือกลุ่มเรียน)`,
+        );
+      } else {
+        await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
+      }
     } finally {
       setIsImporting(false);
     }
@@ -240,18 +276,20 @@ export function StudentsPage({ data, api, refresh }) {
   });
 
   return (
-    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
-      <section className="space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-2">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] xl:grid-rows-[auto_1fr] gap-x-6 gap-y-3 items-start">
+      <div className="order-1 xl:row-start-1 xl:col-start-1 min-w-0">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">
-              ข้อมูลผู้เรียนทั้งหมด
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              รายชื่อผู้เรียนทั้งหมด
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               เพิ่มรายชื่อ หรือนำเข้าผู้เรียนจากไฟล์ Excel เข้าสู่กลุ่มเรียน
             </p>
           </div>
         </div>
+      </div>
+      <section className="space-y-3 order-3 xl:row-start-2 xl:col-start-1 min-w-0">
         <div className="flex flex-col xl:flex-row xl:items-center gap-4">
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
             <div className="w-full sm:w-56 max-w-full shrink-0">
@@ -331,23 +369,48 @@ export function StudentsPage({ data, api, refresh }) {
                   type="checkbox"
                   checked={selectedStudents.has(row.id)}
                   onChange={(e) => {
-                    const currentIndex = filteredStudents.findIndex(x => x.id === row.id);
+                    const currentIndex = filteredStudents.findIndex(
+                      (x) => x.id === row.id,
+                    );
                     const next = new Set(selectedStudents);
-                    
-                    if (e.nativeEvent.shiftKey && lastSelectedStudentIndex !== null) {
-                      const oldStart = lastShiftStudentIndex !== null ? Math.min(lastShiftStudentIndex, lastSelectedStudentIndex) : lastSelectedStudentIndex;
-                      const oldEnd = lastShiftStudentIndex !== null ? Math.max(lastShiftStudentIndex, lastSelectedStudentIndex) : lastSelectedStudentIndex;
-                      
-                      const newStart = Math.min(currentIndex, lastSelectedStudentIndex);
-                      const newEnd = Math.max(currentIndex, lastSelectedStudentIndex);
-                      
+
+                    if (
+                      e.nativeEvent.shiftKey &&
+                      lastSelectedStudentIndex !== null
+                    ) {
+                      const oldStart =
+                        lastShiftStudentIndex !== null
+                          ? Math.min(
+                              lastShiftStudentIndex,
+                              lastSelectedStudentIndex,
+                            )
+                          : lastSelectedStudentIndex;
+                      const oldEnd =
+                        lastShiftStudentIndex !== null
+                          ? Math.max(
+                              lastShiftStudentIndex,
+                              lastSelectedStudentIndex,
+                            )
+                          : lastSelectedStudentIndex;
+
+                      const newStart = Math.min(
+                        currentIndex,
+                        lastSelectedStudentIndex,
+                      );
+                      const newEnd = Math.max(
+                        currentIndex,
+                        lastSelectedStudentIndex,
+                      );
+
                       for (let i = oldStart; i <= oldEnd; i++) {
                         if (i < newStart || i > newEnd) {
                           next.delete(filteredStudents[i].id);
                         }
                       }
 
-                      const targetState = selectedStudents.has(filteredStudents[lastSelectedStudentIndex].id);
+                      const targetState = selectedStudents.has(
+                        filteredStudents[lastSelectedStudentIndex].id,
+                      );
                       for (let i = newStart; i <= newEnd; i++) {
                         if (targetState) next.add(filteredStudents[i].id);
                         else next.delete(filteredStudents[i].id);
@@ -359,14 +422,18 @@ export function StudentsPage({ data, api, refresh }) {
                       setLastSelectedStudentIndex(currentIndex);
                       setLastShiftStudentIndex(currentIndex);
                     }
-                    
+
                     setSelectedStudents(next);
                   }}
                   className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                 />
               ),
             },
-            { key: "id", label: "รหัสผู้เรียน", className: "w-[150px] text-left" },
+            {
+              key: "id",
+              label: "รหัสผู้เรียน",
+              className: "w-[150px] text-left",
+            },
             { key: "name", label: "ชื่อ-นามสกุล" },
             {
               key: "subject",
@@ -402,12 +469,13 @@ export function StudentsPage({ data, api, refresh }) {
                 <div className="flex flex-nowrap justify-end gap-2">
                   <GhostButton
                     className="py-2 px-3"
-                    onClick={() =>
+                    onClick={() => {
                       setForm({
-                        ...emptyForm(["id", "name", "section"]),
+                        ...emptyForm(["id", "name", "section", "subjectCode"]),
                         ...row,
-                      })
-                    }
+                      });
+                      setIsEditing(true);
+                    }}
                   >
                     <Icon name="fa-pen" />
                   </GhostButton>
@@ -427,13 +495,13 @@ export function StudentsPage({ data, api, refresh }) {
       </section>
       <form
         onSubmit={saveStudent}
-        className="bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 space-y-4 h-fit"
+        className="bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 space-y-4 h-fit order-2 xl:row-start-1 xl:col-start-2 xl:row-span-2"
       >
         <div className="flex items-center justify-between mb-2">
-          <h4 className="font-extrabold text-lg">
-            {form.id ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}
+          <h4 className="text-lg font-bold text-slate-800">
+            {isEditing ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}
           </h4>
-          {!form.id && (
+          {!isEditing && (
             <>
               <input
                 ref={fileRef}
@@ -459,6 +527,7 @@ export function StudentsPage({ data, api, refresh }) {
             onChange={(e) => setForm({ ...form, id: e.target.value })}
             placeholder="เช่น 6400123"
             required
+            disabled={isEditing}
           />
         </Field>
         <Field label="ชื่อ-นามสกุล">
@@ -469,17 +538,40 @@ export function StudentsPage({ data, api, refresh }) {
             required
           />
         </Field>
-        <Field label="กลุ่มเรียน">
+        <Field label="วิชา">
           <Select
-            value={form.section}
-            onChange={(e) => setForm({ ...form, section: e.target.value })}
+            value={form.subjectCode || ""}
+            onChange={(e) => {
+              setForm({ ...form, subjectCode: e.target.value, section: "" });
+            }}
+            required
           >
             <option value="">ไม่ระบุ</option>
-            {data.sections.map((section) => (
-              <option key={section.id} value={section.id}>
-                {section.sec} ({section.subject})
+            {data.subjects.map((subject) => (
+              <option key={subject.id} value={subject.id}>
+                {subject.code} - {subject.name}
               </option>
             ))}
+          </Select>
+        </Field>
+        <Field label="กลุ่มเรียน">
+          <Select
+            value={form.section || ""}
+            onChange={(e) => setForm({ ...form, section: e.target.value })}
+            disabled={!form.subjectCode}
+            required
+          >
+            <option value="">
+              {!form.subjectCode ? "กรุณาเลือกวิชาก่อน" : "ไม่ระบุ"}
+            </option>
+            {form.subjectCode &&
+              data.sections
+                .filter((s) => s.subject === form.subjectCode)
+                .map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.sec}
+                  </option>
+                ))}
           </Select>
         </Field>
         <PrimaryButton className="w-full">
@@ -492,7 +584,9 @@ export function StudentsPage({ data, api, refresh }) {
           <div className="relative bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-6 w-full max-w-lg space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="font-extrabold text-lg">นำเข้า Excel</h3>
+                <h3 className="text-lg font-bold text-slate-800">
+                  นำเข้า Excel
+                </h3>
                 <p className="text-sm text-zinc-500 mt-1">
                   รองรับการนำเข้าหลายวิชา/หลายกลุ่มเรียนในไฟล์เดียว
                 </p>
@@ -507,7 +601,7 @@ export function StudentsPage({ data, api, refresh }) {
               </GhostButton>
             </div>
 
-            <Field label="รายวิชา (ค่าเริ่มต้น)">
+            <Field label="รายวิชา">
               <Select
                 value={importSubject}
                 disabled={isImporting}
@@ -516,7 +610,7 @@ export function StudentsPage({ data, api, refresh }) {
                   setImportClass("");
                 }}
               >
-                <option value="">(ไม่กำหนด)</option>
+                <option value="">กรุณาเลือกวิชา</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.code} - {subject.name}
@@ -525,13 +619,17 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <Field label="กลุ่มเรียน (ค่าเริ่มต้น)">
+            <Field label="กลุ่มเรียน">
               <Select
                 value={importClass}
-                disabled={isImporting}
+                disabled={isImporting || !importSubject}
                 onChange={(event) => setImportClass(event.target.value)}
               >
-                <option value="">(ไม่กำหนด)</option>
+                <option value="">
+                  {!importSubject
+                    ? "กรุณาเลือกวิชาก่อน"
+                    : "กรุณาเลือกกลุ่มเรียน"}
+                </option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}
@@ -555,7 +653,7 @@ export function StudentsPage({ data, api, refresh }) {
             <PrimaryButton
               type="button"
               className="w-full"
-              disabled={isImporting}
+              disabled={isImporting || !importSubject || !importClass}
               onClick={() => fileRef.current?.click()}
             >
               <Icon

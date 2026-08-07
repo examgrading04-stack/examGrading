@@ -82,7 +82,9 @@ export function AppLogo({ compact = false, className = "" }) {
 }
 
 export function Icon({ name, className = "" }) {
-  return <i className={`fa-solid ${name} ${className}`.trim()} aria-hidden="true" />;
+  return (
+    <i className={`fa-solid ${name} ${className}`.trim()} aria-hidden="true" />
+  );
 }
 
 export function Field({ label, children }) {
@@ -234,11 +236,11 @@ export function Select(props) {
           )}
           <div className={`${menuClass} py-1`}>
             {displayOptions.length > 0 ? (
-              displayOptions.map((item) => {
+              displayOptions.map((item, index) => {
                 const isSelected = item.value === String(value ?? "");
                 return (
                   <button
-                    key={item.value}
+                    key={item.value ?? index}
                     type="button"
                     disabled={item.disabled}
                     onClick={() => selectValue(item.value)}
@@ -375,14 +377,14 @@ export function StatCard({ title, value, icon, color }) {
   const s = styles[color] || styles.blue;
   return (
     <div
-      className={`bg-white p-4 rounded-xl border border-slate-200 border-l-4 ${s.border} shadow-sm flex flex-col justify-between h-full`}
+      className={`bg-white p-3 sm:p-4 rounded-xl border border-slate-200 border-l-4 ${s.border} shadow-sm flex flex-col justify-between h-full`}
     >
       <div className="flex justify-between items-start mb-2">
-        <p className="text-slate-600 text-sm font-bold leading-tight pr-2">
+        <p className="text-slate-600 text-xs sm:text-sm font-bold leading-tight pr-2">
           {title}
         </p>
         <div
-          className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${s.bg} ${s.text}`}
+          className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-lg flex items-center justify-center ${s.bg} ${s.text}`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -397,7 +399,9 @@ export function StatCard({ title, value, icon, color }) {
         </div>
       </div>
       <div>
-        <h3 className="text-3xl font-black text-slate-800 mt-1">{value}</h3>
+        <h3 className="text-xl sm:text-3xl font-black text-slate-800 mt-1">
+          {value}
+        </h3>
       </div>
     </div>
   );
@@ -544,13 +548,13 @@ export function DataTable({
   return (
     <div className="rounded-md border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto relative">
-        <table className="w-full text-sm table-fixed">
+        <table className="w-full text-sm">
           <thead className="bg-slate-100/90 backdrop-blur-sm text-slate-700 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3.5 font-bold whitespace-nowrap ${column.className || "text-left"}`}
+                  className={`px-3 sm:px-4 py-2 sm:py-3.5 font-bold whitespace-nowrap ${column.className || "text-left"}`}
                 >
                   {column.label}
                 </th>
@@ -559,21 +563,25 @@ export function DataTable({
           </thead>
           <tbody className="divide-y divide-slate-200">
             {rows.length ? (
-              visibleRows.map((row) => (
-                <tr
-                  key={row.id || JSON.stringify(row)}
-                  className="hover:bg-slate-50/50 transition-colors"
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={`px-4 py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
-                    >
-                      {column.render ? column.render(row) : row[column.key]}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              visibleRows.map((row, index) => {
+                const rowKey =
+                  row._key || (row.id != null ? `${row.id}_${index}` : index);
+                return (
+                  <tr
+                    key={rowKey}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={`px-3 sm:px-4 py-2 sm:py-3 align-middle ${column.truncate !== false ? "whitespace-nowrap max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl truncate" : ""} ${column.className || "text-left"}`}
+                      >
+                        {column.render ? column.render(row) : row[column.key]}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-16 text-center">
@@ -594,7 +602,7 @@ export function DataTable({
         </table>
       </div>
       {rows.length > 0 && (
-        <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs sm:text-sm">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs sm:text-sm">
           <span className="text-slate-500">
             แสดง {startItem}-{endItem} จาก {rows.length} รายการ
           </span>
@@ -647,7 +655,7 @@ export function Pagination({
   const items = buildPages(safeCount, safePage);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center justify-center gap-1">
       <button
         type="button"
         onClick={() => onChange?.(null, Math.max(safePage - 1, 1))}
@@ -719,5 +727,224 @@ export function Modal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+// ============================================================================
+// Auth Components (Redesign)
+// ============================================================================
+
+export function AuthInput(props) {
+  return (
+    <input
+      {...props}
+      className={`w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm ${props.className || ""}`}
+    />
+  );
+}
+
+export function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  required = false,
+  className = "",
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className={`w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm ${className}`}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+      >
+        <Icon name={show ? "fa-eye-slash" : "fa-eye"} />
+      </button>
+    </div>
+  );
+}
+
+export function Checkbox({ checked, onChange, label, className = "" }) {
+  return (
+    <label
+      className={`flex items-center gap-2 cursor-pointer group ${className}`}
+    >
+      <div className="relative flex items-center justify-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="peer appearance-none w-5 h-5 border border-slate-300 rounded-[6px] bg-white checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:ring-offset-1"
+        />
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 pointer-events-none text-white text-[10px]">
+          <Icon name="fa-check" />
+        </div>
+      </div>
+      {label && (
+        <span className="text-sm font-medium text-slate-600 group-hover:text-slate-800 transition-colors select-none">
+          {label}
+        </span>
+      )}
+    </label>
+  );
+}
+
+export function SplitScreenAuthLayout({
+  children,
+  title,
+  subtitle,
+  rightTitle,
+  rightSubtitle,
+  isRegister,
+}) {
+  return (
+    <div className="h-screen w-full relative bg-blue-600 font-sans overflow-hidden">
+      {/* Global Background (covers the gap between panes) */}
+      <div className="absolute inset-0 z-0 bg-blue-600 pointer-events-none">
+        <div className="absolute -top-[20%] -right-[10%] w-[800px] h-[800px] bg-blue-500 rounded-full mix-blend-screen blur-3xl opacity-50"></div>
+        <div className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] bg-sky-400 rounded-full mix-blend-screen blur-[100px] opacity-30"></div>
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0)",
+            backgroundSize: "32px 32px",
+          }}
+        ></div>
+      </div>
+
+      {/* Form Pane */}
+      <div
+        className={`absolute top-0 h-full w-full lg:w-[45%] flex flex-col justify-center px-8 sm:px-12 lg:px-16 py-8 z-20 bg-white transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[0_0_60px_rgba(0,0,0,0.15)] overflow-y-auto ${
+          isRegister
+            ? "left-0 lg:rounded-r-[40px]"
+            : "left-0 lg:left-[55%] lg:rounded-l-[40px]"
+        }`}
+      >
+        <div className="w-full max-w-[400px] mx-auto flex flex-col min-h-full justify-center">
+          <div className="flex items-center gap-3 mb-6">
+            <AppLogo compact className="!rounded-lg shadow-md" />
+            <span className="text-xl font-black text-slate-800 tracking-tight">
+              ExamGrading
+            </span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">
+            {title}
+          </h1>
+          <p className="text-slate-500 font-medium mb-8 text-sm">{subtitle}</p>
+
+          <div className="w-full">{children}</div>
+        </div>
+      </div>
+
+      {/* Right Pane (Illustration) */}
+      <div
+        className={`hidden lg:flex absolute top-0 w-[55%] h-full flex-col justify-center px-12 xl:px-20 transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] z-10 overflow-hidden ${
+          isRegister ? "left-[45%]" : "left-0"
+        }`}
+      >
+        <div className="relative z-20 max-w-xl mb-10">
+          <h2 className="text-3xl xl:text-4xl font-black text-white mb-4 leading-tight tracking-tight">
+            {rightTitle}
+          </h2>
+          <p className="text-blue-100 text-base font-medium leading-relaxed opacity-90 max-w-lg">
+            {rightSubtitle}
+          </p>
+        </div>
+
+        {/* Clean Glassmorphic Mockup Graphic */}
+        <div className="relative z-20 w-full max-w-2xl bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-[0_30px_60px_rgba(0,0,0,0.2)] p-6 xl:p-8 aspect-[16/10] flex gap-6 overflow-hidden">
+          {!isRegister ? (
+            <>
+              {/* Left Graphic Elements for Login */}
+              <div className="w-1/3 flex flex-col gap-4 relative animate-[float_4s_ease-in-out_infinite]">
+                <div className="bg-white rounded-2xl p-5 flex-1 shadow-lg flex flex-col justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 border border-blue-100">
+                    <Icon name="fa-chart-pie" className="text-lg" />
+                  </div>
+                  <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">
+                    ข้อสอบทั้งหมด
+                  </div>
+                  <div className="text-3xl font-black text-slate-800">
+                    1,248
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 flex-1 shadow-lg flex flex-col justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 border border-emerald-100">
+                    <Icon name="fa-check-double" className="text-lg" />
+                  </div>
+                  <div className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">
+                    ตรวจแล้ว
+                  </div>
+                  <div className="text-3xl font-black text-slate-800">
+                    98.5<span className="text-xl">%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Graphic Elements for Login */}
+              <div className="w-2/3 bg-white rounded-2xl p-6 shadow-lg flex flex-col relative animate-[float_5s_ease-in-out_infinite_reverse]">
+                <div className="flex justify-between items-center mb-8">
+                  <div className="text-sm font-bold text-slate-800">
+                    ภาพรวมประสิทธิภาพ
+                  </div>
+                  <div className="text-[11px] font-bold bg-slate-50 text-slate-500 px-3 py-1.5 rounded-lg border border-slate-100">
+                    รายสัปดาห์{" "}
+                    <Icon name="fa-chevron-down" className="ml-1 text-[10px]" />
+                  </div>
+                </div>
+                <div className="flex-1 flex items-end gap-3 px-2">
+                  {[40, 60, 45, 80, 55, 90, 75].map((h, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-slate-100 rounded-t-md relative group h-full"
+                    >
+                      <div
+                        className="absolute bottom-0 w-full bg-blue-500 rounded-t-md transition-all duration-700 ease-out group-hover:bg-blue-600"
+                        style={{ height: `${h}%` }}
+                      ></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Graphic Elements for Register */}
+              <div className="flex-1 flex flex-col gap-6 justify-center items-center relative">
+                <div className="absolute inset-0 bg-blue-500/10 rounded-2xl animate-pulse"></div>
+                <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-xl border-4 border-blue-50 relative z-10 animate-[float_4s_ease-in-out_infinite]">
+                  <Icon
+                    name="fa-user-plus"
+                    className="text-5xl text-blue-500"
+                  />
+                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center">
+                    <Icon name="fa-check" className="text-white text-sm" />
+                  </div>
+                </div>
+                <div className="space-y-3 w-full max-w-sm relative z-10 text-center">
+                  <div className="h-4 bg-white/40 rounded-full w-3/4 mx-auto"></div>
+                  <div className="h-4 bg-white/30 rounded-full w-1/2 mx-auto"></div>
+                  <div className="h-4 bg-white/20 rounded-full w-2/3 mx-auto"></div>
+                </div>
+                <div className="flex gap-4 mt-4 relative z-10 w-full max-w-xs animate-[float_5s_ease-in-out_infinite_reverse]">
+                  <div className="h-10 bg-white/80 rounded-xl flex-1 shadow-sm backdrop-blur-md"></div>
+                  <div className="h-10 bg-blue-500 rounded-xl flex-1 shadow-sm shadow-blue-500/50"></div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

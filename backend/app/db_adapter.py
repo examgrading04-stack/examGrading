@@ -1,8 +1,8 @@
 import os
 import json
 import uuid
-from datetime import datetime, date
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -26,12 +26,11 @@ from sqlalchemy import (
     Boolean,
     Text,
     DateTime,
-    Date,
-    UniqueConstraint,
     ForeignKey,
+    ForeignKeyConstraint,
 )
 # pyrefly: ignore [missing-import]
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # ----------------------------------------------------
 # Base DB Adapter Interface
@@ -78,6 +77,7 @@ class SqlUser(Base):
     displayName = Column("displayName", String(200))
     photoURL = Column("photoURL", String(500))
     role = Column("role", String(20), default="user")
+    status = Column("status", String(20), default="active")
     created_at = Column("created_at", DateTime, default=datetime.now)
 
 class SqlTemplate(Base):
@@ -95,7 +95,7 @@ class SqlSystemLog(Base):
     displayName = Column("displayName", String(200))
     role = Column("role", String(20))
     datetime = Column("action_time", DateTime, default=datetime.now)
-    userEmail = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="SET NULL")) # Note: old frontend used userEmail, now maps to user_id
+    userEmail = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True) # Note: old frontend used userEmail, now maps to user_id
 
 class SqlSubject(Base):
     __tablename__ = "subjects"
@@ -104,29 +104,55 @@ class SqlSubject(Base):
     term = Column("semester", Integer, nullable=True)
     year = Column("year", Integer, nullable=True)
     teacher = Column("instructor", String(200), nullable=True)
-    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
 class SqlStudent(Base):
     __tablename__ = "students"
     id = Column("student_code", String(50), primary_key=True)
     name = Column("student_name", String(200), nullable=False)
-    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
 class SqlSection(Base):
     __tablename__ = "subjects_sec"
     id = Column("section_id", Integer, primary_key=True, autoincrement=True)
     sec = Column("section_name", String(50), nullable=False)
     created_at = Column("created_at", DateTime, default=datetime.now)
-    subject = Column("subject_id", String(50), ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
-    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    subject = Column("subject_id", String(50), nullable=False)
+    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['subject_id', 'user_id'],
+            ['subjects.subject_id', 'subjects.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 class SqlStudentEnrollment(Base):
     __tablename__ = "student_enrollments"
     enrollment_id = Column("enrollment_id", Integer, primary_key=True, autoincrement=True)
-    student_code = Column("student_code", String(50), ForeignKey("students.student_code", ondelete="CASCADE"), nullable=False)
-    subject_id = Column("subject_id", String(50), ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
-    section_id = Column("section_id", Integer, ForeignKey("subjects_sec.section_id", ondelete="CASCADE"), nullable=False)
-    user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    student_code = Column("student_code", String(50), nullable=False)
+    subject_id = Column("subject_id", String(50), nullable=False)
+    section_id = Column("section_id", Integer, nullable=False)
+    user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['student_code', 'user_id'],
+            ['students.student_code', 'students.user_id'],
+            ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ['subject_id', 'user_id'],
+            ['subjects.subject_id', 'subjects.user_id'],
+            ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ['section_id', 'user_id'],
+            ['subjects_sec.section_id', 'subjects_sec.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 class SqlExam(Base):
     __tablename__ = "exams"
@@ -134,17 +160,40 @@ class SqlExam(Base):
     name = Column("exam_name", String(200), nullable=False)
     questions = Column("questions", Integer, nullable=False)
     createdAt = Column("created_at", DateTime, default=datetime.now)
-    subject_id = Column("subject_id", String(50), ForeignKey("subjects.subject_id", ondelete="CASCADE"), nullable=False)
-    section_id = Column("section_id", Integer, ForeignKey("subjects_sec.section_id", ondelete="CASCADE"), nullable=False)
+    subject_id = Column("subject_id", String(50), nullable=False)
+    section_id = Column("section_id", Integer, nullable=False)
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
-    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['subject_id', 'user_id'],
+            ['subjects.subject_id', 'subjects.user_id'],
+            ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ['section_id', 'user_id'],
+            ['subjects_sec.section_id', 'subjects_sec.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 class SqlExamAnswerKey(Base):
     __tablename__ = "exam_answer_keys"
     answer_key_id = Column("answer_key_id", Integer, primary_key=True, autoincrement=True)
     question_no = Column("question_no", Integer, nullable=False)
     correct_answer = Column("correct_answer", String(1), nullable=False)
-    exam_id = Column("exam_id", String(100), ForeignKey("exams.exam_id", ondelete="CASCADE"), nullable=False)
+    score = Column("score", Float, nullable=False, default=1.0)
+    exam_id = Column("exam_id", String(100), nullable=False)
+    user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['exam_id', 'user_id'],
+            ['exams.exam_id', 'exams.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 class SqlResult(Base):
     __tablename__ = "results"
@@ -155,10 +204,23 @@ class SqlResult(Base):
     flagged = Column("flagged", Boolean, default=False)
     imageUrl = Column("imageURL", String(500))
     createdAt = Column("created_at", DateTime, default=datetime.now)
-    examId = Column("exam_id", String(100), ForeignKey("exams.exam_id", ondelete="CASCADE"), nullable=False)
-    studentCode = Column("student_code", String(50), ForeignKey("students.student_code", ondelete="CASCADE"), nullable=False)
+    examId = Column("exam_id", String(100), nullable=False)
+    studentCode = Column("student_code", String(50), nullable=False)
     sheetId = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
-    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['student_code', 'user_id'],
+            ['students.student_code', 'students.user_id'],
+            ondelete="CASCADE"
+        ),
+        ForeignKeyConstraint(
+            ['exam_id', 'user_id'],
+            ['exams.exam_id', 'exams.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 class SqlExamDetail(Base):
     __tablename__ = "exams_detail"
@@ -166,7 +228,16 @@ class SqlExamDetail(Base):
     question_no = Column("question_no", Integer, nullable=False)
     student_answer = Column("student_answer", String(1))
     status_answer = Column("status_answer", String(20))
-    result_id = Column("result_id", String(100), ForeignKey("results.result_id", ondelete="CASCADE"), nullable=False)
+    result_id = Column("result_id", String(100), nullable=False)
+    user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['result_id', 'user_id'],
+            ['results.result_id', 'results.user_id'],
+            ondelete="CASCADE"
+        ),
+    )
 
 def _get_model_class(collection: str):
     mapping = {
@@ -205,7 +276,7 @@ class MySQLAdapter(BaseDBAdapter):
         try:
             # Dynamically fetch relationships that were previously JSON strings
             if isinstance(model_obj, SqlResult):
-                details = session.query(SqlExamDetail).filter(SqlExamDetail.result_id == model_obj.id).order_by(SqlExamDetail.question_no).all()
+                details = session.query(SqlExamDetail).filter(SqlExamDetail.result_id == model_obj.id, SqlExamDetail.user_id == model_obj.user_email).order_by(SqlExamDetail.question_no).all()
                 answers_dict = {}
                 wrong_list = []
                 skipped_list = []
@@ -226,7 +297,7 @@ class MySQLAdapter(BaseDBAdapter):
                     d["studentName"] = student.name
 
             if isinstance(model_obj, SqlExam):
-                keys = session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == model_obj.id).order_by(SqlExamAnswerKey.question_no).all()
+                keys = session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == model_obj.id, SqlExamAnswerKey.user_id == model_obj.user_email).order_by(SqlExamAnswerKey.question_no).all()
                 answer_key_dict = {}
                 for key in keys:
                     answer_key_dict[str(key.question_no)] = key.correct_answer
@@ -303,11 +374,17 @@ class MySQLAdapter(BaseDBAdapter):
             session.flush()
             
             if answer_key and isinstance(answer_key, dict):
-                session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == exam_id).delete()
+                session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == exam_id, SqlExamAnswerKey.user_id == user_email).delete()
                 for q_str, ans in answer_key.items():
                     try:
                         q_no = int(q_str)
-                        session.add(SqlExamAnswerKey(exam_id=exam_id, question_no=q_no, correct_answer=ans))
+                        if isinstance(ans, dict):
+                            c_ans = str(ans.get("answer", ""))
+                            q_score = float(ans.get("score", 1.0))
+                        else:
+                            c_ans = str(ans)
+                            q_score = 1.0
+                        session.add(SqlExamAnswerKey(exam_id=exam_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                     except ValueError:
                         pass
 
@@ -346,7 +423,10 @@ class MySQLAdapter(BaseDBAdapter):
             student_codes = [s.id for s in students]
             
             # Batch fetch all enrollments in 1 query
-            enrollments = session.query(SqlStudentEnrollment).filter(SqlStudentEnrollment.student_code.in_(student_codes)).all()
+            enrollments = session.query(SqlStudentEnrollment).filter(
+                SqlStudentEnrollment.student_code.in_(student_codes),
+                SqlStudentEnrollment.user_id == user_email
+            ).all()
             
             enroll_map = {}
             section_ids = set()
@@ -404,7 +484,7 @@ class MySQLAdapter(BaseDBAdapter):
                     if not overwrite:
                         raise ValueError(f"duplicate_result:{student_code}")
                     else:
-                        session.query(SqlExamDetail).filter_by(result_id=existing.id).delete()
+                        session.query(SqlExamDetail).filter_by(result_id=existing.id, user_id=user_email).delete()
                         session.delete(existing)
                         session.flush()
 
@@ -453,7 +533,8 @@ class MySQLAdapter(BaseDBAdapter):
                         question_no=q_no,
                         student_answer=ans,
                         status_answer=status,
-                        result_id=row.id
+                        result_id=row.id,
+                        user_id=user_email
                     )
                     session.add(det)
 
@@ -502,16 +583,20 @@ class MySQLAdapter(BaseDBAdapter):
             mapped_data = dict(data)
             
             if collection in ("users", "profiles"):
-                import hashlib
                 email_val = doc_id
-                mapped_data["email"] = email_val
-                mapped_data["username"] = email_val[:100]
+                if "email" not in mapped_data:
+                    mapped_data["email"] = email_val
+                if "username" not in mapped_data:
+                    mapped_data["username"] = email_val[:100]
                 
-                raw_pass = mapped_data.get("password") or email_val
-                if not (isinstance(raw_pass, str) and len(raw_pass) == 64 and all(c in "0123456789abcdef" for c in raw_pass.lower())):
-                    mapped_data["password"] = hashlib.sha256(raw_pass.encode()).hexdigest()
-                else:
-                    mapped_data["password"] = raw_pass
+                # Only process password if it's explicitly provided
+                if "password" in mapped_data:
+                    import hashlib
+                    raw_pass = mapped_data["password"]
+                    if not (isinstance(raw_pass, str) and len(raw_pass) == 64 and all(c in "0123456789abcdef" for c in raw_pass.lower())):
+                        mapped_data["password"] = hashlib.sha256(raw_pass.encode()).hexdigest()
+                    else:
+                        mapped_data["password"] = raw_pass
                     
             query = session.query(model_cls)
             if hasattr(model_cls, "id"):
@@ -579,15 +664,18 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 setattr(row, k, datetime.now())
                         else:
-                            setattr(row, k, v)
+                            if k in ("user_email", "user_id", "userEmail") and v == "":
+                                setattr(row, k, None)
+                            else:
+                                setattr(row, k, v)
                             
                 if collection == "exams" and "answerKey" in mapped_data:
-                    session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id).delete()
+                    session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id, SqlExamAnswerKey.user_id == user_email).delete()
                     if isinstance(mapped_data["answerKey"], dict):
                         for q_str, ans in mapped_data["answerKey"].items():
                             try:
                                 q_no = int(q_str)
-                                session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=ans))
+                                session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=ans))
                             except ValueError:
                                 pass
             else:
@@ -665,6 +753,8 @@ class MySQLAdapter(BaseDBAdapter):
                         else:
                             if k == "flagged" and isinstance(v, list):
                                 cleaned_data[k] = bool(v)
+                            elif k in ("user_email", "user_id", "userEmail") and v == "":
+                                cleaned_data[k] = None
                             else:
                                 cleaned_data[k] = v
                 
@@ -682,8 +772,13 @@ class MySQLAdapter(BaseDBAdapter):
                         for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                if isinstance(ans, str) or isinstance(ans, int):
-                                    session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=str(ans)))
+                                if isinstance(ans, dict):
+                                    c_ans = str(ans.get("answer", ""))
+                                    q_score = float(ans.get("score", 1.0))
+                                else:
+                                    c_ans = str(ans)
+                                    q_score = 1.0
+                                session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                             except ValueError:
                                 pass
                                 
@@ -709,7 +804,16 @@ class MySQLAdapter(BaseDBAdapter):
                             else:
                                 enroll.section_id = sec_row.id
 
-            session.commit()
+            try:
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                if "Duplicate entry" in str(e) or "IntegrityError" in str(type(e)):
+                    # pyrefly: ignore [missing-import]
+                    from fastapi import HTTPException
+                    item_name = "รหัสวิชา" if collection == "subjects" else "รหัส"
+                    raise HTTPException(status_code=400, detail=f"{item_name}นี้มีอยู่ในระบบแล้ว (อาจถูกสร้างโดยผู้ใช้งานอื่น) กรุณาใช้รหัสอื่น")
+                raise
         finally:
             session.close()
 
@@ -764,7 +868,7 @@ class MySQLAdapter(BaseDBAdapter):
                             setattr(row, k, v)
                             
                 if collection == "exams" and "answerKey" in mapped_data:
-                    session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id).delete()
+                    session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id, SqlExamAnswerKey.user_id == user_email).delete()
                     raw_ak = mapped_data["answerKey"]
                     if isinstance(raw_ak, dict):
                         if "0" in raw_ak and isinstance(raw_ak["0"], dict):
@@ -774,8 +878,13 @@ class MySQLAdapter(BaseDBAdapter):
                         for q_str, ans in raw_ak.items():
                             try:
                                 q_no = int(q_str)
-                                if isinstance(ans, str) or isinstance(ans, int):
-                                    session.add(SqlExamAnswerKey(exam_id=doc_id, question_no=q_no, correct_answer=str(ans)))
+                                if isinstance(ans, dict):
+                                    c_ans = str(ans.get("answer", ""))
+                                    q_score = float(ans.get("score", 1.0))
+                                else:
+                                    c_ans = str(ans)
+                                    q_score = 1.0
+                                session.add(SqlExamAnswerKey(exam_id=doc_id, user_id=user_email, question_no=q_no, correct_answer=c_ans, score=q_score))
                             except ValueError:
                                 pass
                                 

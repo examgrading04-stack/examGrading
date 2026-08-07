@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
-import { Icon, PrimaryButton, GhostButton, Swal } from "../ui.jsx";
+import { Icon, PrimaryButton, GhostButton, Input, Swal } from "../ui.jsx";
 
 export function AnswerKeyPage({ data, api, refresh, query }) {
   const [examId, setExamId] = useState(query.examId || data.exams[0]?.id || "");
   const [answers, setAnswers] = useState({});
+  const [scores, setScores] = useState({});
+  const [isCustomScore, setIsCustomScore] = useState(false);
+  const [globalScore, setGlobalScore] = useState(1);
   const exam = data.exams.find((item) => item.id === examId);
+
+  function handleGlobalScoreChange(e) {
+    const val = e.target.value;
+    const newGlobalScore = val ? Number(val) : 0;
+    setGlobalScore(newGlobalScore);
+
+    const newScores = { ...scores };
+    const maxQ = Number(exam?.questions || 0);
+    for (let i = 1; i <= maxQ; i++) {
+      newScores[i] = newGlobalScore;
+    }
+    setScores(newScores);
+  }
 
   useEffect(() => {
     if (!exam) return;
@@ -12,11 +28,47 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     // Handle nested format { "0": {...} } and flat format { "1": "A", ... }
     const loadedAnswers =
       ak["0"] || ak[0] || (ak["1"] || Object.keys(ak).length ? ak : {});
-    setAnswers(loadedAnswers);
+
+    const initialAnswers = {};
+    const initialScores = {};
+    let hasCustomScore = false;
+
+    for (const [q, val] of Object.entries(loadedAnswers)) {
+      if (typeof val === "object" && val !== null) {
+        initialAnswers[q] = val.answer;
+        initialScores[q] = Number(val.score || 1);
+        if (Number(val.score || 1) !== 1) hasCustomScore = true;
+      } else {
+        initialAnswers[q] = val;
+        initialScores[q] = 1;
+      }
+    }
+
+    setAnswers(initialAnswers);
+    setScores(initialScores);
+    if (hasCustomScore) setIsCustomScore(true);
   }, [examId, exam]);
 
   async function save() {
     if (!exam) return;
+
+    const maxQ = Number(exam?.questions || 0);
+    const missingAnswers = [];
+    for (let i = 1; i <= maxQ; i++) {
+      if (!answers[i]) {
+        missingAnswers.push(i);
+      }
+    }
+
+    if (missingAnswers.length > 0) {
+      Swal().fire({
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: `กรุณาเลือกเฉลยให้ครบทุกข้อ (ยังขาดอีก ${missingAnswers.length} ข้อ)`,
+        icon: "warning",
+      });
+      return;
+    }
+
     Swal().fire({
       title: "กำลังบันทึก...",
       allowOutsideClick: false,
@@ -24,7 +76,20 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
         Swal().showLoading();
       },
     });
-    const answerKey = { 0: answers };
+
+    const answerKeyToSave = {};
+    for (const q of Object.keys(answers)) {
+      if (isCustomScore) {
+        answerKeyToSave[q] = {
+          answer: answers[q],
+          score: scores[q] ?? globalScore,
+        };
+      } else {
+        answerKeyToSave[q] = answers[q];
+      }
+    }
+
+    const answerKey = { 0: answerKeyToSave };
     await api.update("exams", exam.id, { answerKey });
     localStorage.setItem(
       "answerKeys",
@@ -64,39 +129,46 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     });
   }
 
+  const sheetTypeCount = Number(
+    String(exam?.sheetType || exam?.questions || 30).replace("-A-E", ""),
+  );
+  const questionCount = Number(exam?.questions || 0);
+
   const questionNumbers = Array.from(
-    { length: Number(exam?.questions || 0) },
+    { length: sheetTypeCount },
     (_, index) => index + 1,
   );
+
   const options = Array.from({ length: 5 }, (_, index) =>
     String.fromCharCode(65 + index),
   );
 
-  const answeredCount = Object.values(answers).filter(Boolean).length;
-  const totalQuestions = Number(exam?.questions || 0);
-
   return (
-    <div className="page-enter space-y-6">
-      <div className="bg-white rounded-xl border border-slate-200 border-t-4 border-t-blue-600 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => window.history.back()}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors shrink-0"
-            title="กลับไปหน้าจัดการกระดาษคำตอบ"
-          >
-            <Icon name="fa-arrow-left" />
-          </button>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">
-              {exam ? `เฉลยข้อสอบ: ${exam.name}` : "เลือกข้อสอบ"}
-            </h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {exam ? `รหัสวิชา: ${exam.subject} | กำหนดแล้ว ${answeredCount} / ${totalQuestions} ข้อ` : "เลือกข้อสอบเพื่อกำหนดเฉลย"}
-            </p>
+    <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4">
+      <div className="bg-white rounded-lg border border-zinc-200 shadow-sm p-5 mb-6 flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.history.back()}
+              className="w-10 h-10 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+              title="กลับไปหน้าจัดการกระดาษคำตอบ"
+            >
+              <Icon name="fa-arrow-left" />
+            </button>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">
+                {exam ? `เฉลย: ${exam.name}` : "เลือกข้อสอบ"}
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded border border-blue-100">
+                  {exam?.subject}
+                </span>
+                <span className="text-sm text-slate-500 font-medium">
+                  กำหนดเฉลย {questionCount} ข้อ จากแม่แบบ {sheetTypeCount} ข้อ
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {exam && (
           <div className="flex items-center gap-3">
             <GhostButton
               variant="danger"
@@ -106,46 +178,151 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
             >
               <Icon name="fa-rotate-left" /> ล้างเฉลย
             </GhostButton>
-            <PrimaryButton onClick={save} disabled={!exam} className="px-6 py-2">
+            <PrimaryButton onClick={save} disabled={!exam} className="px-8">
               <Icon name="fa-floppy-disk" /> บันทึกเฉลย
             </PrimaryButton>
           </div>
-        )}
+        </div>
+
+        {/* Settings Bar */}
+        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700">
+              น้ำหนักคะแนน:
+            </span>
+            <div className="flex bg-slate-200 p-1 rounded-md">
+              <button
+                onClick={() => setIsCustomScore(false)}
+                className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${!isCustomScore ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                เท่ากันทุกข้อ
+              </button>
+              <button
+                onClick={() => setIsCustomScore(true)}
+                className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${isCustomScore ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                กำหนดคะแนนเอง
+              </button>
+            </div>
+          </div>
+
+          {isCustomScore && (
+            <div className="flex items-center gap-2 pl-4 border-l border-slate-300">
+              <span className="text-sm font-medium text-slate-600">
+                คะแนนเริ่มต้น:
+              </span>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  className="w-20 h-8 pl-2 pr-7 text-sm font-bold text-blue-700 bg-white border-slate-300 rounded"
+                  value={globalScore}
+                  onChange={handleGlobalScoreChange}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">
+                  pt
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {exam ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 2xl:columns-5 gap-4">
           {questionNumbers.map((question) => {
-            const currentSelected = answers[question];
+            const isDisabled = question > questionCount;
+
+            if (isDisabled) {
+              return (
+                <div
+                  key={question}
+                  className="break-inside-avoid mb-4 bg-slate-50 rounded-md border border-dashed border-slate-200 p-4 flex flex-col gap-3 opacity-60 pointer-events-none"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-400">
+                      ข้อ {question}
+                    </span>
+
+                    {isCustomScore && (
+                      <div className="flex items-center gap-1.5 invisible">
+                        <div className="w-16 h-7" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative flex gap-1.5 justify-center">
+                    <div className="flex gap-1.5 invisible">
+                      {options.map((option) => (
+                        <div key={`dummy-${option}`} className="w-8 h-8" />
+                      ))}
+                    </div>
+
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
+                        ไม่ได้เปิดใช้งาน
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={question}
-                className={`bg-white rounded-xl border p-3.5 flex items-center justify-between gap-2 shadow-sm transition-all ${
-                  currentSelected
-                    ? "border-blue-200 bg-blue-50/20"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
+                className="break-inside-avoid mb-4 bg-white rounded-md border border-zinc-200 p-4 flex flex-col gap-3 hover:border-blue-300 transition-colors"
               >
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs font-bold text-slate-400 w-5 text-right">
-                    {question}.
-                  </span>
-                  <span className="font-bold text-slate-700 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">
                     ข้อ {question}
                   </span>
+
+                  {isCustomScore && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          className="w-16 h-7 pl-1.5 pr-5 text-xs text-center font-bold text-amber-700 bg-amber-50 border-amber-200 rounded"
+                          placeholder={String(globalScore)}
+                          value={
+                            scores[question] !== undefined
+                              ? scores[question]
+                              : ""
+                          }
+                          onChange={(e) =>
+                            setScores({
+                              ...scores,
+                              [question]: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          title="คะแนนสำหรับข้อนี้"
+                        />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-amber-500 font-bold pointer-events-none">
+                          pt
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+
+                <div className="flex gap-1.5 justify-center">
                   {options.map((option) => {
-                    const isSelected = currentSelected === option;
+                    const isSelected = answers[question] === option;
                     return (
                       <button
                         key={option}
                         type="button"
                         onClick={() => toggleAnswer(question, option)}
-                        className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full text-xs font-bold transition-all flex items-center justify-center shrink-0 ${
+                        className={`w-8 h-8 shrink-0 rounded-full text-sm font-bold transition-colors border-2 ${
                           isSelected
-                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-105"
-                            : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-slate-200/80"
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-zinc-500 border-slate-100 hover:border-blue-200"
                         }`}
                       >
                         {option}

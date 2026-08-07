@@ -1,8 +1,7 @@
-import json
 import os
 import uuid
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
@@ -181,7 +180,14 @@ def normalize_answer_key(exam: dict[str, Any], answer_set: str = "0") -> dict[in
     normalized = {}
     for question, answer in raw.items():
         try:
-            normalized[int(question)] = str(answer).upper()
+            q_no = int(question)
+            if isinstance(answer, dict):
+                normalized[q_no] = {
+                    "answer": str(answer.get("answer", "")).upper(),
+                    "score": float(answer.get("score", 1.0))
+                }
+            else:
+                normalized[q_no] = str(answer).upper()
         except (TypeError, ValueError):
             continue
     return normalized
@@ -865,8 +871,11 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
     import hashlib
     # Find user in users collection
     users = db.get_collection("users")
-    if not users:
-        # Create default admin if no users exist
+    
+    has_default_admin = any(u.get("username") == "admin" or u.get("email") == "admin@localhost" for u in users)
+    
+    if not has_default_admin:
+        # Create default admin if it doesn't exist
         default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
         db.set_doc("users", "admin@localhost", None, {
             "email": "admin@localhost",
