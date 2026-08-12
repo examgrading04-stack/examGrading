@@ -421,150 +421,63 @@ class _StudentsScreenState extends State<StudentsScreen> {
           child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            iconTheme: IconThemeData(color: AppColors.textPrimary),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'จัดการผู้เรียน',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              background: Container(color: AppColors.surface),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'กรองรายชื่อผู้เรียน',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 0.5,
-                    ),
+      body: RefreshIndicator(
+        onRefresh: _fetchData,
+        color: AppColors.success,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 60,
+              floating: false,
+              pinned: true,
+              backgroundColor: AppColors.surface,
+              iconTheme: IconThemeData(color: AppColors.textPrimary),
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'จัดการผู้เรียน',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.only(left: 14, right: 4),
-                          decoration: BoxDecoration(
-                            color: _filterSubjectId != null
-                                ? AppColors.successSoft
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: _filterSubjectId != null
-                                  ? AppColors.success
-                                  : AppColors.border,
-                              width: _filterSubjectId != null ? 1.8 : 1.0,
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              borderRadius: BorderRadius.circular(16),
-                              dropdownColor: Colors.white,
-                              icon: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: _filterSubjectId != null
-                                    ? AppColors.success
-                                    : AppColors.textSecondary,
-                                size: 18,
-                              ),
-                              decoration: InputDecoration(
-                                filled: false,
-                                prefixIcon: Icon(
-                                  FontAwesomeIcons.bookOpen,
-                                  color: _filterSubjectId != null
-                                      ? AppColors.success
-                                      : AppColors.textSecondary,
-                                  size: 13,
-                                ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                prefixIconConstraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 0,
-                                ),
-                              ),
-                              value: _filterSubjectId,
-                              items: [
-                                DropdownMenuItem(
-                                  value: null,
-                                  child: Text(
-                                    'ทุกวิชา',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                ..._subjects.map(
-                                  (s) => DropdownMenuItem<String>(
-                                    value: s.id,
-                                    child: Text(
-                                      s.name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (val) => setState(() {
-                                _filterSubjectId = val;
-                                _filterSectionId = null;
-                              }),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
+                ),
+                background: Container(color: AppColors.surface),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'กรองรายชื่อผู้เรียน',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.5,
                       ),
-                      if (_filterSubjectId != null) ...[
-                        const SizedBox(width: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
                         Expanded(
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.only(left: 14, right: 4),
                             decoration: BoxDecoration(
-                              color: _filterSectionId != null
+                              color: _filterSubjectId != null
                                   ? AppColors.successSoft
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: _filterSectionId != null
+                                color: _filterSubjectId != null
                                     ? AppColors.success
                                     : AppColors.border,
-                                width: _filterSectionId != null ? 1.8 : 1.0,
+                                width: _filterSubjectId != null ? 1.8 : 1.0,
                               ),
                             ),
                             child: DropdownButtonHideUnderline(
@@ -574,7 +487,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 dropdownColor: Colors.white,
                                 icon: Icon(
                                   Icons.keyboard_arrow_down_rounded,
-                                  color: _filterSectionId != null
+                                  color: _filterSubjectId != null
                                       ? AppColors.success
                                       : AppColors.textSecondary,
                                   size: 18,
@@ -582,8 +495,8 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                 decoration: InputDecoration(
                                   filled: false,
                                   prefixIcon: Icon(
-                                    FontAwesomeIcons.users,
-                                    color: _filterSectionId != null
+                                    FontAwesomeIcons.bookOpen,
+                                    color: _filterSubjectId != null
                                         ? AppColors.success
                                         : AppColors.textSecondary,
                                     size: 13,
@@ -599,12 +512,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     minHeight: 0,
                                   ),
                                 ),
-                                value: _filterSectionId,
+                                value: _filterSubjectId,
                                 items: [
                                   DropdownMenuItem(
                                     value: null,
                                     child: Text(
-                                      'ทุกกลุ่มเรียน',
+                                      'ทุกวิชา',
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 13,
@@ -613,27 +526,25 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       ),
                                     ),
                                   ),
-                                  ..._sections
-                                      .where(
-                                        (s) => s.subjectId == _filterSubjectId,
-                                      )
-                                      .map(
-                                        (s) => DropdownMenuItem(
-                                          value: s.id,
-                                          child: Text(
-                                            'Sec ${s.sec}',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.textPrimary,
-                                            ),
-                                          ),
+                                  ..._subjects.map(
+                                    (s) => DropdownMenuItem<String>(
+                                      value: s.id,
+                                      child: Text(
+                                        s.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
+                                    ),
+                                  ),
                                 ],
-                                onChanged: (val) =>
-                                    setState(() => _filterSectionId = val),
+                                onChanged: (val) => setState(() {
+                                  _filterSubjectId = val;
+                                  _filterSectionId = null;
+                                }),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.textPrimary,
@@ -642,19 +553,117 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             ),
                           ),
                         ),
+                        if (_filterSubjectId != null) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.only(
+                                left: 14,
+                                right: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _filterSectionId != null
+                                    ? AppColors.successSoft
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _filterSectionId != null
+                                      ? AppColors.success
+                                      : AppColors.border,
+                                  width: _filterSectionId != null ? 1.8 : 1.0,
+                                ),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButtonFormField<String>(
+                                  isExpanded: true,
+                                  borderRadius: BorderRadius.circular(16),
+                                  dropdownColor: Colors.white,
+                                  icon: Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: _filterSectionId != null
+                                        ? AppColors.success
+                                        : AppColors.textSecondary,
+                                    size: 18,
+                                  ),
+                                  decoration: InputDecoration(
+                                    filled: false,
+                                    prefixIcon: Icon(
+                                      FontAwesomeIcons.users,
+                                      color: _filterSectionId != null
+                                          ? AppColors.success
+                                          : AppColors.textSecondary,
+                                      size: 13,
+                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                    ),
+                                    prefixIconConstraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 0,
+                                    ),
+                                  ),
+                                  value: _filterSectionId,
+                                  items: [
+                                    DropdownMenuItem(
+                                      value: null,
+                                      child: Text(
+                                        'ทุกกลุ่มเรียน',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    ..._sections
+                                        .where(
+                                          (s) =>
+                                              s.subjectId == _filterSubjectId,
+                                        )
+                                        .map(
+                                          (s) => DropdownMenuItem(
+                                            value: s.id,
+                                            child: Text(
+                                              'Sec ${s.sec}',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                  ],
+                                  onChanged: (val) =>
+                                      setState(() => _filterSectionId = val),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_isLoading)
-            const SliverToBoxAdapter(child: ListSkeletonLoader())
-          else
-            SliverToBoxAdapter(child: _buildStudentsContent()),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
+            if (_isLoading)
+              const SliverToBoxAdapter(child: ListSkeletonLoader())
+            else
+              SliverToBoxAdapter(child: _buildStudentsContent()),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
       ),
     );
   }

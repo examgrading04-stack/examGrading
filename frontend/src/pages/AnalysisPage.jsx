@@ -138,15 +138,17 @@ export function AnalysisPage({ data }) {
     ? (() => {
         const counts = {};
         let maxCount = 0;
-        let modeValue = null;
+        let modes = [];
         scores.forEach((s) => {
           counts[s] = (counts[s] || 0) + 1;
           if (counts[s] > maxCount) {
             maxCount = counts[s];
-            modeValue = s;
+            modes = [s];
+          } else if (counts[s] === maxCount) {
+            if (!modes.includes(s)) modes.push(s);
           }
         });
-        return maxCount > 1 ? modeValue : "ไม่มี";
+        return maxCount > 1 || scores.length === 1 ? modes.join(", ") : "ไม่มี";
       })()
     : null;
 

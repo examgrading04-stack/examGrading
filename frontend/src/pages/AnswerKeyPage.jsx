@@ -46,7 +46,16 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
 
     setAnswers(initialAnswers);
     setScores(initialScores);
-    if (hasCustomScore) setIsCustomScore(true);
+
+    if (exam.isCustomScore !== undefined) {
+      setIsCustomScore(exam.isCustomScore);
+    } else if (hasCustomScore) {
+      setIsCustomScore(true);
+    }
+
+    if (exam.defaultScore !== undefined) {
+      setGlobalScore(exam.defaultScore);
+    }
   }, [examId, exam]);
 
   async function save() {
@@ -90,7 +99,11 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     }
 
     const answerKey = { 0: answerKeyToSave };
-    await api.update("exams", exam.id, { answerKey });
+    await api.update("exams", exam.id, {
+      answerKey,
+      isCustomScore,
+      defaultScore: globalScore,
+    });
     localStorage.setItem(
       "answerKeys",
       JSON.stringify({

@@ -45,6 +45,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (password.length < 6) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+        confirmBtnColor: const Color(0xFF2563EB),
+      );
+      return;
+    }
+
     try {
       showDialog(
         context: context,

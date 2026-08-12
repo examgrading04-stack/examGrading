@@ -137,6 +137,17 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
   async function createExam(event) {
     event.preventDefault();
+
+    if (!form.subject) {
+      Swal().fire("แจ้งเตือน", "กรุณาเลือกวิชาก่อนสร้างกระดาษคำตอบ", "warning");
+      return;
+    }
+
+    if (!form.name || form.name.trim() === "") {
+      Swal().fire("แจ้งเตือน", "กรุณากรอกชื่อกระดาษคำตอบ", "warning");
+      return;
+    }
+
     const isEdit = !!form.id;
     Swal().fire({
       title: isEdit ? "กำลังแก้ไขกระดาษคำตอบ..." : "กำลังสร้างกระดาษคำตอบ...",

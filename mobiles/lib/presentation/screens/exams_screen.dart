@@ -700,85 +700,90 @@ class _ExamsScreenState extends State<ExamsScreen> {
           child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            iconTheme: IconThemeData(color: AppColors.textPrimary),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'จัดการกระดาษคำตอบ',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              background: Container(color: AppColors.surface),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: _buildFilterDropdown(),
-            ),
-          ),
-          if (_isLoading)
-            const SliverToBoxAdapter(child: ListSkeletonLoader())
-          else if (_exams.isEmpty ||
-              (_selectedFilterSubject != null &&
-                  !_exams.any((e) => e.subject == _selectedFilterSubject)))
-            SliverFillRemaining(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: const BoxDecoration(
-                          color: AppColors.warningSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            FontAwesomeIcons.fileLines,
-                            size: 24,
-                            color: AppColors.warning,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'ยังไม่มีข้อมูลกระดาษคำตอบ',
-                        style: TextStyle(
-                          color: AppColors.warningDark,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: _fetchData,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 60,
+              floating: false,
+              pinned: true,
+              backgroundColor: AppColors.surface,
+              iconTheme: IconThemeData(color: AppColors.textPrimary),
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'จัดการกระดาษคำตอบ',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
+                background: Container(color: AppColors.surface),
               ),
-            )
-          else
-            SliverToBoxAdapter(child: _buildExamsList()),
-        ],
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                child: _buildFilterDropdown(),
+              ),
+            ),
+            if (_isLoading)
+              const SliverToBoxAdapter(child: ListSkeletonLoader())
+            else if (_exams.isEmpty ||
+                (_selectedFilterSubject != null &&
+                    !_exams.any((e) => e.subject == _selectedFilterSubject)))
+              SliverFillRemaining(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            color: AppColors.warningSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.fileLines,
+                              size: 24,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'ยังไม่มีข้อมูลกระดาษคำตอบ',
+                          style: TextStyle(
+                            color: AppColors.warningDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverToBoxAdapter(child: _buildExamsList()),
+          ],
+        ),
       ),
     );
   }

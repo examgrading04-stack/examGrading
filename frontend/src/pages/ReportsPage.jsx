@@ -43,17 +43,21 @@ export function ReportsPage({ data }) {
           : (scores[mid - 1] + scores[mid]) / 2;
     }
 
-    let mode = 0;
+    let mode = "-";
     if (scores.length > 0) {
       const counts = {};
       let maxCount = 0;
+      let modes = [];
       scores.forEach((s) => {
         counts[s] = (counts[s] || 0) + 1;
         if (counts[s] > maxCount) {
           maxCount = counts[s];
-          mode = s;
+          modes = [s];
+        } else if (counts[s] === maxCount) {
+          if (!modes.includes(s)) modes.push(s);
         }
       });
+      mode = maxCount > 1 || scores.length === 1 ? modes.join(", ") : "ไม่มี";
     }
 
     const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
@@ -89,7 +93,7 @@ export function ReportsPage({ data }) {
     }
   });
   const availableSubjectsList = Array.from(availableSubjectsMap.entries()).map(
-    ([key, name]) => ({ key, name })
+    ([key, name]) => ({ key, name }),
   );
 
   const reportRows = selectedSubject

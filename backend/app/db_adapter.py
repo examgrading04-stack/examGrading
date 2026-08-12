@@ -161,8 +161,10 @@ class SqlExam(Base):
     questions = Column("questions", Integer, nullable=False)
     createdAt = Column("created_at", DateTime, default=datetime.now)
     subject_id = Column("subject_id", String(50), nullable=False)
-    section_id = Column("section_id", Integer, nullable=False)
+    section_id = Column("section_id", Integer, nullable=True)
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
+    isCustomScore = Column("is_custom_score", Boolean, default=False)
+    defaultScore = Column("default_score", Float, default=1.0)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
     __table_args__ = (
@@ -299,8 +301,12 @@ class MySQLAdapter(BaseDBAdapter):
             if isinstance(model_obj, SqlExam):
                 keys = session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == model_obj.id, SqlExamAnswerKey.user_id == model_obj.user_email).order_by(SqlExamAnswerKey.question_no).all()
                 answer_key_dict = {}
+                is_custom = getattr(model_obj, "isCustomScore", False)
                 for key in keys:
-                    answer_key_dict[str(key.question_no)] = key.correct_answer
+                    if is_custom:
+                        answer_key_dict[str(key.question_no)] = {"answer": key.correct_answer, "score": key.score}
+                    else:
+                        answer_key_dict[str(key.question_no)] = key.correct_answer
                 d["answerKey"] = answer_key_dict
                 
                 # Map back to frontend keys
@@ -478,6 +484,19 @@ class MySQLAdapter(BaseDBAdapter):
             
             exam_id = data.get("examId")
             student_code = data.get("studentCode")
+            
+            if not student_code:
+                student_code = "UNKNOWN"
+                data["studentCode"] = student_code
+                
+            # Ensure student exists in DB to satisfy foreign key constraint
+            st = session.query(SqlStudent).filter_by(id=student_code, user_email=user_email).first()
+            if not st:
+                st_name = "ไม่ทราบชื่อ (Unknown)" if student_code == "UNKNOWN" else f"นักเรียน {student_code}"
+                new_st = SqlStudent(id=student_code, name=st_name, user_email=user_email)
+                session.add(new_st)
+                session.flush()
+
             if exam_id and student_code:
                 existing = session.query(SqlResult).filter_by(examId=exam_id, studentCode=student_code).first()
                 if existing:
@@ -614,6 +633,11 @@ class MySQLAdapter(BaseDBAdapter):
             
             if row:
                 if collection == "exams":
+                    if "subject" in mapped_data and "subject_id" not in mapped_data:
+                        mapped_data["subject_id"] = mapped_data["subject"]
+                    if "name" in mapped_data and "exam_name" not in mapped_data:
+                        mapped_data["exam_name"] = mapped_data["name"]
+                        
                     sec = mapped_data.get("section")
                     if sec is not None:
                         if str(sec).lower() != "all section" and str(sec).strip() != "":
@@ -648,6 +672,21 @@ class MySQLAdapter(BaseDBAdapter):
                             mapped_data["template_id"] = "100-A-E"
                         else:
                             mapped_data["template_id"] = str(mapped_data["sheetType"])
+
+                if collection == "results":
+                    student_code = mapped_data.get("studentCode") or mapped_data.get("student_code")
+                    if student_code == "":
+                        student_code = "UNKNOWN"
+                        mapped_data["studentCode"] = student_code
+                        mapped_data["student_code"] = student_code
+                    
+                    if student_code:
+                        st = session.query(SqlStudent).filter_by(id=student_code, user_email=user_email).first()
+                        if not st:
+                            st_name = "ไม่ทราบชื่อ (Unknown)" if student_code == "UNKNOWN" else f"นักเรียน {student_code}"
+                            new_st = SqlStudent(id=student_code, name=st_name, user_email=user_email)
+                            session.add(new_st)
+                            session.flush()
 
                 for k, v in mapped_data.items():
                     if k in valid_cols:
@@ -693,6 +732,11 @@ class MySQLAdapter(BaseDBAdapter):
                     mapped_data["user_email"] = user_email
                     
                 if collection == "exams":
+                    if "subject" in mapped_data and "subject_id" not in mapped_data:
+                        mapped_data["subject_id"] = mapped_data["subject"]
+                    if "name" in mapped_data and "exam_name" not in mapped_data:
+                        mapped_data["exam_name"] = mapped_data["name"]
+                        
                     sec = mapped_data.get("section")
                     if sec is not None:
                         if str(sec).lower() != "all section" and str(sec).strip() != "":
@@ -729,6 +773,20 @@ class MySQLAdapter(BaseDBAdapter):
                         else:
                             mapped_data["template_id"] = str(mapped_data["sheetType"])
                         
+                if collection == "results":
+                    student_code = mapped_data.get("studentCode") or mapped_data.get("student_code")
+                    if not student_code:
+                        student_code = "UNKNOWN"
+                        mapped_data["studentCode"] = student_code
+                        mapped_data["student_code"] = student_code
+                    
+                    st = session.query(SqlStudent).filter_by(id=student_code, user_email=user_email).first()
+                    if not st:
+                        st_name = "ไม่ทราบชื่อ (Unknown)" if student_code == "UNKNOWN" else f"นักเรียน {student_code}"
+                        new_st = SqlStudent(id=student_code, name=st_name, user_email=user_email)
+                        session.add(new_st)
+                        session.flush()
+
                 cleaned_data = {}
                 for k, v in mapped_data.items():
                     if k in valid_cols:

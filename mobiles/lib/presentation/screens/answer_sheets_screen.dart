@@ -228,317 +228,325 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
       ),
       body: Stack(
         children: [
-          CustomScrollView(
-            slivers: [
-              /* Exam Info Card */ SliverToBoxAdapter(
-                child: Container(
-                  margin: const EdgeInsets.all(24),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border, width: 1.5),
-                    boxShadow: AppColors.softShadow,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: AppColors.primaryShadow,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                FontAwesomeIcons.solidFileLines,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  exam.name,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  subject.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Divider(height: 1.5, color: AppColors.border),
-                      const SizedBox(height: 20),
-                      _infoRow(
-                        FontAwesomeIcons.barcode,
-                        'รหัสวิชา',
-                        subject.code,
-                      ),
-                      const SizedBox(height: 12),
-                      _infoRow(
-                        FontAwesomeIcons.solidCalendarDays,
-                        'วันที่สอบ',
-                        exam.date.isNotEmpty ? exam.date : '-',
-                      ),
-                      const SizedBox(height: 12),
-                      _infoRow(
-                        FontAwesomeIcons.circleQuestion,
-                        'จำนวนข้อ',
-                        '${exam.questions} ข้อ',
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.solidFileImage,
-                            size: 13,
-                            color: templateColor,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Template: ',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: templateColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _templateLabel(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: templateColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              /* Student List Header */ SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.users,
-                        size: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'รายชื่อผู้เรียน (${_students.length} คน)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 12)),
-              /* Student List */ if (_isLoadingStudents)
-                const SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: SpinKitThreeBounce(
-                        color: AppColors.primary,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                )
-              else if (_students.isEmpty)
-                SliverToBoxAdapter(
+          RefreshIndicator(
+            onRefresh: _fetchStudents,
+            color: AppColors.primary,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                /* Exam Info Card */ SliverToBoxAdapter(
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    padding: const EdgeInsets.all(24),
+                    margin: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: AppColors.border, width: 1.5),
+                      boxShadow: AppColors.softShadow,
                     ),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: AppColors.primaryShadow,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.solidFileLines,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    exam.name,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    subject.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Divider(height: 1.5, color: AppColors.border),
+                        const SizedBox(height: 20),
+                        _infoRow(
+                          FontAwesomeIcons.barcode,
+                          'รหัสวิชา',
+                          subject.code,
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow(
+                          FontAwesomeIcons.solidCalendarDays,
+                          'วันที่สร้าง',
+                          exam.date.isNotEmpty ? exam.date : '-',
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow(
+                          FontAwesomeIcons.circleQuestion,
+                          'จำนวนข้อ',
+                          '${exam.questions} ข้อ',
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              FontAwesomeIcons.solidFileImage,
+                              size: 13,
+                              color: templateColor,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Template: ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: templateColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _templateLabel(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: templateColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                /* Student List Header */ SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 4,
+                    ),
+                    child: Row(
                       children: [
                         Icon(
-                          FontAwesomeIcons.userSlash,
-                          size: 32,
-                          color: AppColors.textMuted,
+                          FontAwesomeIcons.users,
+                          size: 13,
+                          color: AppColors.textSecondary,
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(width: 8),
                         Text(
-                          'ยังไม่มีรายชื่อผู้เรียน\nกรุณาเพิ่มผู้เรียนในวิชานี้ก่อน',
-                          textAlign: TextAlign.center,
+                          'รายชื่อผู้เรียน (${_students.length} คน)',
                           style: TextStyle(
-                            color: AppColors.textSecondary,
                             fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final totalPages = (_students.length / _pageSize)
-                            .ceil()
-                            .clamp(1, 1000000);
-                        final page = _currentPage.clamp(1, totalPages);
-                        final start = (page - 1) * _pageSize;
-                        final end = (start + _pageSize).clamp(
-                          0,
-                          _students.length,
-                        );
-                        final visibleStudents = _students.sublist(start, end);
-                        if (index == visibleStudents.length) {
-                          return Column(
-                            children: [
-                              Text(
-                                'แสดง ${start + 1}-$end จาก ${_students.length} รายการ',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              PaginationBar(
-                                page: page,
-                                totalPages: totalPages,
-                                onPageChanged: (nextPage) {
-                                  setState(() => _currentPage = nextPage);
-                                },
-                              ),
-                            ],
-                          );
-                        }
-                        final student = visibleStudents[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppColors.border,
-                              width: 1.5,
-                            ),
-                            boxShadow: AppColors.softShadow,
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                /* Student List */ if (_isLoadingStudents)
+                  const SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: SpinKitThreeBounce(
+                          color: AppColors.primary,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                  )
+                else if (_students.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.border, width: 1.5),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            FontAwesomeIcons.userSlash,
+                            size: 32,
+                            color: AppColors.textMuted,
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primarySoft,
-                                  shape: BoxShape.circle,
+                          SizedBox(height: 16),
+                          Text(
+                            'ยังไม่มีรายชื่อผู้เรียน\nกรุณาเพิ่มผู้เรียนในวิชานี้ก่อน',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final totalPages = (_students.length / _pageSize)
+                              .ceil()
+                              .clamp(1, 1000000);
+                          final page = _currentPage.clamp(1, totalPages);
+                          final start = (page - 1) * _pageSize;
+                          final end = (start + _pageSize).clamp(
+                            0,
+                            _students.length,
+                          );
+                          final visibleStudents = _students.sublist(start, end);
+                          if (index == visibleStudents.length) {
+                            return Column(
+                              children: [
+                                Text(
+                                  'แสดง ${start + 1}-$end จาก ${_students.length} รายการ',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    '${start + index + 1}',
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                PaginationBar(
+                                  page: page,
+                                  totalPages: totalPages,
+                                  onPageChanged: (nextPage) {
+                                    setState(() => _currentPage = nextPage);
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+                          final student = visibleStudents[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                              boxShadow: AppColors.softShadow,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySoft,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${start + index + 1}',
+                                      style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      student.name,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textPrimary,
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        student.name,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'รหัส: ${student.code.isNotEmpty ? student.code : student.id}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontFamily: 'monospace',
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.bold,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'รหัส: ${student.code.isNotEmpty ? student.code : student.id}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontFamily: 'monospace',
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Icon(
-                                FontAwesomeIcons.qrcode,
-                                size: 16,
-                                color: AppColors.textMuted,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      childCount: (_students.length > _pageSize
-                          ? ((_students.length -
-                                        ((_currentPage - 1) * _pageSize))
-                                    .clamp(0, _pageSize) +
-                                1)
-                          : _students.length),
+                                Icon(
+                                  FontAwesomeIcons.qrcode,
+                                  size: 16,
+                                  color: AppColors.textMuted,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        childCount: (_students.length > _pageSize
+                            ? ((_students.length -
+                                          ((_currentPage - 1) * _pageSize))
+                                      .clamp(0, _pageSize) +
+                                  1)
+                            : _students.length),
+                      ),
                     ),
                   ),
+                /* Bottom Padding */ const SliverToBoxAdapter(
+                  child: SizedBox(height: 100),
                 ),
-              /* Bottom Padding */ const SliverToBoxAdapter(
-                child: SizedBox(height: 100),
-              ),
-            ],
+              ],
+            ),
           ),
-          /* Loading Overlay */ if (_isGenerating)
+
+          /* Loading Overlay */
+          if (_isGenerating)
             Container(
               color: AppColors.surface.withValues(alpha: 0.8),
               child: const Center(

@@ -190,6 +190,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       activity,
       datetime: window.firebase.firestore.FieldValue.serverTimestamp(),
       admin: session?.aname || "Admin",
+      userEmail: session?.aid || user?.email || user?.id,
     });
   }
 
@@ -369,19 +370,19 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
     });
     const id = (editingUser?.id || userForm.id || userForm.email).trim();
     if (!id) return;
-    await db
-      .collection("users")
-      .doc(id)
-      .set(
-        {
-          displayName: userForm.displayName.trim(),
-          email: userForm.email.trim() || id,
-          role: userForm.role,
-          status: editingUser?.status || "active",
-          updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
+    const payload = {
+      displayName: userForm.displayName.trim(),
+      email: userForm.email.trim() || id,
+      role: userForm.role,
+      status: editingUser?.status || "active",
+      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (!editingUser) {
+      payload.password = "123456";
+    }
+
+    await db.collection("users").doc(id).set(payload, { merge: true });
     await writeLog(`${editingUser ? "แก้ไข" : "เพิ่ม"}ข้อมูลผู้ใช้งาน: ${id}`);
     setEditingUser(null);
     setUserForm({ id: "", displayName: "", email: "", role: "user" });
@@ -745,42 +746,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
             <div className="space-y-6">
               <form
                 onSubmit={saveUser}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end"
               >
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    รหัสผู้ใช้ / อีเมล
-                  </label>
-                  <input
-                    type="text"
-                    value={userForm.id}
-                    onChange={(event) =>
-                      setUserForm({ ...userForm, id: event.target.value })
-                    }
-                    placeholder="รหัสผู้ใช้"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
-                    disabled={editingUser !== null}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    ชื่อ
-                  </label>
-                  <input
-                    type="text"
-                    value={userForm.displayName}
-                    onChange={(event) =>
-                      setUserForm({
-                        ...userForm,
-                        displayName: event.target.value,
-                      })
-                    }
-                    placeholder="สมชาย ใจดี"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
-                    required
-                  />
-                </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">
                     อีเมล
@@ -792,6 +759,25 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                       setUserForm({ ...userForm, email: event.target.value })
                     }
                     placeholder="somchai@example.com"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
+                    disabled={editingUser !== null}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">
+                    ชื่อในระบบ
+                  </label>
+                  <input
+                    type="text"
+                    value={userForm.displayName}
+                    onChange={(event) =>
+                      setUserForm({
+                        ...userForm,
+                        displayName: event.target.value,
+                      })
+                    }
+                    placeholder="สมชาย ใจดี"
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
                     required
                   />

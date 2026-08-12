@@ -124,14 +124,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             for (var c in counts.values) {
               if (c > maxCount) maxCount = c;
             }
-            final modes = counts.entries
-                .where((e) => e.value == maxCount)
-                .map((e) => e.key)
-                .toList();
-            modes.sort();
-            if (modes.length > 2) {
-              modeStr = 'หลายค่า';
+
+            if (maxCount <= 1 || counts.values.every((c) => c == maxCount)) {
+              modeStr = 'ไม่มี';
             } else {
+              final modes = counts.entries
+                  .where((e) => e.value == maxCount)
+                  .map((e) => e.key)
+                  .toList();
+              modes.sort();
               modeStr = modes
                   .map(
                     (m) => m.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), ''),
@@ -787,7 +788,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final stats = _examStats[exam.id] ?? {};
     final count = stats['count'] ?? 0;
     final average = stats['average'] ?? 0.0;
-    final passRate = stats['passRate'] ?? 0.0;
     final maxScore = stats['maxScore'] ?? 0.0;
     final minScore = stats['minScore'] ?? 0.0;
     final median = stats['median'] ?? 0.0;
@@ -857,8 +857,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                _buildPassBadge(passRate, count),
               ],
             ),
             const SizedBox(height: 16),
@@ -942,29 +940,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPassBadge(double passRate, int total) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 72),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        total == 0 ? '-' : '${(passRate * 100).toStringAsFixed(0)}%',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.success,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );

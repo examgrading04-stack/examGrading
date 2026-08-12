@@ -19,13 +19,13 @@ export function Dashboard({ data }) {
       if (percent >= 50) passed++;
       if (result.flagged) flagged++;
 
-      const key = exam.subject || "ไม่ระบุวิชา";
+      const key = exam.name || "ไม่ระบุการสอบ";
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(percent);
     });
 
-    const avg = Object.entries(grouped).map(([subject, scores]) => ({
-      subject,
+    const avg = Object.entries(grouped).map(([name, scores]) => ({
+      name,
       average: scores.reduce((sum, score) => sum + score, 0) / scores.length,
     }));
 
@@ -50,7 +50,7 @@ export function Dashboard({ data }) {
       type: "bar",
       data: {
         labels: averages.length
-          ? averages.map((item) => item.subject)
+          ? averages.map((item) => item.name)
           : ["ยังไม่มีข้อมูล"],
         datasets: [
           {
@@ -156,7 +156,7 @@ export function Dashboard({ data }) {
         <div className="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[220px] sm:min-h-[300px] lg:min-h-0">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-bold text-slate-800">
-              คะแนนเฉลี่ยรายวิชา (%)
+              คะแนนเฉลี่ยผลสอบ (%)
             </h3>
           </div>
           <div className="relative flex-1 min-h-0">

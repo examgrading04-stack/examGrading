@@ -59,6 +59,14 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (r != null && r is Map) {
           rawAnswerKey = _parseRawAnswerKeyDynamic(r);
         }
+
+        if (examData['isCustomScore'] != null) {
+          _isCustomScore = examData['isCustomScore'] == true;
+        }
+
+        if (examData['defaultScore'] != null) {
+          _globalScoreController.text = examData['defaultScore'].toString();
+        }
       }
 
       final numSets = widget.exam.sets > 0 ? widget.exam.sets : 1;
@@ -92,7 +100,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       setState(() {
         _answerKeys = tempAnswerKeys;
         _scores = tempScores;
-        _isCustomScore = hasCustomScore;
+        _isCustomScore = _isCustomScore || hasCustomScore;
         _isLoading = false;
       });
     } catch (e) {
@@ -103,8 +111,11 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
   Map<String, Map<String, dynamic>> _parseRawAnswerKeyDynamic(dynamic raw) {
     if (raw is! Map) return {};
-    if (raw.isNotEmpty && raw.values.first is! Map) {
-      return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
+    if (raw.isNotEmpty) {
+      final firstVal = raw.values.first;
+      if (firstVal is! Map || firstVal.containsKey('answer')) {
+        return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
+      }
     }
     return raw.map((setIndex, answers) {
       final answerMap = answers is Map ? answers : <dynamic, dynamic>{};
@@ -172,6 +183,8 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     try {
       await ApiService.instance.updateDoc(_uid, 'exams', widget.exam.id, {
         'answerKey': payload,
+        'isCustomScore': _isCustomScore,
+        'defaultScore': double.tryParse(_globalScoreController.text) ?? 1.0,
       });
 
       if (!mounted) return;

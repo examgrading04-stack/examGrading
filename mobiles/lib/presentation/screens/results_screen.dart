@@ -104,285 +104,317 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            iconTheme: IconThemeData(color: AppColors.textPrimary),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'ผลการสอบ',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+      body: RefreshIndicator(
+        onRefresh: _fetchData,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 60,
+              floating: false,
+              pinned: true,
+              backgroundColor: AppColors.surface,
+              iconTheme: IconThemeData(color: AppColors.textPrimary),
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'ผลการสอบ',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
+                background: Container(color: AppColors.surface),
               ),
-              background: Container(color: AppColors.surface),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: AppColors.softShadow,
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedSubject,
-                    isExpanded: true,
-                    icon: Icon(
-                      FontAwesomeIcons.chevronDown,
-                      size: 14,
-                      color: AppColors.textSecondary,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: AppColors.softShadow,
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedSubject,
+                      isExpanded: true,
+                      icon: Icon(
+                        FontAwesomeIcons.chevronDown,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedSubject = newValue;
+                            _currentPage = 1;
+                          });
+                        }
+                      },
+                      items: _subjects.map<DropdownMenuItem<String>>((
+                        String value,
+                      ) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value == 'ทั้งหมด' ? 'ทุกวิชา' : 'วิชา: $value',
+                          ),
+                        );
+                      }).toList(),
                     ),
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedSubject = newValue;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                    items: _subjects.map<DropdownMenuItem<String>>((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value == 'ทั้งหมด' ? 'ทุกวิชา' : 'วิชา: $value',
-                        ),
-                      );
-                    }).toList(),
                   ),
                 ),
               ),
             ),
-          ),
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: SpinKitThreeBounce(color: AppColors.info, size: 32.0),
-              ),
-            )
-          else if (_results.isEmpty)
-            SliverFillRemaining(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: _buildEmptyState(),
-              ),
-            )
-          else
-            Builder(
-              builder: (context) {
-                final docs = [..._results];
-                docs.sort((a, b) {
-                  final at = _readResultTime(a);
-                  final bt = _readResultTime(b);
-                  if (at == null && bt == null) return 0;
-                  if (at == null) return 1;
-                  if (bt == null) return -1;
-                  return bt.compareTo(at);
-                });
-                final filteredDocs = docs.where((data) {
-                  if (_selectedSubject == 'ทั้งหมด') return true;
-                  final examId = data['examId']?.toString() ?? '';
-                  String subjectCode = '';
-                  if (examId.contains('_')) {
-                    subjectCode = examId.split('_')[0];
-                  } else {
-                    try {
-                      final exam = _exams.firstWhere((e) => e.id == examId);
-                      subjectCode = exam.subject;
-                    } catch (e) {
-                      /* Do nothing */
-                    }
-                  }
-                  return subjectCode == _selectedSubject;
-                }).toList();
-                if (filteredDocs.isEmpty) {
-                  return SliverFillRemaining(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: _buildEmptyState(),
-                    ),
-                  );
-                }
-                final totalPages = (filteredDocs.length / _pageSize)
-                    .ceil()
-                    .clamp(1, 1000000);
-                final page = _currentPage.clamp(1, totalPages);
-                if (page != _currentPage) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) setState(() => _currentPage = page);
+            if (_isLoading)
+              const SliverFillRemaining(
+                child: Center(
+                  child: SpinKitThreeBounce(color: AppColors.info, size: 32.0),
+                ),
+              )
+            else if (_results.isEmpty)
+              SliverFillRemaining(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: _buildEmptyState(),
+                ),
+              )
+            else
+              Builder(
+                builder: (context) {
+                  final docs = [..._results];
+                  docs.sort((a, b) {
+                    final at = _readResultTime(a);
+                    final bt = _readResultTime(b);
+                    if (at == null && bt == null) return 0;
+                    if (at == null) return 1;
+                    if (bt == null) return -1;
+                    return bt.compareTo(at);
                   });
-                }
-                final start = (page - 1) * _pageSize;
-                final end = (start + _pageSize).clamp(0, filteredDocs.length);
-                final visibleDocs = filteredDocs.sublist(start, end);
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 80),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index == visibleDocs.length) {
-                          return Column(
-                            children: [
-                              Text(
-                                'แสดง ${start + 1}-$end จาก ${filteredDocs.length} รายการ',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                  final filteredDocs = docs.where((data) {
+                    if (_selectedSubject == 'ทั้งหมด') return true;
+                    final examId = data['examId']?.toString() ?? '';
+                    String subjectCode = '';
+                    if (examId.contains('_')) {
+                      subjectCode = examId.split('_')[0];
+                    } else {
+                      try {
+                        final exam = _exams.firstWhere((e) => e.id == examId);
+                        subjectCode = exam.subject;
+                      } catch (e) {
+                        /* Do nothing */
+                      }
+                    }
+                    return subjectCode == _selectedSubject;
+                  }).toList();
+                  if (filteredDocs.isEmpty) {
+                    return SliverFillRemaining(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: _buildEmptyState(),
+                      ),
+                    );
+                  }
+                  final totalPages = (filteredDocs.length / _pageSize)
+                      .ceil()
+                      .clamp(1, 1000000);
+                  final page = _currentPage.clamp(1, totalPages);
+                  if (page != _currentPage) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _currentPage = page);
+                    });
+                  }
+                  final start = (page - 1) * _pageSize;
+                  final end = (start + _pageSize).clamp(0, filteredDocs.length);
+                  final visibleDocs = filteredDocs.sublist(start, end);
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 80),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index == visibleDocs.length) {
+                            return Column(
+                              children: [
+                                Text(
+                                  'แสดง ${start + 1}-$end จาก ${filteredDocs.length} รายการ',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                              PaginationBar(
-                                page: page,
-                                totalPages: totalPages,
-                                onPageChanged: (nextPage) {
-                                  setState(() => _currentPage = nextPage);
-                                },
-                              ),
-                            ],
-                          );
-                        }
-                        final data = visibleDocs[index];
-                        final examId = data['examId']?.toString() ?? 'ไม่ระบุ';
-                        final isPending = data['score'] == null;
-                        ExamModel? currentExam;
-                        try {
-                          currentExam = _exams.firstWhere(
-                            (e) => e.id == examId,
-                          );
-                        } catch (_) {}
-                        int dynamicScore =
-                            int.tryParse(data['score']?.toString() ?? '0') ?? 0;
-                        if (currentExam != null &&
-                            (data.containsKey('answers') ||
-                                data.containsKey('itemResults'))) {
-                          int calculatedScore = 0;
-                          final answers = data['answers'] as Map?;
-                          final itemResults = data['itemResults'] as Map?;
-                          final setIndex = data['set']?.toString();
-                          for (int i = 1; i <= currentExam.questions; i++) {
-                            final qStr = i.toString();
-                            final correctAns = _getCorrectAnswer(
-                              currentExam,
-                              qStr,
-                              setIndex,
+                                PaginationBar(
+                                  page: page,
+                                  totalPages: totalPages,
+                                  onPageChanged: (nextPage) {
+                                    setState(() => _currentPage = nextPage);
+                                  },
+                                ),
+                              ],
                             );
-                            if (answers != null && answers.containsKey(qStr)) {
-                              if (answers[qStr].toString() == correctAns &&
-                                  correctAns != '-') {
-                                calculatedScore++;
-                              }
-                            } else if (itemResults != null &&
-                                itemResults.containsKey(qStr)) {
-                              if (itemResults[qStr] == true) {
-                                calculatedScore++;
+                          }
+                          final data = visibleDocs[index];
+                          final examId =
+                              data['examId']?.toString() ?? 'ไม่ระบุ';
+                          final isPending = data['score'] == null;
+                          ExamModel? currentExam;
+                          try {
+                            currentExam = _exams.firstWhere(
+                              (e) => e.id == examId,
+                            );
+                          } catch (_) {}
+                          int dynamicScore =
+                              int.tryParse(data['score']?.toString() ?? '0') ??
+                              0;
+                          if (currentExam != null &&
+                              (data.containsKey('answers') ||
+                                  data.containsKey('itemResults'))) {
+                            int calculatedScore = 0;
+                            final answers = data['answers'] as Map?;
+                            final itemResults = data['itemResults'] as Map?;
+                            final setIndex = data['set']?.toString();
+                            for (int i = 1; i <= currentExam.questions; i++) {
+                              final qStr = i.toString();
+                              final correctAns = _getCorrectAnswer(
+                                currentExam,
+                                qStr,
+                                setIndex,
+                              );
+                              if (answers != null &&
+                                  answers.containsKey(qStr)) {
+                                if (answers[qStr].toString() == correctAns &&
+                                    correctAns != '-') {
+                                  calculatedScore++;
+                                }
+                              } else if (itemResults != null &&
+                                  itemResults.containsKey(qStr)) {
+                                if (itemResults[qStr] == true) {
+                                  calculatedScore++;
+                                }
                               }
                             }
+                            dynamicScore = calculatedScore;
                           }
-                          dynamicScore = calculatedScore;
-                        }
-                        final scoreStr = isPending
-                            ? 'กำลังประมวลผล...'
-                            : dynamicScore.toString();
-                        /* Parse exam ID for a cleaner display */
-                        String subjectCode = '';
-                        String examName = examId;
-                        if (examId.contains('_')) {
-                          final parts = examId.split('_');
-                          subjectCode = parts[0];
-                          examName = parts
-                              .sublist(1)
-                              .join(' ')
-                              .replaceAll('_', ' ');
-                        }
-                        final studentName =
-                            data['studentName']?.toString() ??
-                            'ไม่พบชื่อนักเรียน';
-                        final studentCode =
-                            data['studentCode']?.toString() ?? '';
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
-                              onTap: () {
-                                if (!isPending && currentExam != null) {
-                                  _showAnswerDetails(
-                                    context,
-                                    data,
-                                    currentExam,
-                                    dynamicScore,
-                                  );
-                                } else if (!isPending) {
-                                  final exam = ExamModel(
-                                    id: examId,
-                                    name: examName,
-                                    subject: subjectCode,
-                                    date: '',
-                                    questions: 0,
-                                    options: 0,
-                                    sets: 0,
-                                    answerKey: {},
-                                  );
-                                  _showAnswerDetails(
-                                    context,
-                                    data,
-                                    exam,
-                                    dynamicScore,
-                                  );
-                                }
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: AppColors.border,
-                                    width: 1.5,
+                          final scoreStr = isPending
+                              ? 'กำลังประมวลผล...'
+                              : dynamicScore.toString();
+                          /* Parse exam ID for a cleaner display */
+                          String subjectCode = '';
+                          String examName = examId;
+                          if (examId.contains('_')) {
+                            final parts = examId.split('_');
+                            subjectCode = parts[0];
+                            examName = parts
+                                .sublist(1)
+                                .join(' ')
+                                .replaceAll('_', ' ');
+                          }
+                          final studentName =
+                              data['studentName']?.toString() ??
+                              'ไม่พบชื่อนักเรียน';
+                          final studentCode =
+                              data['studentCode']?.toString() ?? '';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(24),
+                                onTap: () {
+                                  if (!isPending && currentExam != null) {
+                                    _showAnswerDetails(
+                                      context,
+                                      data,
+                                      currentExam,
+                                      dynamicScore,
+                                    );
+                                  } else if (!isPending) {
+                                    final exam = ExamModel(
+                                      id: examId,
+                                      name: examName,
+                                      subject: subjectCode,
+                                      date: '',
+                                      questions: 0,
+                                      options: 0,
+                                      sets: 0,
+                                      answerKey: {},
+                                    );
+                                    _showAnswerDetails(
+                                      context,
+                                      data,
+                                      exam,
+                                      dynamicScore,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: AppColors.border,
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: AppColors.softShadow,
                                   ),
-                                  boxShadow: AppColors.softShadow,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              studentName,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                color: AppColors.textPrimary,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                studentName,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (studentCode.isNotEmpty) ...[
+                                              if (studentCode.isNotEmpty) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  studentCode,
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color:
+                                                        AppColors.textSecondary,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                currentExam?.name ?? examName,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                               const SizedBox(height: 2),
                                               Text(
-                                                studentCode,
+                                                currentExam?.subject ??
+                                                    subjectCode,
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   color:
@@ -392,82 +424,61 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ],
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              currentExam?.name ?? examName,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              currentExam?.subject ??
-                                                  subjectCode,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isPending
-                                              ? AppColors.surface
-                                              : AppColors.infoSoft,
-                                          borderRadius: BorderRadius.circular(
-                                            14,
                                           ),
-                                          border: Border.all(
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
                                             color: isPending
-                                                ? AppColors.border
-                                                : AppColors.info.withValues(
-                                                    alpha: 0.2,
-                                                  ),
-                                            width: 1.5,
+                                                ? AppColors.surface
+                                                : AppColors.infoSoft,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            border: Border.all(
+                                              color: isPending
+                                                  ? AppColors.border
+                                                  : AppColors.info.withValues(
+                                                      alpha: 0.2,
+                                                    ),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            isPending
+                                                ? 'รอตรวจ'
+                                                : '$scoreStr/${currentExam?.questions ?? 0} คะแนน',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: isPending
+                                                  ? AppColors.textSecondary
+                                                  : AppColors.infoDark,
+                                            ),
                                           ),
                                         ),
-                                        child: Text(
-                                          isPending
-                                              ? 'รอตรวจ'
-                                              : '$scoreStr/${currentExam?.questions ?? 0} คะแนน',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            color: isPending
-                                                ? AppColors.textSecondary
-                                                : AppColors.infoDark,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                      childCount:
-                          visibleDocs.length +
-                          (filteredDocs.length > _pageSize ? 1 : 0),
+                          );
+                        },
+                        childCount:
+                            visibleDocs.length +
+                            (filteredDocs.length > _pageSize ? 1 : 0),
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-        ],
+                  );
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -488,6 +499,57 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return;
     }
     final answers = result['answers'] as Map<String, dynamic>? ?? {};
+    final itemResults = result['itemResults'] as Map<String, dynamic>? ?? {};
+    final skippedQs = (result['skipped'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+
+    final rawFlagged = result['flagged'];
+    final bool isFlagged =
+        rawFlagged == true ||
+        rawFlagged == 1 ||
+        rawFlagged == '1' ||
+        rawFlagged == 'true';
+    String pendingTitle = 'รอตรวจสอบความถูกต้อง';
+
+    if (isFlagged) {
+      final List<String> problemQs = [];
+      for (int i = 1; i <= exam.questions; i++) {
+        final qNum = i.toString();
+        String studentAns = '';
+        bool isSkipped = false;
+
+        if (answers.isNotEmpty && answers.containsKey(qNum)) {
+          studentAns = answers[qNum].toString().trim();
+          if (studentAns == '-' ||
+              studentAns.isEmpty ||
+              skippedQs.contains(qNum)) {
+            isSkipped = true;
+          }
+        } else if (itemResults.isNotEmpty) {
+          if (itemResults[qNum] == true) {
+            studentAns = ''; // Don't care for this check
+          } else if (itemResults[qNum] == false) {
+            studentAns = 'X';
+          } else {
+            studentAns = '-';
+            isSkipped = true;
+          }
+          if (skippedQs.contains(qNum)) isSkipped = true;
+        }
+
+        if (isSkipped) {
+          problemQs.add(qNum);
+        } else if (studentAns.length > 1 && studentAns != '-') {
+          problemQs.add(qNum);
+        }
+      }
+
+      if (problemQs.isNotEmpty) {
+        pendingTitle += ' (ข้อ ${problemQs.join(", ")})';
+      }
+    }
+
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
     showModalBottomSheet(
@@ -583,6 +645,47 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (isFlagged) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            border: Border.all(color: Colors.amber.shade200),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Icon(
+                                      FontAwesomeIcons.triangleExclamation,
+                                      color: Colors.amber.shade800,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      pendingTitle,
+                                      style: TextStyle(
+                                        color: Colors.amber.shade900,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (hasImageUrl) ...[
                         GestureDetector(
                           onTap: () {
@@ -739,9 +842,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           bool isSkipped = false;
 
                           if (answers.isNotEmpty && answers.containsKey(qNum)) {
-                            studentAns = answers[qNum].toString();
-                            if (studentAns == '-') {
+                            studentAns = answers[qNum].toString().trim();
+                            if (studentAns == '-' ||
+                                studentAns.isEmpty ||
+                                skippedQs.contains(qNum)) {
                               isSkipped = true;
+                              studentAns = '-';
                             } else {
                               isCorrect =
                                   studentAns == correctAns && correctAns != '-';
@@ -757,7 +863,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             } else {
                               studentAns = '-';
                             }
-                            if (studentAns == '-') isSkipped = true;
+                            if (studentAns == '-' ||
+                                studentAns.isEmpty ||
+                                skippedQs.contains(qNum)) {
+                              isSkipped = true;
+                              studentAns = '-';
+                            }
                           }
 
                           return Container(
