@@ -11,7 +11,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
 
   function handleGlobalScoreChange(e) {
     const val = e.target.value;
-    const newGlobalScore = val ? Number(val) : 0;
+    const newGlobalScore = val !== "" ? Number(val) : 0.5;
     setGlobalScore(newGlobalScore);
 
     const newScores = { ...scores };
@@ -190,7 +190,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
                 <Input
                   type="number"
                   step="0.5"
-                  min="0"
+                  min="0.5"
                   className="w-20 h-8 pl-2 pr-7 text-sm font-bold text-blue-700 bg-white border-slate-300 rounded"
                   value={globalScore}
                   onChange={handleGlobalScoreChange}
@@ -262,7 +262,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
                         <Input
                           type="number"
                           step="0.5"
-                          min="0"
+                          min="0.5"
                           className="w-16 h-7 pl-1.5 pr-5 text-xs text-center font-bold text-amber-700 bg-amber-50 border-amber-200 rounded"
                           placeholder={String(globalScore)}
                           value={
