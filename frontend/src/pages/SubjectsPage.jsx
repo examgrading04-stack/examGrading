@@ -18,7 +18,7 @@ export function SubjectsPage({ data, api, refresh }) {
     year: String(new Date().getFullYear() + 543),
   });
   const [sectionForm, setSectionForm] = useState(
-    emptyForm(["id", "subject", "sec"]),
+    emptyForm(["id", "subject", "sec", "count"]),
   );
   const [activeSubject, setActiveSubject] = useState(null);
   const [searchSubject, setSearchSubject] = useState("");
@@ -86,19 +86,62 @@ export function SubjectsPage({ data, api, refresh }) {
         "warning",
       );
     }
-    const id = sectionForm.id || sectionForm.sec;
-    Swal().fire({
-      title: "กำลังบันทึกกลุ่มเรียน...",
-      allowOutsideClick: false,
-      didOpen: () => Swal().showLoading(),
-    });
+
     try {
-      await api.set(`subjects/${subjectId}/sections/${id}`, {
-        subject: subjectId,
-        sec: sectionForm.sec,
-        created_at: new Date().toISOString(),
-      });
-      setSectionForm(emptyForm(["id", "subject", "sec"]));
+      if (sectionForm.id) {
+        // แก้ไขกลุ่มเรียนเดิม
+        Swal().fire({
+          title: "กำลังบันทึกกลุ่มเรียน...",
+          allowOutsideClick: false,
+          didOpen: () => Swal().showLoading(),
+        });
+        await api.set(`subjects/${subjectId}/sections/${sectionForm.id}`, {
+          subject: subjectId,
+          sec: sectionForm.sec,
+          created_at: new Date().toISOString(),
+        });
+      } else {
+        // เพิ่มกลุ่มเรียนตามจำนวนที่ระบุ
+        const count = parseInt(sectionForm.count || sectionForm.sec || "1", 10);
+        if (isNaN(count) || count < 1) {
+          return Swal().fire(
+            "จำนวนไม่ถูกต้อง",
+            "กรุณาระบุจำนวนกลุ่มเรียนที่ต้องการเพิ่มเป็นตัวเลขอย่างน้อย 1",
+            "warning",
+          );
+        }
+
+        Swal().fire({
+          title: `กำลังสร้างกลุ่มเรียนจำนวน ${count} กลุ่ม...`,
+          allowOutsideClick: false,
+          didOpen: () => Swal().showLoading(),
+        });
+
+        // ค้นหากลุ่มเรียนที่มีอยู่เดิมในรายวิชานี้เพื่อรันตัวเลขกลุ่มต่อ
+        const existingSections = data.sections.filter(
+          (s) => s.subject === subjectId,
+        );
+        const existingNums = existingSections
+          .map((s) => parseInt(s.sec, 10))
+          .filter((n) => !isNaN(n));
+        const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
+
+        const promises = [];
+        for (let i = 1; i <= count; i++) {
+          const secNum = maxNum + i;
+          const secStr = String(secNum);
+          promises.push(
+            api.set(`subjects/${subjectId}/sections/${secStr}`, {
+              subject: subjectId,
+              sec: secStr,
+              created_at: new Date().toISOString(),
+            }),
+          );
+        }
+        await Promise.all(promises);
+      }
+
+      setSectionForm(emptyForm(["id", "subject", "sec", "count"]));
       await refresh("บันทึกกลุ่มเรียนเรียบร้อยแล้ว");
     } catch (err) {
       Swal().fire(
@@ -664,30 +707,65 @@ export function SubjectsPage({ data, api, refresh }) {
         ) : (
           <form
             onSubmit={saveSection}
-            className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5  space-y-4"
+            className="bg-white rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-5 space-y-4"
           >
-            <h4 className="text-lg font-bold text-slate-800">
-              {sectionForm.id ? "แก้ไขกลุ่มเรียน" : "เพิ่มกลุ่มเรียน"}
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-bold text-slate-800">
+                {sectionForm.id ? "แก้ไขกลุ่มเรียน" : "เพิ่มกลุ่มเรียน"}
+              </h4>
+              {sectionForm.id && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSectionForm(emptyForm(["id", "subject", "sec", "count"]))
+                  }
+                  className="text-xs text-slate-500 hover:text-slate-700 underline font-medium"
+                >
+                  ยกเลิก
+                </button>
+              )}
+            </div>
+
             <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-blue-700 text-sm mb-2">
               <div className="font-bold flex items-center gap-2">
                 <Icon name="fa-book" /> {currentSubject?.code}
               </div>
               <div className="mt-1 opacity-80">{currentSubject?.name}</div>
             </div>
-            <Field label="กลุ่มเรียน / Section">
-              <Input
-                value={sectionForm.sec}
-                onChange={(e) =>
-                  setSectionForm({ ...sectionForm, sec: e.target.value })
-                }
-                placeholder="เช่น 01"
-                required
-              />
-            </Field>
+
+            {sectionForm.id ? (
+              <Field label="กลุ่มเรียน / Section">
+                <Input
+                  value={sectionForm.sec}
+                  onChange={(e) =>
+                    setSectionForm({ ...sectionForm, sec: e.target.value })
+                  }
+                  placeholder="เช่น 1 หรือ 01"
+                  required
+                />
+              </Field>
+            ) : (
+              <Field label="จำนวนกลุ่มเรียนที่ต้องการเพิ่ม">
+                <Input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={sectionForm.count ?? ""}
+                  onChange={(e) =>
+                    setSectionForm({ ...sectionForm, count: e.target.value })
+                  }
+                  placeholder="เช่น 1 หรือ 3"
+                  required
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  ระบบจะสร้างหมายเลขกลุ่มเรียนถัดไปให้อัตโนมัติ (เช่น กลุ่ม 1, 2, 3...)
+                </p>
+              </Field>
+            )}
+
             <PrimaryButton className="w-full">
               <Icon name="fa-floppy-disk" />{" "}
-              {sectionForm.id ? "บันทึกการแก้ไข" : "บันทึกกลุ่มเรียน"}
+              {sectionForm.id ? "บันทึกการแก้ไข" : "สร้างกลุ่มเรียน"}
             </PrimaryButton>
           </form>
         )}
