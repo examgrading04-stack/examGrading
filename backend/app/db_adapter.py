@@ -162,7 +162,7 @@ class SqlExam(Base):
     createdAt = Column("created_at", DateTime, default=datetime.now)
     subject_id = Column("subject_id", String(50), nullable=False)
     section_id = Column("section_id", Integer, nullable=True)
-    template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
+    template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="SET NULL"), nullable=True)
     isCustomScore = Column("is_custom_score", Boolean, default=False)
     defaultScore = Column("default_score", Float, default=1.0)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
@@ -208,7 +208,7 @@ class SqlResult(Base):
     createdAt = Column("created_at", DateTime, default=datetime.now)
     examId = Column("exam_id", String(100), nullable=False)
     studentCode = Column("student_code", String(50), nullable=False)
-    sheetId = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="RESTRICT"), nullable=False)
+    sheetId = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="SET NULL"), nullable=True)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
     __table_args__ = (
@@ -405,32 +405,39 @@ class MySQLAdapter(BaseDBAdapter):
         finally:
             session.close()
 
-    def get_exams(self, user_email: str) -> List[dict[str, Any]]:
+    def get_exams(self, user_email: str) -> List[dict]:
         session = self._get_session()
         try:
-            rows = session.query(SqlExam).join(
-                SqlSubject, SqlExam.subject_id == SqlSubject.code
-            ).filter(SqlSubject.user_email == user_email).all()
+            # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
+            rows = session.query(SqlExam).outerjoin(
+                SqlSubject,
+                (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
+            ).filter(SqlExam.user_email == user_email).all()
 
-            # Batch-load all relevant subjects in 1 query to avoid N+1
-            subject_ids = {r.subject_id for r in rows}
-            subject_map: dict[str, SqlSubject] = {}
+            # Batch-load subjects เพื่อลด N+1
+            subject_ids = list({r.subject_id for r in rows if r.subject_id})
+            subject_map = {}
             if subject_ids:
                 subjects = session.query(SqlSubject).filter(
-                    SqlSubject.code.in_(subject_ids)
+                    SqlSubject.code.in_(subject_ids),
+                    SqlSubject.user_email == user_email,
                 ).all()
                 subject_map = {s.code: s for s in subjects}
 
             res = []
             for r in rows:
-                d = self._to_dict(r, session=session)
-                d["subject"] = r.subject_id
-                d["subjectCode"] = r.subject_id
-                subj = subject_map.get(r.subject_id)
-                if subj:
-                    d["subjectName"] = subj.name
-                    d["subject_name"] = subj.name
-                res.append(d)
+                try:
+                    d = self._to_dict(r, session=session)
+                    d["subject"] = r.subject_id
+                    d["subjectCode"] = r.subject_id
+                    subj = subject_map.get(r.subject_id or "")
+                    if subj:
+                        d["subjectName"] = subj.name
+                        d["subject_name"] = subj.name
+                    res.append(d)
+                except Exception as e:
+                    print(f"Warning: skipping exam {getattr(r, 'id', '?')} due to error: {e}")
+                    continue
             return res
         finally:
             session.close()
