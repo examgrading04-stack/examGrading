@@ -1019,29 +1019,98 @@ class MySQLAdapter(BaseDBAdapter):
         finally:
             session.close()
 
+    def get_results(self, user_email: str) -> List[dict[str, Any]]:
+        """โหลด results พร้อม answers แบบ batch — ลด N+1 query อย่างมาก"""
+        session = self._get_session()
+        try:
+            rows = session.query(SqlResult).filter(
+                SqlResult.user_email == user_email
+            ).all()
+            if not rows:
+                return []
+
+            result_ids = [r.id for r in rows]
+            student_codes = list({r.studentCode for r in rows if r.studentCode})
+
+            # Batch load ExamDetails ทีเดียว
+            details_all = session.query(SqlExamDetail).filter(
+                SqlExamDetail.result_id.in_(result_ids),
+                SqlExamDetail.user_id == user_email,
+            ).order_by(SqlExamDetail.question_no).all()
+
+            # Batch load Student names ทีเดียว
+            student_map: dict[str, str] = {}
+            if student_codes:
+                students = session.query(SqlStudent).filter(
+                    SqlStudent.id.in_(student_codes)
+                ).all()
+                student_map = {s.id: s.name for s in students}
+
+            # Group details by result_id
+            details_map: dict[str, list] = {}
+            for det in details_all:
+                details_map.setdefault(det.result_id, []).append(det)
+
+            res = []
+            for row in rows:
+                try:
+                    d = {c.key: getattr(row, c.key) for c in row.__mapper__.column_attrs}
+
+                    # Convert datetime
+                    for k, v in list(d.items()):
+                        if isinstance(v, datetime):
+                            d[k] = v.isoformat()
+
+                    # Answers from batch-loaded details
+                    answers_dict: dict[str, str] = {}
+                    wrong_list: list[str] = []
+                    skipped_list: list[str] = []
+                    for det in details_map.get(row.id, []):
+                        q = str(det.question_no)
+                        answers_dict[q] = det.student_answer or ""
+                        if det.status_answer == "Wrong":
+                            wrong_list.append(q)
+                        elif det.status_answer == "Skipped":
+                            skipped_list.append(q)
+
+                    d["answers"] = answers_dict
+                    d["wrong"] = wrong_list
+                    d["skipped"] = skipped_list
+                    d["studentName"] = student_map.get(row.studentCode or "", "")
+                    res.append(d)
+                except Exception as e:
+                    print(f"Warning: skipping result {getattr(row, 'id', '?')} due to error: {e}")
+                    continue
+            return res
+        finally:
+            session.close()
+
     def get_collection(self, collection: str, user_email: Optional[str] = None, parent_doc_id: Optional[str] = None) -> List[dict]:
         if collection == "students":
             return self.get_students(user_email)
         if collection == "exams":
             return self.get_exams(user_email)
-            
+        if collection == "results":
+            return self.get_results(user_email)
+
         model_cls = _get_model_class(collection)
         if not model_cls:
             return []
         session = self._get_session()
         try:
             query = session.query(model_cls)
-            
+
             if collection == "sections" and parent_doc_id:
                 query = query.filter(model_cls.subject == parent_doc_id)
-                
+
             if hasattr(model_cls, "user_email") and user_email:
                 query = query.filter(model_cls.user_email == user_email)
-                
+
             rows = query.all()
             return [self._to_dict(r, session=session) for r in rows]
         finally:
             session.close()
+
 
 
 
