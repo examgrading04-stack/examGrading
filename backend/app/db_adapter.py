@@ -267,7 +267,27 @@ class MySQLAdapter(BaseDBAdapter):
             pool_pre_ping=True,
         )
         Base.metadata.create_all(self.engine)
+        self._auto_migrate()
         self.SessionLocal = sessionmaker(bind=self.engine)
+
+    def _auto_migrate(self):
+        """เพิ่มคอลัมน์ใหม่ใน DB อัตโนมัติกรณีที่ตารางเดิมบนเซิร์ฟเวอร์ยังไม่มีคอลัมน์นั้น"""
+        from sqlalchemy import text
+        try:
+            with self.engine.connect() as conn:
+                for sql in [
+                    "ALTER TABLE exams ADD COLUMN is_custom_score TINYINT(1) DEFAULT 0",
+                    "ALTER TABLE exams ADD COLUMN default_score FLOAT DEFAULT 1.0",
+                    "ALTER TABLE exams MODIFY COLUMN template_id VARCHAR(50) NULL",
+                    "ALTER TABLE results MODIFY COLUMN template_id VARCHAR(50) NULL",
+                ]:
+                    try:
+                        conn.execute(text(sql))
+                        conn.commit()
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"Auto-migration note: {e}")
 
     def _get_session(self):
         return self.SessionLocal()
