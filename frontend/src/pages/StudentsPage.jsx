@@ -197,16 +197,25 @@ export function StudentsPage({ data, api, refresh }) {
         didOpen: () => Swal().showLoading(),
       });
 
+      // แคชรายวิชาและกลุ่มเรียนเพื่อป้องกันการร้องขอซ้ำในลูป
+      const createdSubjects = new Set(data.subjects.map((s) => s.code || s.id));
+      const createdSections = new Set(
+        data.sections.map((s) => `${s.subject}_${s.sec}`),
+      );
+
       let count = 0;
       let skipped = 0;
+
       for (const row of rows) {
         const code =
-          row["รหัสผู้เรียน"] || row.ID || row.code || row["เลขประจำตัว"];
+          row["รหัสผู้เรียน"] ||
+          row["รหัสนักศึกษา"] ||
+          row.ID ||
+          row.code ||
+          row["เลขประจำตัว"];
         const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
 
         if (code && name) {
-          const section_id = resolveClassFromRow(row);
-
           const rawSubject = getRowValue(row, [
             "subject",
             "Subject",
@@ -215,21 +224,84 @@ export function StudentsPage({ data, api, refresh }) {
             "วิชา",
             "รหัสวิชา",
           ]);
-          const subject_code =
-            resolveSubjectId(rawSubject) || importSubject || "";
+          const rawSection = getRowValue(row, [
+            "section",
+            "Section",
+            "sec",
+            "Sec",
+            "กลุ่มเรียน",
+            "กลุ่ม",
+          ]);
 
-          if (subject_code && section_id) {
-            const payload = {
-              id: String(code),
-              name: String(name),
-              section: section_id,
-              subjectCode: subject_code,
-            };
-            await api.set(`students/${payload.id}`, payload);
-            count += 1;
-          } else {
+          // หา subjectCode
+          let subjectCode =
+            resolveSubjectId(rawSubject) ||
+            rawSubject ||
+            importSubject ||
+            "";
+
+          if (!subjectCode) {
             skipped += 1;
+            continue;
           }
+
+          // สร้างรายวิชาให้อัตโนมัติหากยังไม่มีในระบบ
+          if (subjectCode && !createdSubjects.has(subjectCode)) {
+            try {
+              await api.set(`subjects/${subjectCode}`, {
+                code: subjectCode,
+                name: rawSubject || subjectCode,
+                term: "1",
+                year: String(new Date().getFullYear() + 543),
+              });
+              createdSubjects.add(subjectCode);
+            } catch (e) {
+              console.warn("Auto create subject error", e);
+            }
+          }
+
+          // หา secName (กลุ่มเรียน)
+          let secName = rawSection;
+          if (!secName && importClass) {
+            const foundSec = data.sections.find((s) => s.id === importClass);
+            secName = foundSec ? foundSec.sec : importClass;
+          }
+          if (!secName) secName = "1"; // Default เป็นกลุ่ม 1 ถ้าในไฟล์ไม่ได้ระบุ
+
+          // หาหรือสร้างกลุ่มเรียนให้อัตโนมัติ
+          const secKey = `${subjectCode}_${secName}`;
+          let sectionId = secKey;
+
+          const existingSec = data.sections.find(
+            (s) => s.subject === subjectCode && String(s.sec) === String(secName),
+          );
+
+          if (existingSec) {
+            sectionId = existingSec.id;
+          } else if (!createdSections.has(secKey)) {
+            try {
+              await api.set(`subjects/${subjectCode}/sections/${secName}`, {
+                subject: subjectCode,
+                sec: String(secName),
+                created_at: new Date().toISOString(),
+              });
+              createdSections.add(secKey);
+            } catch (e) {
+              console.warn("Auto create section error", e);
+            }
+          }
+
+          // บันทึกผู้เรียน
+          const payload = {
+            id: String(code),
+            name: String(name),
+            section: sectionId,
+            subjectCode: subjectCode,
+          };
+          await api.set(`students/${payload.id}`, payload);
+          count += 1;
+        } else {
+          skipped += 1;
         }
       }
 
@@ -237,13 +309,21 @@ export function StudentsPage({ data, api, refresh }) {
       setImportOpen(false);
       setImportSubject("");
       setImportClass("");
+
       if (skipped > 0) {
         await refresh(
-          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} คนเนื่องจากไม่มีข้อมูลวิชาหรือกลุ่มเรียน)`,
+          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} แถวที่ข้อมูลไม่สมบูรณ์หรือไม่ระบุวิชา)`,
         );
       } else {
-        await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
+        await refresh(`นำเข้าผู้เรียน ${count} คนเรียบร้อยแล้ว`);
       }
+    } catch (err) {
+      console.error(err);
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถนำเข้าไฟล์ Excel ได้",
+        "error",
+      );
     } finally {
       setIsImporting(false);
     }
@@ -610,7 +690,7 @@ export function StudentsPage({ data, api, refresh }) {
                   setImportClass("");
                 }}
               >
-                <option value="">กรุณาเลือกวิชา</option>
+                <option value="">อ่านจากไฟล์ Excel (อัตโนมัติ)</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.code} - {subject.name}
@@ -622,13 +702,13 @@ export function StudentsPage({ data, api, refresh }) {
             <Field label="กลุ่มเรียน">
               <Select
                 value={importClass}
-                disabled={isImporting || !importSubject}
+                disabled={isImporting}
                 onChange={(event) => setImportClass(event.target.value)}
               >
                 <option value="">
-                  {!importSubject
-                    ? "กรุณาเลือกวิชาก่อน"
-                    : "กรุณาเลือกกลุ่มเรียน"}
+                  {importSubject
+                    ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
+                    : "อ่านจากไฟล์ Excel (อัตโนมัติ)"}
                 </option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
@@ -638,22 +718,25 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-              <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
-              <div>รหัสผู้เรียน | ชื่อ-นามสกุล</div>
-              <div className="mt-1 text-zinc-500">
-                รองรับคอลัมน์ภาษาอังกฤษ: code | name
-              </div>
-              <div className="mt-1 text-zinc-500">
-                ถ้าต้องการกำหนดหลายวิชา/หลายกลุ่มในไฟล์เดียว เพิ่มคอลัมน์:
-                subject (หรือ subjectCode/วิชา/รหัสวิชา) และ section (หรือ sec)
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-1.5">
+              <div className="font-bold text-zinc-700">รูปแบบคอลัมน์ในไฟล์ Excel</div>
+              <div>• <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)</div>
+              <div>• <b>ชื่อ-นามสกุล</b> (ชื่อ / name)</div>
+              <div className="pt-1 text-xs text-blue-600 font-medium border-t border-zinc-200/80 mt-2">
+                💡 สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
+                <br />
+                <b>วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b> (section / sec)
+                <br />
+                <span className="text-zinc-500 font-normal">
+                  (ระบบจะสร้างรายวิชาและกลุ่มเรียนให้อัตโนมัติหากยังไม่มีในระบบ)
+                </span>
               </div>
             </div>
 
             <PrimaryButton
               type="button"
               className="w-full"
-              disabled={isImporting || !importSubject || !importClass}
+              disabled={isImporting}
               onClick={() => fileRef.current?.click()}
             >
               <Icon
