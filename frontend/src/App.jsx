@@ -564,8 +564,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const publicRoutes = ["login", "register", "answer-sheet"];
-    if (user && publicRoutes.includes(routeId)) {
+    const publicRoutes = ["login", "register", "answer-sheet", "admin"];
+    const authOnlyRedirectRoutes = ["login", "register"];
+    if (user && authOnlyRedirectRoutes.includes(routeId)) {
       // เข้าสู่ระบบแล้ว → ไปหน้าหลัก
       if (user.role === "admin") {
         navigate("admin");

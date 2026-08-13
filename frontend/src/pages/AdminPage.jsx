@@ -534,6 +534,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       <AdminLoginPage
         setSession={setSession}
         writeAnonymousLog={writeAnonymousLog}
+        navigate={navigate}
       />
     );
   }

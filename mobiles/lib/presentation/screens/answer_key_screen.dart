@@ -27,7 +27,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
   bool _isCustomScore = false;
   final TextEditingController _globalScoreController = TextEditingController(
-    text: "1",
+    text: "0.5",
   );
 
   int get _sheetTypeCount {
@@ -87,12 +87,12 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
           if (v is Map) {
             tempAnswerKeys[sId]![q] = v['answer']?.toString() ?? '';
             final scoreVal =
-                double.tryParse(v['score']?.toString() ?? '1') ?? 1.0;
+                double.tryParse(v['score']?.toString() ?? '0.5') ?? 0.5;
             tempScores[sId]![q] = scoreVal;
-            if (scoreVal != 1.0) hasCustomScore = true;
+            if (scoreVal != 0.5) hasCustomScore = true;
           } else {
             tempAnswerKeys[sId]![q] = v.toString();
-            tempScores[sId]![q] = 1.0;
+            tempScores[sId]![q] = 0.5;
           }
         }
       }
@@ -129,7 +129,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   }
 
   void _syncGlobalScore() {
-    final gScore = double.tryParse(_globalScoreController.text) ?? 1.0;
+    final gScore = double.tryParse(_globalScoreController.text) ?? 0.5;
     setState(() {
       for (var sId in _scores.keys) {
         for (var qNum in _scores[sId]!.keys) {
@@ -172,7 +172,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (ans == null || ans.isEmpty) continue;
 
         if (_isCustomScore) {
-          final s = _scores[sId]?[qNum] ?? 1.0;
+          final s = _scores[sId]?[qNum] ?? (double.tryParse(_globalScoreController.text) ?? 0.5);
           payload[sId]![qNum] = {'answer': ans, 'score': s};
         } else {
           payload[sId]![qNum] = ans;
@@ -184,7 +184,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       await ApiService.instance.updateDoc(_uid, 'exams', widget.exam.id, {
         'answerKey': payload,
         'isCustomScore': _isCustomScore,
-        'defaultScore': double.tryParse(_globalScoreController.text) ?? 1.0,
+        'defaultScore': double.tryParse(_globalScoreController.text) ?? 0.5,
       });
 
       if (!mounted) return;
@@ -286,7 +286,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                         ),
                         Switch(
                           value: _isCustomScore,
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                           onChanged: (val) {
                             setState(() => _isCustomScore = val);
                           },
@@ -349,7 +349,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
                 final score =
                     _scores[_currentSetIndex.toString()]?[qNum.toString()] ??
-                    (double.tryParse(_globalScoreController.text) ?? 1.0);
+                    (double.tryParse(_globalScoreController.text) ?? 0.5);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -490,7 +490,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                                                   double.tryParse(
                                                     _globalScoreController.text,
                                                   ) ??
-                                                  1.0;
+                                                  0.5;
                                             }
                                           });
                                         },

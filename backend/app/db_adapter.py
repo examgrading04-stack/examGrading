@@ -272,6 +272,7 @@ class MySQLAdapter(BaseDBAdapter):
 
     def _auto_migrate(self):
         """เพิ่มคอลัมน์ใหม่ใน DB อัตโนมัติกรณีที่ตารางเดิมบนเซิร์ฟเวอร์ยังไม่มีคอลัมน์นั้น"""
+        # pyrefly: ignore [missing-import]
         from sqlalchemy import text
         try:
             with self.engine.connect() as conn:
