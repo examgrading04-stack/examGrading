@@ -564,14 +564,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && ["login", "register"].includes(routeId)) {
+    const publicRoutes = ["login", "register", "answer-sheet"];
+    if (user && publicRoutes.includes(routeId)) {
+      // เข้าสู่ระบบแล้ว → ไปหน้าหลัก
       if (user.role === "admin") {
         navigate("admin");
       } else {
         navigate("dashboard");
       }
+    } else if (!user && !loading && !publicRoutes.includes(routeId)) {
+      // ออกจากระบบ → กลับไปหน้า login พร้อมเคลียร์ URL
+      window.history.pushState({}, "", "/");
+      setRouteId("login");
+      setQuery({});
     }
-  }, [user, routeId]);
+  }, [user, loading, routeId]);
 
   async function getDocs(services, currentUser, collectionPath) {
     const snapshot = await services.db
