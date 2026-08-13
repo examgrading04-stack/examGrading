@@ -8,3 +8,5 @@ services:
     envVars:
       - key: FIREBASE_STORAGE_BUCKET
         value: examgradings.firebasestorage.app
+      - key: BACKEND_PUBLIC_URL
+        value: https://examgrading.onrender.com

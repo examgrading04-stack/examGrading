@@ -258,7 +258,14 @@ def _get_model_class(collection: str):
 
 class MySQLAdapter(BaseDBAdapter):
     def __init__(self, db_url: str):
-        self.engine = create_engine(db_url, pool_recycle=3600, pool_pre_ping=True)
+        self.engine = create_engine(
+            db_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=30,
+            pool_recycle=1800,
+            pool_pre_ping=True,
+        )
         Base.metadata.create_all(self.engine)
         self.SessionLocal = sessionmaker(bind=self.engine)
 
@@ -401,13 +408,25 @@ class MySQLAdapter(BaseDBAdapter):
     def get_exams(self, user_email: str) -> List[dict[str, Any]]:
         session = self._get_session()
         try:
-            rows = session.query(SqlExam).join(SqlSubject, SqlExam.subject_id == SqlSubject.code).filter(SqlSubject.user_email == user_email).all()
+            rows = session.query(SqlExam).join(
+                SqlSubject, SqlExam.subject_id == SqlSubject.code
+            ).filter(SqlSubject.user_email == user_email).all()
+
+            # Batch-load all relevant subjects in 1 query to avoid N+1
+            subject_ids = {r.subject_id for r in rows}
+            subject_map: dict[str, SqlSubject] = {}
+            if subject_ids:
+                subjects = session.query(SqlSubject).filter(
+                    SqlSubject.code.in_(subject_ids)
+                ).all()
+                subject_map = {s.code: s for s in subjects}
+
             res = []
             for r in rows:
                 d = self._to_dict(r, session=session)
                 d["subject"] = r.subject_id
                 d["subjectCode"] = r.subject_id
-                subj = session.query(SqlSubject).filter(SqlSubject.code == r.subject_id).first()
+                subj = subject_map.get(r.subject_id)
                 if subj:
                     d["subjectName"] = subj.name
                     d["subject_name"] = subj.name
@@ -472,6 +491,20 @@ class MySQLAdapter(BaseDBAdapter):
                 SqlSubject.code == subject_code
             ).first()
             return row.name if row else ""
+        finally:
+            session.close()
+
+    def get_admin_by_name(self, aname: str) -> Optional[dict]:
+        """Query admin user by username or email directly — ไม่ต้องโหลดทั้ง table"""
+        session = self._get_session()
+        try:
+            # pyrefly: ignore [missing-import]
+            from sqlalchemy import or_
+            row = session.query(SqlUser).filter(
+                SqlUser.role == "admin",
+                or_(SqlUser.username == aname, SqlUser.email == aname)
+            ).first()
+            return self._to_dict(row) if row else None
         finally:
             session.close()
 
