@@ -718,18 +718,23 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-1.5">
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-2">
               <div className="font-bold text-zinc-700">รูปแบบคอลัมน์ในไฟล์ Excel</div>
-              <div>• <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)</div>
-              <div>• <b>ชื่อ-นามสกุล</b> (ชื่อ / name)</div>
-              <div className="pt-1 text-xs text-blue-600 font-medium border-t border-zinc-200/80 mt-2">
-                💡 สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
-                <br />
-                <b>วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b> (section / sec)
-                <br />
-                <span className="text-zinc-500 font-normal">
-                  (ระบบจะสร้างรายวิชาและกลุ่มเรียนให้อัตโนมัติหากยังไม่มีในระบบ)
-                </span>
+              <div className="space-y-1">
+                <div>• <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)</div>
+                <div>• <b>ชื่อ-นามสกุล</b> (ชื่อ / name)</div>
+              </div>
+              <div className="pt-2 text-xs text-blue-600 font-medium border-t border-zinc-200 mt-2 space-y-1">
+                <div>
+                  💡 สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
+                  <b> วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b> (section / sec)
+                  <span className="text-zinc-500 font-normal block mt-0.5">
+                    (ระบบจะสร้างรายวิชาและกลุ่มเรียนให้อัตโนมัติหากยังไม่มีในระบบ)
+                  </span>
+                </div>
+                <div className="text-amber-700 font-semibold bg-amber-50 p-2 rounded border border-amber-200/60 mt-2">
+                  📌 หมายเหตุ: หากในไฟล์ Excel <u>ไม่มี</u>ข้อมูลคอลัมน์วิชาหรือกลุ่มเรียน กรุณาเลือกรายวิชาและกลุ่มเรียนที่ต้องการจากตัวเลือกด้านบนก่อนนำเข้า
+                </div>
               </div>
             </div>
 
