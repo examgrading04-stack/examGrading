@@ -191,17 +191,21 @@ export function StudentsPage({ data, api, refresh }) {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rows = window.XLSX.utils.sheet_to_json(sheet);
 
+      if (!importSubject || !importClass) {
+        setIsImporting(false);
+        Swal().fire({
+          icon: "warning",
+          title: "ข้อมูลไม่ครบถ้วน",
+          text: "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้าไฟล์ Excel",
+        });
+        return;
+      }
+
       Swal().fire({
         title: "กำลังนำเข้าข้อมูล...",
         allowOutsideClick: false,
         didOpen: () => Swal().showLoading(),
       });
-
-      // แคชรายวิชาและกลุ่มเรียนเพื่อป้องกันการร้องขอซ้ำในลูป
-      const createdSubjects = new Set(data.subjects.map((s) => s.code || s.id));
-      const createdSections = new Set(
-        data.sections.map((s) => `${s.subject}_${s.sec}`),
-      );
 
       let count = 0;
       let skipped = 0;
@@ -216,78 +220,8 @@ export function StudentsPage({ data, api, refresh }) {
         const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
 
         if (code && name) {
-          const rawSubject = getRowValue(row, [
-            "subject",
-            "Subject",
-            "subjectCode",
-            "subject_code",
-            "วิชา",
-            "รหัสวิชา",
-          ]);
-          const rawSection = getRowValue(row, [
-            "section",
-            "Section",
-            "sec",
-            "Sec",
-            "กลุ่มเรียน",
-            "กลุ่ม",
-          ]);
-
-          // หา subjectCode
-          let subjectCode =
-            resolveSubjectId(rawSubject) || rawSubject || importSubject || "";
-
-          if (!subjectCode) {
-            skipped += 1;
-            continue;
-          }
-
-          // สร้างรายวิชาให้อัตโนมัติหากยังไม่มีในระบบ
-          if (subjectCode && !createdSubjects.has(subjectCode)) {
-            try {
-              await api.set(`subjects/${subjectCode}`, {
-                code: subjectCode,
-                name: rawSubject || subjectCode,
-                term: "1",
-                year: String(new Date().getFullYear() + 543),
-              });
-              createdSubjects.add(subjectCode);
-            } catch (e) {
-              console.warn("Auto create subject error", e);
-            }
-          }
-
-          // หา secName (กลุ่มเรียน)
-          let secName = rawSection;
-          if (!secName && importClass) {
-            const foundSec = data.sections.find((s) => s.id === importClass);
-            secName = foundSec ? foundSec.sec : importClass;
-          }
-          if (!secName) secName = "1"; // Default เป็นกลุ่ม 1 ถ้าในไฟล์ไม่ได้ระบุ
-
-          // หาหรือสร้างกลุ่มเรียนให้อัตโนมัติ
-          const secKey = `${subjectCode}_${secName}`;
-          let sectionId = secKey;
-
-          const existingSec = data.sections.find(
-            (s) =>
-              s.subject === subjectCode && String(s.sec) === String(secName),
-          );
-
-          if (existingSec) {
-            sectionId = existingSec.id;
-          } else if (!createdSections.has(secKey)) {
-            try {
-              await api.set(`subjects/${subjectCode}/sections/${secName}`, {
-                subject: subjectCode,
-                sec: String(secName),
-                created_at: new Date().toISOString(),
-              });
-              createdSections.add(secKey);
-            } catch (e) {
-              console.warn("Auto create section error", e);
-            }
-          }
+          const subjectCode = importSubject;
+          const sectionId = importClass;
 
           // บันทึกผู้เรียน
           const payload = {
@@ -666,7 +600,7 @@ export function StudentsPage({ data, api, refresh }) {
                   นำเข้า Excel
                 </h3>
                 <p className="text-sm text-zinc-500 mt-1">
-                  รองรับการนำเข้าหลายวิชา/หลายกลุ่มเรียนในไฟล์เดียว
+                  นำเข้ารายชื่อผู้เรียนเข้าสู่กลุ่มเรียนที่เลือก
                 </p>
               </div>
               <GhostButton
@@ -688,7 +622,7 @@ export function StudentsPage({ data, api, refresh }) {
                   setImportClass("");
                 }}
               >
-                <option value="">อ่านจากไฟล์ Excel (อัตโนมัติ)</option>
+                <option value="">กรุณาเลือกรายวิชา</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.code} - {subject.name}
@@ -705,7 +639,7 @@ export function StudentsPage({ data, api, refresh }) {
               >
                 <option value="">
                   {importSubject
-                    ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
+                    ? "กรุณาเลือกกลุ่มเรียน"
                     : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
                 </option>
                 {importSections.map((section) => (
@@ -726,18 +660,6 @@ export function StudentsPage({ data, api, refresh }) {
                 </div>
                 <div>
                   • <b>ชื่อ-นามสกุล</b> (ชื่อ / name)
-                </div>
-              </div>
-              <div className="pt-2 text-xs text-blue-600 font-medium border-t border-zinc-200 mt-2 space-y-1">
-                <div>
-                  สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
-                  <b> วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b>{" "}
-                  (section / sec)
-                </div>
-                <div className="text-amber-700 font-semibold bg-amber-50 p-2 rounded border border-amber-200/60 mt-2">
-                  📌 หมายเหตุ: หากในไฟล์ Excel <u>ไม่มี</u>
-                  ข้อมูลคอลัมน์วิชาหรือกลุ่มเรียน
-                  กรุณาเลือกรายวิชาและกลุ่มเรียนที่ต้องการจากตัวเลือกด้านบนก่อนนำเข้า
                 </div>
               </div>
             </div>
