@@ -9,6 +9,43 @@ import {
   StatCard,
 } from "../ui.jsx";
 
+function getExamTotalScore(exam) {
+  if (!exam || !exam.answerKey) return Number(exam?.questions || 0);
+  
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try { ak = JSON.parse(ak); } catch (e) { return Number(exam?.questions || 0); }
+  }
+  if (typeof ak !== "object" || ak === null) return Number(exam?.questions || 0);
+
+  let targetSet = ak;
+  if (ak["0"] && typeof ak["0"] === "object") {
+    targetSet = ak["0"];
+  } else if (ak["1"] && typeof ak["1"] === "object") {
+    targetSet = ak["1"];
+  } else {
+    const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
+    if (firstSet) {
+      targetSet = firstSet;
+    }
+  }
+
+  let totalScore = 0;
+  let hasValidScore = false;
+  for (let i = 1; i <= Number(exam.questions || 0); i++) {
+    const qStr = String(i);
+    let qScore = 1.0;
+    if (targetSet[qStr] && typeof targetSet[qStr] === "object" && targetSet[qStr].score !== undefined) {
+      qScore = Number(targetSet[qStr].score) || 1.0;
+      hasValidScore = true;
+    }
+    totalScore += qScore;
+  }
+  
+  if (!hasValidScore && Object.keys(targetSet).length === 0) return Number(exam?.questions || 0);
+  return totalScore;
+}
+
 export function ReportsPage({ data }) {
   const [selectedSubject, setSelectedSubject] = useState("");
 
@@ -80,6 +117,7 @@ export function ReportsPage({ data }) {
       mode,
       maxScore,
       minScore,
+      totalMaxScore: getExamTotalScore(exam),
     };
   });
 
@@ -122,7 +160,7 @@ export function ReportsPage({ data }) {
       รายวิชา: row.subjectName,
       กลุ่มเรียน: row.sectionName,
       จำนวนผู้สอบ: row.participantCount,
-      คะแนนเต็ม: row.questions || 0,
+      คะแนนเต็ม: row.totalMaxScore,
       คะแนนเฉลี่ย: row.average.toFixed(2),
       มัธยฐาน: row.median.toFixed(2),
       ฐานนิยม: row.mode,
@@ -266,7 +304,7 @@ export function ReportsPage({ data }) {
               className: "text-center",
               render: (row) => (
                 <span className="font-bold text-blue-600">
-                  {row.questions || "-"}
+                  {row.totalMaxScore.toString().replace(/\.0$/, "")}
                 </span>
               ),
             },
