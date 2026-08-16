@@ -895,27 +895,29 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 pass
                                 
-                if collection == "students" and "section" in mapped_data:
-                    subjectCode = mapped_data.get("subjectCode")
-                    section_id = mapped_data.get("section")
-                    if section_id:
-                        sec_row = session.query(SqlSection).filter(SqlSection.id == section_id, SqlSection.user_email == user_email).first()
-                        if sec_row:
-                            subj_id = subjectCode if (subjectCode and str(subjectCode).strip()) else sec_row.subject
-                            enroll = session.query(SqlStudentEnrollment).filter(
-                                SqlStudentEnrollment.student_code == doc_id,
-                                SqlStudentEnrollment.subject_id == subj_id
-                            ).first()
-                            if not enroll:
-                                enroll = SqlStudentEnrollment(
-                                    student_code=doc_id,
-                                    subject_id=subj_id,
-                                    section_id=sec_row.id,
-                                    user_id=user_email
-                                )
-                                session.add(enroll)
-                            else:
-                                enroll.section_id = sec_row.id
+
+
+            if collection == "students" and "section" in mapped_data:
+                subjectCode = mapped_data.get("subjectCode")
+                section_id = mapped_data.get("section")
+                if section_id:
+                    sec_row = session.query(SqlSection).filter(SqlSection.id == section_id, SqlSection.user_email == user_email).first()
+                    if sec_row:
+                        subj_id = subjectCode if (subjectCode and str(subjectCode).strip()) else sec_row.subject
+                        enroll = session.query(SqlStudentEnrollment).filter(
+                            SqlStudentEnrollment.student_code == doc_id,
+                            SqlStudentEnrollment.subject_id == subj_id
+                        ).first()
+                        if not enroll:
+                            enroll = SqlStudentEnrollment(
+                                student_code=doc_id,
+                                subject_id=subj_id,
+                                section_id=sec_row.id,
+                                user_id=user_email
+                            )
+                            session.add(enroll)
+                        else:
+                            enroll.section_id = sec_row.id
 
             try:
                 session.commit()
