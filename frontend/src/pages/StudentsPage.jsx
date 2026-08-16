@@ -730,12 +730,9 @@ export function StudentsPage({ data, api, refresh }) {
               </div>
               <div className="pt-2 text-xs text-blue-600 font-medium border-t border-zinc-200 mt-2 space-y-1">
                 <div>
-                  💡 สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
+                  สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
                   <b> วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b>{" "}
                   (section / sec)
-                  <span className="text-zinc-500 font-normal block mt-0.5">
-                    (ระบบจะสร้างรายวิชาและกลุ่มเรียนให้อัตโนมัติหากยังไม่มีในระบบ)
-                  </span>
                 </div>
                 <div className="text-amber-700 font-semibold bg-amber-50 p-2 rounded border border-amber-200/60 mt-2">
                   📌 หมายเหตุ: หากในไฟล์ Excel <u>ไม่มี</u>
