@@ -25,20 +25,66 @@ function itemTone(value, type) {
 }
 
 function getCorrectAnswer(exam, question) {
-  if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
-    return "-";
-  if (exam.answerKey["0"] && typeof exam.answerKey["0"][question] === "string")
-    return exam.answerKey["0"][question];
-  if (exam.answerKey["1"] && typeof exam.answerKey["1"][question] === "string")
-    return exam.answerKey["1"][question];
-  if (typeof exam.answerKey[question] === "string")
-    return exam.answerKey[question];
-  const firstSet = Object.values(exam.answerKey).find(
-    (v) => typeof v === "object",
-  );
-  if (firstSet && typeof firstSet[question] === "string")
-    return firstSet[question];
+  if (!exam || !exam.answerKey) return "-";
+  
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try { ak = JSON.parse(ak); } catch (e) { return "-"; }
+  }
+  if (typeof ak !== "object" || ak === null) return "-";
+
+  if (ak[question] && typeof ak[question] === "object" && ak[question].answer !== undefined) {
+    return String(ak[question].answer);
+  }
+  if (typeof ak[question] === "string" || typeof ak[question] === "number") {
+    return String(ak[question]);
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (typeof ak[setKey][question] === "string" || typeof ak[setKey][question] === "number") return String(ak[setKey][question]);
+      if (ak[setKey][question] && typeof ak[setKey][question] === "object" && ak[setKey][question].answer !== undefined) {
+        return String(ak[setKey][question].answer);
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
+  if (firstSet) {
+    if (typeof firstSet[question] === "string" || typeof firstSet[question] === "number") return String(firstSet[question]);
+    if (firstSet[question] && typeof firstSet[question] === "object" && firstSet[question].answer !== undefined) {
+      return String(firstSet[question].answer);
+    }
+  }
   return "-";
+}
+
+function getQuestionScore(exam, question) {
+  if (!exam || !exam.answerKey) return 1.0;
+  
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try { ak = JSON.parse(ak); } catch (e) { return 1.0; }
+  }
+  if (typeof ak !== "object" || ak === null) return 1.0;
+
+  if (ak[question] && typeof ak[question] === "object" && ak[question].score !== undefined) {
+    return Number(ak[question].score) || 1.0;
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (ak[setKey][question] && typeof ak[setKey][question] === "object" && ak[setKey][question].score !== undefined) {
+        return Number(ak[setKey][question].score) || 1.0;
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
+  if (firstSet && firstSet[question] && typeof firstSet[question] === "object" && firstSet[question].score !== undefined) {
+    return Number(firstSet[question].score) || 1.0;
+  }
+  return 1.0;
 }
 
 function calculateItemAnalysis(results, exam) {
@@ -109,7 +155,9 @@ export function AnalysisPage({ data }) {
                 isCorrect = row.itemResults[qStr] === true;
               }
 
-              if (isCorrect) calculatedScore++;
+              if (isCorrect) {
+                calculatedScore += getQuestionScore(exam, qStr);
+              }
               newItemResults[qStr] = isCorrect;
             }
             dynamicScore = calculatedScore;
