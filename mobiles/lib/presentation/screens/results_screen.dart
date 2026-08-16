@@ -279,13 +279,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               (e) => e.id == examId,
                             );
                           } catch (_) {}
-                          int dynamicScore =
-                              int.tryParse(data['score']?.toString() ?? '0') ??
+                          double dynamicScore =
+                              double.tryParse(
+                                data['score']?.toString() ?? '0',
+                              ) ??
                               0;
                           if (currentExam != null &&
                               (data.containsKey('answers') ||
                                   data.containsKey('itemResults'))) {
-                            int calculatedScore = 0;
+                            double calculatedScore = 0;
                             final answers = data['answers'] as Map?;
                             final itemResults = data['itemResults'] as Map?;
                             final setIndex = data['set']?.toString();
@@ -296,16 +298,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                 qStr,
                                 setIndex,
                               );
+                              final qScore = currentExam.getQuestionScore(
+                                qStr,
+                                setIndex,
+                              );
                               if (answers != null &&
                                   answers.containsKey(qStr)) {
                                 if (answers[qStr].toString() == correctAns &&
                                     correctAns != '-') {
-                                  calculatedScore++;
+                                  calculatedScore += qScore;
                                 }
                               } else if (itemResults != null &&
                                   itemResults.containsKey(qStr)) {
                                 if (itemResults[qStr] == true) {
-                                  calculatedScore++;
+                                  calculatedScore += qScore;
                                 }
                               }
                             }
@@ -457,7 +463,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                           child: Text(
                                             isPending
                                                 ? 'รอตรวจ'
-                                                : '$scoreStr/${currentExam?.questions ?? 0} คะแนน',
+                                                : '$scoreStr/${currentExam?.getTotalScore(data['set']?.toString()).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '') ?? 0} คะแนน',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 12,
@@ -493,7 +499,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     BuildContext context,
     Map<String, dynamic> result,
     ExamModel exam,
-    int dynamicScore,
+    double dynamicScore,
   ) {
     if (result['answers'] == null && result['itemResults'] == null) {
       QuickAlert.show(
@@ -558,6 +564,15 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
+
+    final formattedScore = dynamicScore
+        .toStringAsFixed(1)
+        .replaceAll(RegExp(r'\.0$'), '');
+    final formattedTotal = exam
+        .getTotalScore(result['set']?.toString())
+        .toStringAsFixed(1)
+        .replaceAll(RegExp(r'\.0$'), '');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -632,7 +647,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             boxShadow: AppColors.infoShadow,
                           ),
                           child: Text(
-                            '$dynamicScore/${exam.questions} คะแนน',
+                            '$formattedScore/$formattedTotal คะแนน',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,

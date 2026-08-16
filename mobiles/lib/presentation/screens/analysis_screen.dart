@@ -98,7 +98,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           final average = count == 0
               ? 0.0
               : scores.fold<double>(0, (a, b) => a + b) / count;
-          final passed = scores.where((s) => s >= (exam.questions / 2)).length;
+          final passed = scores
+              .where((s) => s >= (exam.getTotalScore(null) / 2))
+              .length;
           final passRate = count == 0 ? 0.0 : passed / count;
 
           final maxScore = scores.isEmpty ? 0.0 : scores.last;
@@ -201,24 +203,25 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return '-';
   }
 
-  int _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
+  double _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
     if (exam.answerKey.isEmpty) {
-      return int.tryParse(result['score']?.toString() ?? '0') ?? 0;
+      return double.tryParse(result['score']?.toString() ?? '0') ?? 0;
     }
-    int calcScore = 0;
+    double calcScore = 0;
     final answers = result['answers'] as Map?;
     final itemResults = result['itemResults'] as Map?;
     final setIndex = result['set']?.toString();
     for (int i = 1; i <= exam.questions; i++) {
       final qStr = i.toString();
       final correctAns = _getCorrectAnswer(exam, qStr, setIndex);
+      final qScore = exam.getQuestionScore(qStr, setIndex);
       if (answers != null && answers.containsKey(qStr)) {
         if (answers[qStr].toString() == correctAns && correctAns != '-') {
-          calcScore++;
+          calcScore += qScore;
         }
       } else if (itemResults != null && itemResults.containsKey(qStr)) {
         if (itemResults[qStr] == true) {
-          calcScore++;
+          calcScore += qScore;
         }
       }
     }
