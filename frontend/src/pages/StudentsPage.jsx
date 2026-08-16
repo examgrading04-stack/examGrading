@@ -667,7 +667,7 @@ export function StudentsPage({ data, api, refresh }) {
             <PrimaryButton
               type="button"
               className="w-full"
-              disabled={isImporting}
+              disabled={isImporting || !importSubject || !importClass}
               onClick={() => fileRef.current?.click()}
             >
               <Icon
