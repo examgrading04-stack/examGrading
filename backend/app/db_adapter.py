@@ -965,6 +965,47 @@ class MySQLAdapter(BaseDBAdapter):
                     raw_pass = mapped_data["password"]
                     if raw_pass and not (isinstance(raw_pass, str) and len(raw_pass) == 64 and all(c in "0123456789abcdef" for c in raw_pass.lower())):
                         mapped_data["password"] = hashlib.sha256(raw_pass.encode()).hexdigest()
+
+                if collection == "exams":
+                    if "subject" in mapped_data and "subject_id" not in mapped_data:
+                        mapped_data["subject_id"] = mapped_data["subject"]
+                    if "name" in mapped_data and "exam_name" not in mapped_data:
+                        mapped_data["exam_name"] = mapped_data["name"]
+                        
+                    sec = mapped_data.get("section")
+                    if sec is not None:
+                        if str(sec).lower() != "all section" and str(sec).strip() != "":
+                            subject_id = mapped_data.get("subject_id") or getattr(row, "subject_id", None)
+                            if subject_id:
+                                sec_row = session.query(SqlSection).filter(
+                                    SqlSection.subject == subject_id,
+                                    SqlSection.sec == str(sec)
+                                ).first()
+                                if sec_row:
+                                    mapped_data["section_id"] = sec_row.id
+                                else:
+                                    try:
+                                        mapped_data["section_id"] = str(sec)
+                                    except ValueError:
+                                        mapped_data["section_id"] = None
+                            else:
+                                try:
+                                    mapped_data["section_id"] = str(sec)
+                                except ValueError:
+                                    mapped_data["section_id"] = None
+                        else:
+                            mapped_data["section_id"] = None
+
+                    if "sheetType" in mapped_data:
+                        st = str(mapped_data["sheetType"]).replace("-A-E", "")
+                        if st == "30":
+                            mapped_data["template_id"] = "30-A-E"
+                        elif st == "50":
+                            mapped_data["template_id"] = "50-A-E"
+                        elif st == "100":
+                            mapped_data["template_id"] = "100-A-E"
+                        else:
+                            mapped_data["template_id"] = str(mapped_data["sheetType"])
                         
                 valid_cols = {c.key for c in getattr(model_cls, "__mapper__").column_attrs}
                 for k, v in mapped_data.items():
@@ -981,9 +1022,10 @@ class MySQLAdapter(BaseDBAdapter):
                             setattr(row, k, v)
                             
                 if collection == "exams" and "answerKey" in mapped_data:
-                    session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id, SqlExamAnswerKey.user_id == user_email).delete()
                     raw_ak = mapped_data["answerKey"]
-                    if isinstance(raw_ak, dict):
+                    # If frontend sends empty answerKey during an exam detail update, do not delete existing answers!
+                    if isinstance(raw_ak, dict) and len(raw_ak) > 0:
+                        session.query(SqlExamAnswerKey).filter(SqlExamAnswerKey.exam_id == doc_id, SqlExamAnswerKey.user_id == user_email).delete()
                         if "0" in raw_ak and isinstance(raw_ak["0"], dict):
                             raw_ak = raw_ak["0"]
                         elif 0 in raw_ak and isinstance(raw_ak[0], dict):
