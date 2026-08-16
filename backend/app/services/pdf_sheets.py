@@ -129,6 +129,7 @@ def create_single_sheet_image(
     font_size: int = 32,
 ) -> Image.Image:
     """Create one answer-sheet image from normalized sheet payload."""
+    total_questions = int(sheet_payload.get("total_questions") or 50)
     sheet_type = sheet_payload.get("sheet_type")
     
     if sheet_type:
@@ -137,10 +138,8 @@ def create_single_sheet_image(
             if template_key not in TEMPLATE_MAP:
                 template_key = _nearest_supported_question_count(template_key)
         except ValueError:
-            total_questions = int(sheet_payload.get("total_questions") or 50)
             template_key = _nearest_supported_question_count(total_questions)
     else:
-        total_questions = int(sheet_payload.get("total_questions") or 50)
         template_key = _nearest_supported_question_count(total_questions)
         
     resolved_template = Path(template_path) if template_path else TEMPLATE_MAP[template_key]
