@@ -172,7 +172,9 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (ans == null || ans.isEmpty) continue;
 
         if (_isCustomScore) {
-          final s = _scores[sId]?[qNum] ?? (double.tryParse(_globalScoreController.text) ?? 0.5);
+          final s =
+              _scores[sId]?[qNum] ??
+              (double.tryParse(_globalScoreController.text) ?? 0.5);
           payload[sId]![qNum] = {'answer': ans, 'score': s};
         } else {
           payload[sId]![qNum] = ans;
@@ -286,7 +288,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                         ),
                         Switch(
                           value: _isCustomScore,
-                          activeThumbColor: AppColors.primary,
+                          activeColor: AppColors.primary,
                           onChanged: (val) {
                             setState(() => _isCustomScore = val);
                           },

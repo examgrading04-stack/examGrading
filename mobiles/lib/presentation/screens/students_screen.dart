@@ -512,7 +512,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     minHeight: 0,
                                   ),
                                 ),
-                                initialValue: _filterSubjectId,
+                                value: _filterSubjectId,
                                 items: [
                                   DropdownMenuItem(
                                     value: null,
@@ -606,7 +606,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       minHeight: 0,
                                     ),
                                   ),
-                                  initialValue: _filterSectionId,
+                                  value: _filterSectionId,
                                   items: [
                                     DropdownMenuItem(
                                       value: null,
