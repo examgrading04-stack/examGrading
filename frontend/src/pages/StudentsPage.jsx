@@ -262,7 +262,7 @@ export function StudentsPage({ data, api, refresh }) {
 
           // หา secName (กลุ่มเรียน)
           let secName = rawSection;
-          if (!secName && importClass) {
+          if (!secName && importClass && importClass !== "All Section") {
             const foundSec = data.sections.find((s) => s.id === importClass);
             secName = foundSec ? foundSec.sec : importClass;
           }
@@ -707,10 +707,9 @@ export function StudentsPage({ data, api, refresh }) {
               >
                 <option value="">
                   {importSubject
-                    ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
+                    ? "ทุกกลุ่มเรียน / อ่านจากไฟล์ Excel (อัตโนมัติ)"
                     : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
                 </option>
-                <option value="All Section">ทุกกลุ่มเรียน (All Section)</option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}
