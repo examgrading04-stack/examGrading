@@ -18,31 +18,40 @@ function getExamTotalScore(exam) {
   }
   if (typeof ak !== "object" || ak === null) return Number(exam?.questions || 0);
 
-  let targetSet = ak;
-  if (ak["0"] && typeof ak["0"] === "object") {
-    targetSet = ak["0"];
-  } else if (ak["1"] && typeof ak["1"] === "object") {
-    targetSet = ak["1"];
-  } else {
-    const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
-    if (firstSet) {
-      targetSet = firstSet;
-    }
-  }
-
   let totalScore = 0;
   let hasValidScore = false;
+  
   for (let i = 1; i <= Number(exam.questions || 0); i++) {
     const qStr = String(i);
     let qScore = 1.0;
-    if (targetSet[qStr] && typeof targetSet[qStr] === "object" && targetSet[qStr].score !== undefined) {
-      qScore = Number(targetSet[qStr].score) || 1.0;
+
+    if (ak[qStr] && typeof ak[qStr] === "object" && ak[qStr].score !== undefined) {
+      qScore = Number(ak[qStr].score) || 1.0;
       hasValidScore = true;
+    } else {
+      let foundNested = false;
+      for (const setKey of ["0", "1", "A", "B", ""]) {
+        if (ak[setKey] && typeof ak[setKey] === "object") {
+          if (ak[setKey][qStr] && typeof ak[setKey][qStr] === "object" && ak[setKey][qStr].score !== undefined) {
+            qScore = Number(ak[setKey][qStr].score) || 1.0;
+            hasValidScore = true;
+            foundNested = true;
+            break;
+          }
+        }
+      }
+      if (!foundNested) {
+        const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
+        if (firstSet && firstSet[qStr] && typeof firstSet[qStr] === "object" && firstSet[qStr].score !== undefined) {
+          qScore = Number(firstSet[qStr].score) || 1.0;
+          hasValidScore = true;
+        }
+      }
     }
     totalScore += qScore;
   }
   
-  if (!hasValidScore && Object.keys(targetSet).length === 0) return Number(exam?.questions || 0);
+  if (!hasValidScore && Object.keys(ak).length === 0) return Number(exam?.questions || 0);
   return totalScore;
 }
 
