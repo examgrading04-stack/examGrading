@@ -107,8 +107,14 @@ export function StudentsPage({ data, api, refresh }) {
       didOpen: () => Swal().showLoading(),
     });
 
+    const idsToDelete = new Set();
+    for (const uniqueId of selectedStudents) {
+      const student = data.students.find(s => `${s.id}_${s.subjectCode}` === uniqueId);
+      if (student) idsToDelete.add(student.id);
+    }
+
     await Promise.all(
-      Array.from(selectedStudents).map((id) => api.remove("students", id)),
+      Array.from(idsToDelete).map((id) => api.remove("students", id)),
     );
 
     setSelectedStudents(new Set());
@@ -379,10 +385,10 @@ export function StudentsPage({ data, api, refresh }) {
               render: (row) => (
                 <input
                   type="checkbox"
-                  checked={selectedStudents.has(row.id)}
+                  checked={selectedStudents.has(`${row.id}_${row.subjectCode}`)}
                   onChange={(e) => {
                     const currentIndex = filteredStudents.findIndex(
-                      (x) => x.id === row.id,
+                      (x) => x.id === row.id && x.subjectCode === row.subjectCode,
                     );
                     const next = new Set(selectedStudents);
 
@@ -416,21 +422,23 @@ export function StudentsPage({ data, api, refresh }) {
 
                       for (let i = oldStart; i <= oldEnd; i++) {
                         if (i < newStart || i > newEnd) {
-                          next.delete(filteredStudents[i].id);
+                          next.delete(`${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`);
                         }
                       }
 
                       const targetState = selectedStudents.has(
-                        filteredStudents[lastSelectedStudentIndex].id,
+                        `${filteredStudents[lastSelectedStudentIndex].id}_${filteredStudents[lastSelectedStudentIndex].subjectCode}`
                       );
                       for (let i = newStart; i <= newEnd; i++) {
-                        if (targetState) next.add(filteredStudents[i].id);
-                        else next.delete(filteredStudents[i].id);
+                        const uniqueId = `${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`;
+                        if (targetState) next.add(uniqueId);
+                        else next.delete(uniqueId);
                       }
                       setLastShiftStudentIndex(currentIndex);
                     } else {
-                      if (e.target.checked) next.add(row.id);
-                      else next.delete(row.id);
+                      const uniqueId = `${row.id}_${row.subjectCode}`;
+                      if (e.target.checked) next.add(uniqueId);
+                      else next.delete(uniqueId);
                       setLastSelectedStudentIndex(currentIndex);
                       setLastShiftStudentIndex(currentIndex);
                     }

@@ -261,9 +261,12 @@ export function AnalysisPage({ data }) {
     ? null
     : (() => {
         if (!exam) return 0;
+        const subjectStudents = data.students.filter(
+          (s) => s.subjectCode === exam.subject_id || s.subjectCode === exam.subjectCode || s.subjectCode === exam.subject
+        );
         if (exam.section === "All Section" || !exam.section)
-          return data.students.length;
-        return data.students.filter(
+          return subjectStudents.length;
+        return subjectStudents.filter(
           (s) => String(s.section) === String(exam.section),
         ).length;
       })();

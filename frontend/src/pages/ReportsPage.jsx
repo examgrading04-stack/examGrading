@@ -227,9 +227,13 @@ export function ReportsPage({ data }) {
             if (row.answers) {
               if (row.answers[qStr] === correctAns && correctAns !== "-") {
                 calculatedScore += qScore;
+              } else if (row.total && i > Number(row.total)) {
+                calculatedScore += qScore;
               }
             } else if (row.itemResults) {
               if (row.itemResults[qStr] === true) {
+                calculatedScore += qScore;
+              } else if (row.total && i > Number(row.total)) {
                 calculatedScore += qScore;
               }
             }
