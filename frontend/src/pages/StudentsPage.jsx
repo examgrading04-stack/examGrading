@@ -235,10 +235,7 @@ export function StudentsPage({ data, api, refresh }) {
 
           // หา subjectCode
           let subjectCode =
-            resolveSubjectId(rawSubject) ||
-            rawSubject ||
-            importSubject ||
-            "";
+            resolveSubjectId(rawSubject) || rawSubject || importSubject || "";
 
           if (!subjectCode) {
             skipped += 1;
@@ -273,7 +270,8 @@ export function StudentsPage({ data, api, refresh }) {
           let sectionId = secKey;
 
           const existingSec = data.sections.find(
-            (s) => s.subject === subjectCode && String(s.sec) === String(secName),
+            (s) =>
+              s.subject === subjectCode && String(s.sec) === String(secName),
           );
 
           if (existingSec) {
@@ -710,7 +708,6 @@ export function StudentsPage({ data, api, refresh }) {
                     ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
                     : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
                 </option>
-                <option value="All Section">ทุกกลุ่มเรียน (All Section)</option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}
@@ -720,21 +717,30 @@ export function StudentsPage({ data, api, refresh }) {
             </Field>
 
             <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-2">
-              <div className="font-bold text-zinc-700">รูปแบบคอลัมน์ในไฟล์ Excel</div>
+              <div className="font-bold text-zinc-700">
+                รูปแบบคอลัมน์ในไฟล์ Excel
+              </div>
               <div className="space-y-1">
-                <div>• <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)</div>
-                <div>• <b>ชื่อ-นามสกุล</b> (ชื่อ / name)</div>
+                <div>
+                  • <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)
+                </div>
+                <div>
+                  • <b>ชื่อ-นามสกุล</b> (ชื่อ / name)
+                </div>
               </div>
               <div className="pt-2 text-xs text-blue-600 font-medium border-t border-zinc-200 mt-2 space-y-1">
                 <div>
                   💡 สามารถแยกหลายวิชา/กลุ่มเรียนในไฟล์เดียว โดยเพิ่มคอลัมน์:
-                  <b> วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b> (section / sec)
+                  <b> วิชา</b> (subject / รหัสวิชา) และ <b>กลุ่มเรียน</b>{" "}
+                  (section / sec)
                   <span className="text-zinc-500 font-normal block mt-0.5">
                     (ระบบจะสร้างรายวิชาและกลุ่มเรียนให้อัตโนมัติหากยังไม่มีในระบบ)
                   </span>
                 </div>
                 <div className="text-amber-700 font-semibold bg-amber-50 p-2 rounded border border-amber-200/60 mt-2">
-                  📌 หมายเหตุ: หากในไฟล์ Excel <u>ไม่มี</u>ข้อมูลคอลัมน์วิชาหรือกลุ่มเรียน กรุณาเลือกรายวิชาและกลุ่มเรียนที่ต้องการจากตัวเลือกด้านบนก่อนนำเข้า
+                  📌 หมายเหตุ: หากในไฟล์ Excel <u>ไม่มี</u>
+                  ข้อมูลคอลัมน์วิชาหรือกลุ่มเรียน
+                  กรุณาเลือกรายวิชาและกลุ่มเรียนที่ต้องการจากตัวเลือกด้านบนก่อนนำเข้า
                 </div>
               </div>
             </div>

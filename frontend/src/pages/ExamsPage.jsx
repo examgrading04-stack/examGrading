@@ -571,7 +571,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 onChange={(e) => setForm({ ...form, section: e.target.value })}
                 disabled={!form.subject}
               >
-                <option value="">ทุกกลุ่มเรียน</option>
+                <option value="">กรุณาเลือกกลุ่มเรียน</option>
                 {currentSections.map((s) => (
                   <option key={s.id} value={s.sec}>
                     {s.sec}

@@ -596,7 +596,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: [
-        const DropdownMenuEntry<String>(value: '', label: 'ทุกกลุ่มเรียน'),
+        const DropdownMenuEntry<String>(value: '', label: 'กรุณาเลือกกลุ่มเรียน'),
         ...sections.map((s) {
           final sectionName = _sections
               .firstWhere(

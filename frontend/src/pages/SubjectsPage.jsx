@@ -760,7 +760,8 @@ export function SubjectsPage({ data, api, refresh }) {
                   required
                 />
                 <p className="text-xs text-slate-400 mt-1">
-                  ระบบจะสร้างหมายเลขกลุ่มเรียนถัดไปให้อัตโนมัติ (เช่น กลุ่ม 1, 2, 3...)
+                  ระบบจะสร้างหมายเลขกลุ่มเรียนถัดไปให้อัตโนมัติ (เช่น กลุ่ม 1,
+                  2, 3...)
                 </p>
               </Field>
             )}

@@ -180,16 +180,20 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                   {
                                     'subject': widget.subject.id,
                                     'sec': secController.text.trim(),
-                                    'created_at': DateTime.now().toIso8601String(),
+                                    'created_at': DateTime.now()
+                                        .toIso8601String(),
                                   },
                                 );
                               } else {
-                                final count = int.tryParse(countController.text.trim()) ?? 1;
+                                final count =
+                                    int.tryParse(countController.text.trim()) ??
+                                    1;
                                 if (count < 1) {
                                   QuickAlert.show(
                                     context: context,
                                     type: QuickAlertType.warning,
-                                    text: 'กรุณาระบุจำนวนกลุ่มเรียนที่ต้องการเพิ่มเป็นตัวเลขอย่างน้อย 1',
+                                    text:
+                                        'กรุณาระบุจำนวนกลุ่มเรียนที่ต้องการเพิ่มเป็นตัวเลขอย่างน้อย 1',
                                     confirmBtnColor: AppColors.primary,
                                   );
                                   return;
@@ -199,7 +203,9 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                     .whereType<int>()
                                     .toList();
                                 final maxNum = existingNums.isNotEmpty
-                                    ? existingNums.reduce((a, b) => a > b ? a : b)
+                                    ? existingNums.reduce(
+                                        (a, b) => a > b ? a : b,
+                                      )
                                     : 0;
 
                                 for (int i = 1; i <= count; i++) {
@@ -216,7 +222,8 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                       'id': secId,
                                       'subject': widget.subject.id,
                                       'sec': secStr,
-                                      'created_at': DateTime.now().toIso8601String(),
+                                      'created_at': DateTime.now()
+                                          .toIso8601String(),
                                     },
                                   );
                                 }
