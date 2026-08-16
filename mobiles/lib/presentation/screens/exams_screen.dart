@@ -11,6 +11,7 @@ import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/presentation/screens/answer_sheets_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/data/models/student_model.dart';
+import 'package:exam_grading/data/models/section_model.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({super.key});
@@ -23,6 +24,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
   static const int _pageSize = 5;
   int _currentPage = 1;
   List<SubjectModel> _subjects = [];
+  List<SectionModel> _sections = [];
   List<ExamModel> _exams = [];
   List<StudentModel> _students = [];
   String? _selectedFilterSubject;
@@ -41,6 +43,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
         _uid,
         'subjects',
       );
+      final sectionDocs = await ApiService.instance.getCollection(
+        _uid,
+        'sections',
+      );
       final examDocs = await ApiService.instance.getCollection(_uid, 'exams');
       final studentDocs = await ApiService.instance.getCollection(
         _uid,
@@ -50,6 +56,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
         setState(() {
           _subjects = subjectDocs
               .map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d))
+              .toList();
+          _sections = sectionDocs
+              .map((d) => SectionModel.fromMap(d['id']?.toString() ?? '', d))
               .toList();
           _exams = examDocs
               .map(
@@ -325,16 +334,35 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                   subjectCode,
                                   examSection,
                                 );
+                          final questionsCount =
+                              int.tryParse(questionsController.text) ?? 100;
+                          String finalSheetType = selectedSheetType ?? '30-A-E';
+                          int templateSize = 100;
+                          if (finalSheetType.startsWith('30')) {
+                            templateSize = 30;
+                          } else if (finalSheetType.startsWith('50')) {
+                            templateSize = 50;
+                          }
+                          
+                          if (questionsCount > templateSize) {
+                            if (questionsCount <= 30) {
+                              finalSheetType = '30-A-E';
+                            } else if (questionsCount <= 50) {
+                              finalSheetType = '50-A-E';
+                            } else {
+                              finalSheetType = '100-A-E';
+                            }
+                          }
+
                           final data = {
                             'name': nameController.text.trim(),
                             'subject': subjectCode,
                             'date': dateController.text,
                             'section': examSection,
-                            'questions':
-                                int.tryParse(questionsController.text) ?? 100,
+                            'questions': questionsCount,
                             'options': 5,
                             'sets': 1,
-                            'sheetType': selectedSheetType,
+                            'sheetType': finalSheetType,
                             'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
@@ -368,10 +396,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               subject: subjectCode,
                               date: dateController.text,
                               section: examSection,
-                              questions:
-                                  int.tryParse(questionsController.text) ?? 100,
+                              questions: questionsCount,
                               options: 5,
                               sets: 1,
+                              sheetType: finalSheetType,
                               answerKey: {},
                               studentsSnapshot: studentsSnapshot,
                             );
@@ -569,9 +597,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
       onSelected: onChanged,
       dropdownMenuEntries: [
         const DropdownMenuEntry<String>(value: '', label: 'ทุกกลุ่มเรียน'),
-        ...sections.map(
-          (s) => DropdownMenuEntry<String>(value: s, label: 'กลุ่มเรียน $s'),
-        ),
+        ...sections.map((s) {
+          final sectionName = _sections
+              .firstWhere(
+                (sec) => sec.id == s,
+                orElse: () => SectionModel(id: s, sec: s),
+              )
+              .sec;
+          return DropdownMenuEntry<String>(value: s, label: sectionName);
+        }),
       ],
     );
   }

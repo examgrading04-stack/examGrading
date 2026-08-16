@@ -157,6 +157,13 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     });
     const subject = data.subjects.find((item) => item.id === form.subject);
     const questions = Number(form.questions);
+    let finalSheetType = Number(form.sheetType || 30);
+
+    if (questions > finalSheetType) {
+      if (questions <= 30) finalSheetType = 30;
+      else if (questions <= 50) finalSheetType = 50;
+      else finalSheetType = 100;
+    }
 
     const payload = {
       name: form.name,
@@ -164,7 +171,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       subjectName: subject?.name || "",
       section: form.section || "All Section",
       questions,
-      sheetType: Number(form.sheetType || 30),
+      sheetType: finalSheetType,
       answerKey: {},
     };
 
