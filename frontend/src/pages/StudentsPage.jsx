@@ -710,6 +710,7 @@ export function StudentsPage({ data, api, refresh }) {
                     ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
                     : "อ่านจากไฟล์ Excel (อัตโนมัติ)"}
                 </option>
+                <option value="All Section">ทุกกลุ่มเรียน (All Section)</option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}

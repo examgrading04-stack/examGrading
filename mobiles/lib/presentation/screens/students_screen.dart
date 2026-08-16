@@ -122,6 +122,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
     final codeController = TextEditingController(text: student?.code);
     final nameController = TextEditingController(text: student?.name);
     String? selectedSectionId = student?.className;
+    String? selectedSubjectId;
+    if (selectedSectionId != null) {
+      final sectionOpt = _sections.cast<SectionOption?>().firstWhere(
+            (s) => s?.id == selectedSectionId,
+            orElse: () => null,
+          );
+      selectedSubjectId = sectionOpt?.subjectId;
+    }
     final isEdit = student != null;
     if (_sections.isEmpty && !isEdit) {
       QuickAlert.show(
@@ -187,9 +195,20 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       FontAwesomeIcons.solidUser,
                     ),
                     const SizedBox(height: 20),
-                    _buildDropdownField(
+                    _buildSubjectDropdownField(
+                      'วิชา',
+                      selectedSubjectId,
+                      _subjects,
+                      (val) => setModalState(() {
+                        selectedSubjectId = val;
+                        selectedSectionId = null;
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSectionDropdownField(
                       'กลุ่มเรียน',
                       selectedSectionId,
+                      selectedSubjectId,
                       _sections,
                       (val) => setModalState(() => selectedSectionId = val),
                     ),
@@ -330,19 +349,70 @@ class _StudentsScreenState extends State<StudentsScreen> {
     );
   }
 
-  Widget _buildDropdownField(
+  Widget _buildSubjectDropdownField(
     String label,
     String? value,
-    List<SectionOption> sections,
+    List<SubjectModel> subjects,
     ValueChanged<String?> onChanged,
   ) {
     return DropdownMenu<String>(
-      initialSelection: sections.any((s) => s.id == value) ? value : null,
+      menuHeight: 300,
+      initialSelection: subjects.any((s) => s.code == value) ? value : null,
       expandedInsets: EdgeInsets.zero,
       label: Text(label),
       enableFilter: true,
       enableSearch: true,
       hintText: 'พิมพ์เพื่อค้นหา...',
+      leadingIcon: const Padding(
+        padding: EdgeInsets.only(left: 16, right: 10),
+        child: Icon(FontAwesomeIcons.book, color: AppColors.success, size: 13),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.background,
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
+        labelStyle: const TextStyle(
+          fontSize: 12,
+          color: AppColors.success,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.success, width: 2.0),
+        ),
+      ),
+      onSelected: onChanged,
+      dropdownMenuEntries: subjects.map((s) {
+        return DropdownMenuEntry<String>(value: s.code, label: '${s.code} - ${s.name}');
+      }).toList(),
+    );
+  }
+
+  Widget _buildSectionDropdownField(
+    String label,
+    String? value,
+    String? subjectId,
+    List<SectionOption> sections,
+    ValueChanged<String?> onChanged,
+  ) {
+    final filteredSections = sections.where((s) => s.subjectId == subjectId).toList();
+    return DropdownMenu<String>(
+      menuHeight: 300,
+      enabled: subjectId != null,
+      initialSelection: filteredSections.any((s) => s.id == value) ? value : null,
+      expandedInsets: EdgeInsets.zero,
+      label: Text(label),
+      enableFilter: true,
+      enableSearch: true,
+      hintText: subjectId == null ? 'กรุณาเลือกวิชาก่อน' : 'พิมพ์เพื่อค้นหา...',
       leadingIcon: const Padding(
         padding: EdgeInsets.only(left: 16, right: 10),
         child: Icon(FontAwesomeIcons.users, color: AppColors.success, size: 13),
@@ -368,10 +438,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.success, width: 2.0),
         ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+        ),
       ),
       onSelected: onChanged,
-      dropdownMenuEntries: sections.map((s) {
-        return DropdownMenuEntry<String>(value: s.id, label: s.displayName);
+      dropdownMenuEntries: filteredSections.map((s) {
+        return DropdownMenuEntry<String>(value: s.id, label: 'Sec ${s.sec}');
       }).toList(),
     );
   }

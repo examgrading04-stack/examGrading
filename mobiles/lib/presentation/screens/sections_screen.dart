@@ -205,13 +205,15 @@ class _SectionsScreenState extends State<SectionsScreen> {
                                 for (int i = 1; i <= count; i++) {
                                   final secNum = maxNum + i;
                                   final secStr = secNum.toString();
+                                  final secId = '${widget.subject.id}_$secStr';
                                   await ApiService.instance.setNestedDoc(
                                     _uid,
                                     'subjects',
                                     widget.subject.id,
                                     'sections',
-                                    secStr,
+                                    secId,
                                     {
+                                      'id': secId,
                                       'subject': widget.subject.id,
                                       'sec': secStr,
                                       'created_at': DateTime.now().toIso8601String(),

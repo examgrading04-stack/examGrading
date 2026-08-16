@@ -130,8 +130,10 @@ export function SubjectsPage({ data, api, refresh }) {
         for (let i = 1; i <= count; i++) {
           const secNum = maxNum + i;
           const secStr = String(secNum);
+          const secId = `${subjectId}_${secStr}`;
           promises.push(
-            api.set(`subjects/${subjectId}/sections/${secStr}`, {
+            api.set(`subjects/${subjectId}/sections/${secId}`, {
+              id: secId,
               subject: subjectId,
               sec: secStr,
               created_at: new Date().toISOString(),
