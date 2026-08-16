@@ -79,8 +79,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   }, [sheetModal]);
 
   // Template label logic
-  function getTemplateInfo(q) {
-    const num = Number(q) || 0;
+  function getTemplateInfo(sheetType, questions) {
+    const typeStr = sheetType ? String(sheetType).replace("-A-E", "") : "";
+    const num = Number(typeStr) || Number(questions) || 0;
     if (num <= 30)
       return { label: "แบบ 30 ข้อ", color: "emerald", icon: "fa-file-lines" };
     if (num <= 50)
@@ -607,11 +608,11 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             </Field>
             {form.sheetType && (
               <div
-                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType).color]}`}
+                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType, form.questions).color]}`}
               >
-                <Icon name={getTemplateInfo(form.sheetType).icon} />
+                <Icon name={getTemplateInfo(form.sheetType, form.questions).icon} />
                 <span className="text-xs font-bold">
-                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType).label}
+                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType, form.questions).label}
                 </span>
               </div>
             )}
@@ -685,7 +686,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
-                  const info = getTemplateInfo(sheetModal.exam.questions);
+                  const info = getTemplateInfo(sheetModal.exam.sheetType, sheetModal.exam.questions);
                   return (
                     <>
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">

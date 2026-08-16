@@ -87,6 +87,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   }
 
   String _templateLabel() {
+    final type = widget.exam.sheetType;
+    if (type != null && type.isNotEmpty) {
+      if (type.startsWith('30')) return 'แบบ 30 ข้อ';
+      if (type.startsWith('50')) return 'แบบ 50 ข้อ';
+      if (type.startsWith('100')) return 'แบบ 100 ข้อ';
+    }
     final q = widget.exam.questions;
     if (q <= 30) return 'แบบ 30 ข้อ';
     if (q <= 50) return 'แบบ 50 ข้อ';
@@ -94,6 +100,12 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
   }
 
   Color _templateColor() {
+    final type = widget.exam.sheetType;
+    if (type != null && type.isNotEmpty) {
+      if (type.startsWith('30')) return AppColors.success;
+      if (type.startsWith('50')) return AppColors.info;
+      if (type.startsWith('100')) return AppColors.warning;
+    }
     final q = widget.exam.questions;
     if (q <= 30) return AppColors.success;
     if (q <= 50) return AppColors.info;
