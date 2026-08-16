@@ -113,6 +113,7 @@ def build_sheet_payload(exam: dict, student: dict) -> dict:
         "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
         "exam_date": exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
         "total_questions": int(exam.get("questions") or exam.get("total_questions") or 50),
+        "sheet_type": exam.get("template_id") or exam.get("sheetType"),
         "sheet_id": f"{exam_id}:{student_doc_id or student_code}",
         "exam_id": exam_id,
         "student_doc_id": student_doc_id,
@@ -128,8 +129,20 @@ def create_single_sheet_image(
     font_size: int = 32,
 ) -> Image.Image:
     """Create one answer-sheet image from normalized sheet payload."""
-    total_questions = int(sheet_payload.get("total_questions") or 50)
-    template_key = _nearest_supported_question_count(total_questions)
+    sheet_type = sheet_payload.get("sheet_type")
+    
+    if sheet_type:
+        try:
+            template_key = int(str(sheet_type).replace("-A-E", "").replace("แบบ ", "").replace(" ข้อ", "").strip())
+            if template_key not in TEMPLATE_MAP:
+                template_key = _nearest_supported_question_count(template_key)
+        except ValueError:
+            total_questions = int(sheet_payload.get("total_questions") or 50)
+            template_key = _nearest_supported_question_count(total_questions)
+    else:
+        total_questions = int(sheet_payload.get("total_questions") or 50)
+        template_key = _nearest_supported_question_count(total_questions)
+        
     resolved_template = Path(template_path) if template_path else TEMPLATE_MAP[template_key]
 
     if not resolved_template.exists():

@@ -484,7 +484,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                                     (s) => String(s.id) === String(row.section),
                                   )?.sec || row.section,
                             questions: row.questions || 50,
-                            sheetType: String(row.sheetType || 30).replace(
+                            sheetType: String(row.sheetType || row.template_id || 30).replace(
                               "-A-E",
                               "",
                             ),
@@ -693,7 +693,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
-                  const info = getTemplateInfo(sheetModal.exam.sheetType, sheetModal.exam.questions);
+                  const info = getTemplateInfo(sheetModal.exam.sheetType || sheetModal.exam.template_id, sheetModal.exam.questions);
                   return (
                     <>
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
