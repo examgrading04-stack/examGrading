@@ -15,17 +15,27 @@ import {
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
     return "-";
+  
+  // Handle new format where answer is an object: { "1": { answer: "A", score: 1.0 } }
+  if (exam.answerKey[question] && typeof exam.answerKey[question] === "object" && exam.answerKey[question].answer !== undefined) {
+    return String(exam.answerKey[question].answer);
+  }
+  
+  if (typeof exam.answerKey[question] === "string")
+    return exam.answerKey[question];
+    
   if (exam.answerKey["0"] && typeof exam.answerKey["0"][question] === "string")
     return exam.answerKey["0"][question];
   if (exam.answerKey["1"] && typeof exam.answerKey["1"][question] === "string")
     return exam.answerKey["1"][question];
-  if (typeof exam.answerKey[question] === "string")
-    return exam.answerKey[question];
+    
   const firstSet = Object.values(exam.answerKey).find(
     (v) => typeof v === "object",
   );
   if (firstSet && typeof firstSet[question] === "string")
     return firstSet[question];
+  if (firstSet && typeof firstSet[question] === "object" && firstSet[question].answer !== undefined)
+    return String(firstSet[question].answer);
   return "-";
 }
 
