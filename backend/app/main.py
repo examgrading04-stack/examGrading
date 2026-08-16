@@ -852,6 +852,45 @@ def db_delete(path: str, db=Depends(get_db)):
     return {"ok": True}
 
 
+@app.get("/api/migrate_db")
+def migrate_db(db=Depends(get_db)):
+    from sqlalchemy import text
+    session = db._get_session()
+    logs = []
+    try:
+        # Drop FKs referencing subjects_sec.section_id
+        for table in ["student_enrollments", "exams"]:
+            res = session.execute(text(f"SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = '{table}' AND COLUMN_NAME = 'section_id' AND REFERENCED_TABLE_NAME = 'subjects_sec'")).fetchall()
+            for r in res:
+                fk_name = r[0]
+                logs.append(f"Dropping FK: {fk_name} from {table}")
+                session.execute(text(f"ALTER TABLE {table} DROP FOREIGN KEY {fk_name}"))
+            
+        logs.append("Modifying subjects_sec.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Modifying student_enrollments.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Modifying exams.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE exams MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Adding FKs back")
+        session.execute(text("ALTER TABLE student_enrollments ADD CONSTRAINT student_enrollments_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
+        session.execute(text("ALTER TABLE exams ADD CONSTRAINT exams_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
+        
+        session.commit()
+        logs.append("Migration successful")
+    except Exception as e:
+        session.rollback()
+        logs.append(f"Error: {str(e)}")
+        return {"status": "error", "logs": logs}
+    finally:
+        session.close()
+    
+    return {"status": "success", "logs": logs}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: แปลง user_email → user_id ในตาราง users
 # ─────────────────────────────────────────────────────────────────────────────

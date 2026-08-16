@@ -161,7 +161,7 @@ class SqlExam(Base):
     questions = Column("questions", Integer, nullable=False)
     createdAt = Column("created_at", DateTime, default=datetime.now)
     subject_id = Column("subject_id", String(50), nullable=False)
-    section_id = Column("section_id", Integer, nullable=True)
+    section_id = Column("section_id", String(50), nullable=True)
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="SET NULL"), nullable=True)
     isCustomScore = Column("is_custom_score", Boolean, default=False)
     defaultScore = Column("default_score", Float, default=1.0)
