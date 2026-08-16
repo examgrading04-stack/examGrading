@@ -15,28 +15,62 @@ import {
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
     return "-";
-  
+
   // Handle new format where answer is an object: { "1": { answer: "A", score: 1.0 } }
-  if (exam.answerKey[question] && typeof exam.answerKey[question] === "object" && exam.answerKey[question].answer !== undefined) {
+  if (
+    exam.answerKey[question] &&
+    typeof exam.answerKey[question] === "object" &&
+    exam.answerKey[question].answer !== undefined
+  ) {
     return String(exam.answerKey[question].answer);
   }
-  
+
   if (typeof exam.answerKey[question] === "string")
     return exam.answerKey[question];
-    
+
   if (exam.answerKey["0"] && typeof exam.answerKey["0"][question] === "string")
     return exam.answerKey["0"][question];
   if (exam.answerKey["1"] && typeof exam.answerKey["1"][question] === "string")
     return exam.answerKey["1"][question];
-    
+
   const firstSet = Object.values(exam.answerKey).find(
     (v) => typeof v === "object",
   );
   if (firstSet && typeof firstSet[question] === "string")
     return firstSet[question];
-  if (firstSet && typeof firstSet[question] === "object" && firstSet[question].answer !== undefined)
+  if (
+    firstSet &&
+    typeof firstSet[question] === "object" &&
+    firstSet[question].answer !== undefined
+  )
     return String(firstSet[question].answer);
   return "-";
+}
+
+function getQuestionScore(exam, question) {
+  if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
+    return 1.0;
+
+  if (
+    exam.answerKey[question] &&
+    typeof exam.answerKey[question] === "object" &&
+    exam.answerKey[question].score !== undefined
+  ) {
+    return Number(exam.answerKey[question].score) || 1.0;
+  }
+
+  const firstSet = Object.values(exam.answerKey).find(
+    (v) => typeof v === "object",
+  );
+  if (
+    firstSet &&
+    typeof firstSet[question] === "object" &&
+    firstSet[question].score !== undefined
+  ) {
+    return Number(firstSet[question].score) || 1.0;
+  }
+
+  return 1.0;
 }
 
 export function ResultsPage({ data, api, refresh, query }) {
@@ -63,36 +97,43 @@ export function ResultsPage({ data, api, refresh, query }) {
       );
       const questionsCount = Number(exam?.questions || row.totalQuestions || 0);
 
-      let dynamicScore = row.score || 0;
-
       // Recalculate score dynamically based on current answer key
+      let dynamicScore = row.score || 0;
+      let totalMaxScore = questionsCount;
+
       if (exam && (row.answers || row.itemResults)) {
         let calculatedScore = 0;
+        let calculatedMax = 0;
         for (let i = 1; i <= questionsCount; i++) {
           const qStr = String(i);
           const correctAns = getCorrectAnswer(exam, qStr);
+          const qScore = getQuestionScore(exam, qStr);
+          calculatedMax += qScore;
 
           if (row.answers) {
             if (row.answers[qStr] === correctAns && correctAns !== "-") {
-              calculatedScore++;
+              calculatedScore += qScore;
             }
           } else if (row.itemResults) {
             if (row.itemResults[qStr] === true) {
-              calculatedScore++;
+              calculatedScore += qScore;
             }
           }
         }
         dynamicScore = calculatedScore;
+        totalMaxScore = calculatedMax;
+      } else if (row.total) {
+        totalMaxScore = row.total;
       }
 
-      const percentage = questionsCount
-        ? (dynamicScore / questionsCount) * 100
+      const percentage = totalMaxScore
+        ? (dynamicScore / totalMaxScore) * 100
         : 0;
 
       return {
         ...row,
         score: dynamicScore,
-        totalQuestions: questionsCount,
+        totalQuestions: totalMaxScore,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
         examName: exam?.name || "",
@@ -387,7 +428,9 @@ export function ResultsPage({ data, api, refresh, query }) {
 
       {/* Print-only Table (shows all rows) */}
       <div className="hidden print:block mt-8">
-        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4">รายละเอียดผลคะแนน</h3>
+        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4">
+          รายละเอียดผลคะแนน
+        </h3>
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b-2 border-black">

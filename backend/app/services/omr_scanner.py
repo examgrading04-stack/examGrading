@@ -969,8 +969,7 @@ def calculate_score(answers,answer_key):
             earned_score += q_score
         else: wrong.append({"question":q_no,"student":a,"correct":key})
     
-    total=len(answer_key)
-    return {"score":earned_score,"total":total,"percent":round(earned_score/total_score*100,1) if total_score else 0,
+    return {"score":earned_score,"total":total_score,"percent":round(earned_score/total_score*100,1) if total_score else 0,
             "correct":correct,"wrong":wrong,"skipped":skipped}
 
 def _save_debug(warped,grid_rect,positions,answers,flagged,orig_path):

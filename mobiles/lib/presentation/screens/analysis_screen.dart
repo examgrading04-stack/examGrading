@@ -172,25 +172,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   String _getCorrectAnswer(ExamModel exam, String qNum, String? setIndex) {
     if (exam.answerKey.isEmpty) return '-';
+
+    String extractAnswer(dynamic val) {
+      if (val is Map) return val['answer']?.toString() ?? '-';
+      return val.toString();
+    }
+
     if (setIndex != null &&
         exam.answerKey.containsKey(setIndex) &&
         exam.answerKey[setIndex]!.containsKey(qNum)) {
-      return exam.answerKey[setIndex]![qNum].toString();
+      return extractAnswer(exam.answerKey[setIndex]![qNum]);
     }
     if (exam.answerKey.containsKey('0') &&
         exam.answerKey['0']!.containsKey(qNum)) {
-      return exam.answerKey['0']![qNum].toString();
+      return extractAnswer(exam.answerKey['0']![qNum]);
     }
     if (exam.answerKey.containsKey('1') &&
         exam.answerKey['1']!.containsKey(qNum)) {
-      return exam.answerKey['1']![qNum].toString();
+      return extractAnswer(exam.answerKey['1']![qNum]);
     }
     final firstSet = exam.answerKey.values.firstWhere(
       (_) => true,
       orElse: () => {},
     );
     if (firstSet.containsKey(qNum)) {
-      return firstSet[qNum].toString();
+      return extractAnswer(firstSet[qNum]);
     }
     return '-';
   }

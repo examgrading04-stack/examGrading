@@ -70,7 +70,9 @@ class _ScanScreenState extends State<ScanScreen> {
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 180),
-        onTimeout: () => throw Exception('หมดเวลาเชื่อมต่อกับ Server (อาจใช้เวลานานในการเริ่มระบบครั้งแรก)'),
+        onTimeout: () => throw Exception(
+          'หมดเวลาเชื่อมต่อกับ Server (อาจใช้เวลานานในการเริ่มระบบครั้งแรก)',
+        ),
       );
 
       final response = await http.Response.fromStream(streamedResponse);
