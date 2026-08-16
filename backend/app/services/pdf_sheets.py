@@ -178,10 +178,11 @@ def generate_pdf_for_students(
     if not students:
         raise ValueError("students is required")
 
-    pages = []
-    for student in students:
-        payload = build_sheet_payload(exam, student)
-        pages.append(create_single_sheet_image(payload))
+    def page_generator():
+        for student in students[1:]:
+            yield create_single_sheet_image(build_sheet_payload(exam, student))
+
+    first_page = create_single_sheet_image(build_sheet_payload(exam, students[0]))
 
     if output_path is None:
         safe_exam_id = exam.get("id") or exam.get("examId") or "exam"
@@ -190,11 +191,11 @@ def generate_pdf_for_students(
         output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pages[0].save(
+    first_page.save(
         output_path,
         "PDF",
         resolution=100.0,
         save_all=True,
-        append_images=pages[1:],
+        append_images=page_generator(),
     )
     return str(output_path)
