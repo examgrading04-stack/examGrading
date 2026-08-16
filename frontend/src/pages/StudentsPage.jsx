@@ -702,13 +702,13 @@ export function StudentsPage({ data, api, refresh }) {
             <Field label="กลุ่มเรียน">
               <Select
                 value={importClass}
-                disabled={isImporting}
+                disabled={isImporting || !importSubject}
                 onChange={(event) => setImportClass(event.target.value)}
               >
                 <option value="">
                   {importSubject
                     ? "อ่านจากไฟล์ Excel (อัตโนมัติ)"
-                    : "อ่านจากไฟล์ Excel (อัตโนมัติ)"}
+                    : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
                 </option>
                 <option value="All Section">ทุกกลุ่มเรียน (All Section)</option>
                 {importSections.map((section) => (

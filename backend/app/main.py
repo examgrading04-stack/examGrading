@@ -854,6 +854,7 @@ def db_delete(path: str, db=Depends(get_db)):
 
 @app.get("/api/migrate_db")
 def migrate_db(db=Depends(get_db)):
+    # pyrefly: ignore [missing-import]
     from sqlalchemy import text
     session = db._get_session()
     logs = []
