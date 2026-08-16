@@ -114,7 +114,7 @@ class SqlStudent(Base):
 
 class SqlSection(Base):
     __tablename__ = "subjects_sec"
-    id = Column("section_id", Integer, primary_key=True, autoincrement=True)
+    id = Column("section_id", String(50), primary_key=True)
     sec = Column("section_name", String(50), nullable=False)
     created_at = Column("created_at", DateTime, default=datetime.now)
     subject = Column("subject_id", String(50), nullable=False)
@@ -133,7 +133,7 @@ class SqlStudentEnrollment(Base):
     enrollment_id = Column("enrollment_id", Integer, primary_key=True, autoincrement=True)
     student_code = Column("student_code", String(50), nullable=False)
     subject_id = Column("subject_id", String(50), nullable=False)
-    section_id = Column("section_id", Integer, nullable=False)
+    section_id = Column("section_id", String(50), nullable=False)
     user_id = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
     __table_args__ = (
@@ -281,6 +281,10 @@ class MySQLAdapter(BaseDBAdapter):
                     "ALTER TABLE exams ADD COLUMN default_score FLOAT DEFAULT 1.0",
                     "ALTER TABLE exams MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE results MODIFY COLUMN template_id VARCHAR(50) NULL",
+                    "ALTER TABLE student_enrollments DROP FOREIGN KEY student_enrollments_ibfk_2",
+                    "ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)",
+                    "ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)",
+                    "ALTER TABLE student_enrollments ADD CONSTRAINT student_enrollments_ibfk_2 FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE",
                 ]:
                     try:
                         conn.execute(text(sql))
@@ -713,12 +717,12 @@ class MySQLAdapter(BaseDBAdapter):
                                 else:
                                     # Fallback if it's already an ID
                                     try:
-                                        mapped_data["section_id"] = int(sec)
+                                        mapped_data["section_id"] = str(sec)
                                     except ValueError:
                                         mapped_data["section_id"] = None
                             else:
                                 try:
-                                    mapped_data["section_id"] = int(sec)
+                                    mapped_data["section_id"] = str(sec)
                                 except ValueError:
                                     mapped_data["section_id"] = None
                         else:
@@ -812,12 +816,12 @@ class MySQLAdapter(BaseDBAdapter):
                                 else:
                                     # Fallback if it's already an ID
                                     try:
-                                        mapped_data["section_id"] = int(sec)
+                                        mapped_data["section_id"] = str(sec)
                                     except ValueError:
                                         mapped_data["section_id"] = None
                             else:
                                 try:
-                                    mapped_data["section_id"] = int(sec)
+                                    mapped_data["section_id"] = str(sec)
                                 except ValueError:
                                     mapped_data["section_id"] = None
                         else:
