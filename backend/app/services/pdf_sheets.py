@@ -93,10 +93,10 @@ def _draw_fitted_text(
         font_size -= 2
         font = _load_font(font_size, font_path)
 
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_height = bbox[3] - bbox[1]
-    text_y = y + max_height - text_height - TEXT_BOTTOM_PADDING - bbox[1]
-    draw.text((x, text_y), text, font=font, fill=(0, 0, 0))
+    # Use "ls" (left, baseline) anchor to keep all text sitting on the same baseline,
+    # regardless of whether the text has descenders (like Thai vowels ุ, ู or English g, y).
+    text_y = y + max_height - TEXT_BOTTOM_PADDING
+    draw.text((x, text_y), text, font=font, fill=(0, 0, 0), anchor="ls")
 
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
