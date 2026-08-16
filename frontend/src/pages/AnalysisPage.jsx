@@ -26,14 +26,22 @@ function itemTone(value, type) {
 
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey) return "-";
-  
+
   let ak = exam.answerKey;
   if (typeof ak === "string") {
-    try { ak = JSON.parse(ak); } catch (e) { return "-"; }
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return "-";
+    }
   }
   if (typeof ak !== "object" || ak === null) return "-";
 
-  if (ak[question] && typeof ak[question] === "object" && ak[question].answer !== undefined) {
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].answer !== undefined
+  ) {
     return String(ak[question].answer);
   }
   if (typeof ak[question] === "string" || typeof ak[question] === "number") {
@@ -42,17 +50,38 @@ function getCorrectAnswer(exam, question) {
 
   for (const setKey of ["0", "1", "A", "B", ""]) {
     if (ak[setKey] && typeof ak[setKey] === "object") {
-      if (typeof ak[setKey][question] === "string" || typeof ak[setKey][question] === "number") return String(ak[setKey][question]);
-      if (ak[setKey][question] && typeof ak[setKey][question] === "object" && ak[setKey][question].answer !== undefined) {
+      if (
+        typeof ak[setKey][question] === "string" ||
+        typeof ak[setKey][question] === "number"
+      )
+        return String(ak[setKey][question]);
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].answer !== undefined
+      ) {
         return String(ak[setKey][question].answer);
       }
     }
   }
 
-  const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
+  );
   if (firstSet) {
-    if (typeof firstSet[question] === "string" || typeof firstSet[question] === "number") return String(firstSet[question]);
-    if (firstSet[question] && typeof firstSet[question] === "object" && firstSet[question].answer !== undefined) {
+    if (
+      typeof firstSet[question] === "string" ||
+      typeof firstSet[question] === "number"
+    )
+      return String(firstSet[question]);
+    if (
+      firstSet[question] &&
+      typeof firstSet[question] === "object" &&
+      firstSet[question].answer !== undefined
+    ) {
       return String(firstSet[question].answer);
     }
   }
@@ -61,27 +90,49 @@ function getCorrectAnswer(exam, question) {
 
 function getQuestionScore(exam, question) {
   if (!exam || !exam.answerKey) return 1.0;
-  
+
   let ak = exam.answerKey;
   if (typeof ak === "string") {
-    try { ak = JSON.parse(ak); } catch (e) { return 1.0; }
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return 1.0;
+    }
   }
   if (typeof ak !== "object" || ak === null) return 1.0;
 
-  if (ak[question] && typeof ak[question] === "object" && ak[question].score !== undefined) {
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].score !== undefined
+  ) {
     return Number(ak[question].score) || 1.0;
   }
 
   for (const setKey of ["0", "1", "A", "B", ""]) {
     if (ak[setKey] && typeof ak[setKey] === "object") {
-      if (ak[setKey][question] && typeof ak[setKey][question] === "object" && ak[setKey][question].score !== undefined) {
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].score !== undefined
+      ) {
         return Number(ak[setKey][question].score) || 1.0;
       }
     }
   }
 
-  const firstSet = Object.values(ak).find((v) => typeof v === "object" && v !== null && Object.keys(v).some(k => !isNaN(Number(k))));
-  if (firstSet && firstSet[question] && typeof firstSet[question] === "object" && firstSet[question].score !== undefined) {
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
+  );
+  if (
+    firstSet &&
+    firstSet[question] &&
+    typeof firstSet[question] === "object" &&
+    firstSet[question].score !== undefined
+  ) {
     return Number(firstSet[question].score) || 1.0;
   }
   return 1.0;
@@ -196,7 +247,10 @@ export function AnalysisPage({ data }) {
             if (!modes.includes(s)) modes.push(s);
           }
         });
-        return maxCount > 1 || scores.length === 1 ? modes.join(", ") : "ไม่มี";
+        const uniqueCounts = Object.values(counts);
+        return maxCount <= 1 || uniqueCounts.every((c) => c === maxCount)
+          ? "ไม่มี"
+          : modes.join(", ");
       })()
     : null;
 
