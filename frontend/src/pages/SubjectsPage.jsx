@@ -55,21 +55,51 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
 
   async function saveSubject(event) {
     event.preventDefault();
+
+    const codeTrimmed = String(subjectForm.code || "").trim();
+    if (!codeTrimmed) {
+      return Swal().fire(
+        "กรุณากรอกรหัสวิชา",
+        "รหัสวิชาต้องไม่เป็นค่าว่าง",
+        "warning",
+      );
+    }
+
+    const isEdit = !!subjectForm.id;
+    const existing = data.subjects.find(
+      (s) =>
+        String(s.code || s.id).trim().toLowerCase() === codeTrimmed.toLowerCase() &&
+        (isEdit ? s.id !== subjectForm.id && s.code !== subjectForm.id : true),
+    );
+
+    if (existing) {
+      return Swal().fire(
+        "รหัสวิชานี้มีอยู่แล้ว",
+        `รหัสวิชา "${codeTrimmed}" (${existing.name || ""}) มีอยู่ในระบบเรียบร้อยแล้ว`,
+        "warning",
+      );
+    }
+
     Swal().fire({
-      title: "กำลังบันทึกรายวิชา...",
+      title: isEdit ? "กำลังแก้ไขรายวิชา..." : "กำลังบันทึกรายวิชา...",
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
+
     const payload = {
-      code: subjectForm.code,
+      code: codeTrimmed,
       name: subjectForm.name,
       term: subjectForm.term,
       year: subjectForm.year,
       teacher: subjectForm.teacher,
     };
+
     try {
-      if (subjectForm.id) await api.update("subjects", subjectForm.id, payload);
-      else await api.set(`subjects/${payload.code}`, payload);
+      if (isEdit) {
+        await api.update("subjects", subjectForm.id, payload);
+      } else {
+        await api.set(`subjects/${payload.code}`, payload);
+      }
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
         term: "1",
