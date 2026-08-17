@@ -224,6 +224,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
                 if (!mounted || !context.mounted) return;
                 Navigator.pop(context);
+                await _loadSubjects();
                 _success(
                   isEdit
                       ? 'แก้ไขข้อมูลรายวิชาเรียบร้อย'
@@ -370,32 +371,37 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            iconTheme: IconThemeData(color: AppColors.textPrimary),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'รายวิชาทั้งหมด',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+      body: RefreshIndicator(
+        onRefresh: _loadSubjects,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 60,
+              floating: false,
+              pinned: true,
+              backgroundColor: AppColors.surface,
+              iconTheme: IconThemeData(color: AppColors.textPrimary),
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'รายวิชาทั้งหมด',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
+                background: Container(color: AppColors.surface),
               ),
-              background: Container(color: AppColors.surface),
             ),
-          ),
-          const SliverToBoxAdapter(
-            child: Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 16)),
-          ),
-          _buildSubjectsSection(),
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
+            const SliverToBoxAdapter(
+              child: Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 16)),
+            ),
+            _buildSubjectsSection(),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
       ),
     );
   }

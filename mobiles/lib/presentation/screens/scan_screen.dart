@@ -69,8 +69,10 @@ class _ScanScreenState extends State<ScanScreen> {
         ..files.add(await http.MultipartFile.fromPath('file', _image!.path));
 
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 60),
-        onTimeout: () => throw Exception('หมดเวลาเชื่อมต่อกับ Server'),
+        const Duration(seconds: 180),
+        onTimeout: () => throw Exception(
+          'หมดเวลาเชื่อมต่อกับ Server (อาจใช้เวลานานในการเริ่มระบบครั้งแรก)',
+        ),
       );
 
       final response = await http.Response.fromStream(streamedResponse);

@@ -93,10 +93,10 @@ def _draw_fitted_text(
         font_size -= 2
         font = _load_font(font_size, font_path)
 
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_height = bbox[3] - bbox[1]
-    text_y = y + max_height - text_height - TEXT_BOTTOM_PADDING - bbox[1]
-    draw.text((x, text_y), text, font=font, fill=(0, 0, 0))
+    # Use "ls" (left, baseline) anchor to keep all text sitting on the same baseline,
+    # regardless of whether the text has descenders (like Thai vowels ุ, ู or English g, y).
+    text_y = y + max_height - TEXT_BOTTOM_PADDING
+    draw.text((x, text_y), text, font=font, fill=(0, 0, 0), anchor="ls")
 
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
@@ -113,6 +113,7 @@ def build_sheet_payload(exam: dict, student: dict) -> dict:
         "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
         "exam_date": exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
         "total_questions": int(exam.get("questions") or exam.get("total_questions") or 50),
+        "sheet_type": exam.get("template_id") or exam.get("sheetType"),
         "sheet_id": f"{exam_id}:{student_doc_id or student_code}",
         "exam_id": exam_id,
         "student_doc_id": student_doc_id,
@@ -129,7 +130,18 @@ def create_single_sheet_image(
 ) -> Image.Image:
     """Create one answer-sheet image from normalized sheet payload."""
     total_questions = int(sheet_payload.get("total_questions") or 50)
-    template_key = _nearest_supported_question_count(total_questions)
+    sheet_type = sheet_payload.get("sheet_type")
+    
+    if sheet_type:
+        try:
+            template_key = int(str(sheet_type).replace("-A-E", "").replace("แบบ ", "").replace(" ข้อ", "").strip())
+            if template_key not in TEMPLATE_MAP:
+                template_key = _nearest_supported_question_count(template_key)
+        except ValueError:
+            template_key = _nearest_supported_question_count(total_questions)
+    else:
+        template_key = _nearest_supported_question_count(total_questions)
+        
     resolved_template = Path(template_path) if template_path else TEMPLATE_MAP[template_key]
 
     if not resolved_template.exists():
@@ -178,10 +190,11 @@ def generate_pdf_for_students(
     if not students:
         raise ValueError("students is required")
 
-    pages = []
-    for student in students:
-        payload = build_sheet_payload(exam, student)
-        pages.append(create_single_sheet_image(payload))
+    def page_generator():
+        for student in students[1:]:
+            yield create_single_sheet_image(build_sheet_payload(exam, student))
+
+    first_page = create_single_sheet_image(build_sheet_payload(exam, students[0]))
 
     if output_path is None:
         safe_exam_id = exam.get("id") or exam.get("examId") or "exam"
@@ -190,11 +203,11 @@ def generate_pdf_for_students(
         output_path = Path(output_path)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pages[0].save(
+    first_page.save(
         output_path,
         "PDF",
         resolution=100.0,
         save_all=True,
-        append_images=pages[1:],
+        append_images=page_generator(),
     )
     return str(output_path)

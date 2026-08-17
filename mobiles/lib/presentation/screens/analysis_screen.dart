@@ -98,7 +98,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           final average = count == 0
               ? 0.0
               : scores.fold<double>(0, (a, b) => a + b) / count;
-          final passed = scores.where((s) => s >= (exam.questions / 2)).length;
+          final passed = scores
+              .where((s) => s >= (exam.getTotalScore(null) / 2))
+              .length;
           final passRate = count == 0 ? 0.0 : passed / count;
 
           final maxScore = scores.isEmpty ? 0.0 : scores.last;
@@ -124,14 +126,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             for (var c in counts.values) {
               if (c > maxCount) maxCount = c;
             }
-            final modes = counts.entries
-                .where((e) => e.value == maxCount)
-                .map((e) => e.key)
-                .toList();
-            modes.sort();
-            if (modes.length > 2) {
-              modeStr = 'หลายค่า';
+
+            if (maxCount <= 1 || counts.values.every((c) => c == maxCount)) {
+              modeStr = 'ไม่มี';
             } else {
+              final modes = counts.entries
+                  .where((e) => e.value == maxCount)
+                  .map((e) => e.key)
+                  .toList();
+              modes.sort();
               modeStr = modes
                   .map(
                     (m) => m.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), ''),
@@ -171,47 +174,54 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   String _getCorrectAnswer(ExamModel exam, String qNum, String? setIndex) {
     if (exam.answerKey.isEmpty) return '-';
+
+    String extractAnswer(dynamic val) {
+      if (val is Map) return val['answer']?.toString() ?? '-';
+      return val.toString();
+    }
+
     if (setIndex != null &&
         exam.answerKey.containsKey(setIndex) &&
         exam.answerKey[setIndex]!.containsKey(qNum)) {
-      return exam.answerKey[setIndex]![qNum].toString();
+      return extractAnswer(exam.answerKey[setIndex]![qNum]);
     }
     if (exam.answerKey.containsKey('0') &&
         exam.answerKey['0']!.containsKey(qNum)) {
-      return exam.answerKey['0']![qNum].toString();
+      return extractAnswer(exam.answerKey['0']![qNum]);
     }
     if (exam.answerKey.containsKey('1') &&
         exam.answerKey['1']!.containsKey(qNum)) {
-      return exam.answerKey['1']![qNum].toString();
+      return extractAnswer(exam.answerKey['1']![qNum]);
     }
     final firstSet = exam.answerKey.values.firstWhere(
       (_) => true,
       orElse: () => {},
     );
     if (firstSet.containsKey(qNum)) {
-      return firstSet[qNum].toString();
+      return extractAnswer(firstSet[qNum]);
     }
     return '-';
   }
 
-  int _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
+  double _getDynamicScore(Map<String, dynamic> result, ExamModel exam) {
     if (exam.answerKey.isEmpty) {
-      return int.tryParse(result['score']?.toString() ?? '0') ?? 0;
+      return double.tryParse(result['score']?.toString() ?? '0') ?? 0;
     }
-    int calcScore = 0;
+    double calcScore = 0;
     final answers = result['answers'] as Map?;
     final itemResults = result['itemResults'] as Map?;
     final setIndex = result['set']?.toString();
     for (int i = 1; i <= exam.questions; i++) {
       final qStr = i.toString();
       final correctAns = _getCorrectAnswer(exam, qStr, setIndex);
+      final qScore = exam.getQuestionScore(qStr, setIndex);
       if (answers != null && answers.containsKey(qStr)) {
         if (answers[qStr].toString() == correctAns && correctAns != '-') {
-          calcScore++;
+          calcScore += qScore;
         }
       } else if (itemResults != null && itemResults.containsKey(qStr)) {
         if (itemResults[qStr] == true) {
-          calcScore++;
+          calcScore += qScore;
         }
       }
     }
@@ -787,7 +797,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final stats = _examStats[exam.id] ?? {};
     final count = stats['count'] ?? 0;
     final average = stats['average'] ?? 0.0;
-    final passRate = stats['passRate'] ?? 0.0;
     final maxScore = stats['maxScore'] ?? 0.0;
     final minScore = stats['minScore'] ?? 0.0;
     final median = stats['median'] ?? 0.0;
@@ -857,8 +866,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                _buildPassBadge(passRate, count),
               ],
             ),
             const SizedBox(height: 16),
@@ -942,29 +949,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPassBadge(double passRate, int total) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 72),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        total == 0 ? '-' : '${(passRate * 100).toStringAsFixed(0)}%',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.success,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );

@@ -68,6 +68,60 @@ class ExamModel {
     return raw;
   }
 
+  double getTotalScore(String? setIndex) {
+    if (answerKey.isEmpty) return questions.toDouble();
+
+    double total = 0.0;
+    Map<String, dynamic> targetSet = {};
+    if (setIndex != null && answerKey.containsKey(setIndex)) {
+      targetSet = answerKey[setIndex]!;
+    } else if (answerKey.containsKey('0')) {
+      targetSet = answerKey['0']!;
+    } else if (answerKey.containsKey('1')) {
+      targetSet = answerKey['1']!;
+    } else {
+      targetSet = answerKey.values.first;
+    }
+
+    if (targetSet.isEmpty) return questions.toDouble();
+
+    for (var i = 1; i <= questions; i++) {
+      final qNum = i.toString();
+      double qScore = 1.0;
+      if (targetSet.containsKey(qNum)) {
+        final val = targetSet[qNum];
+        if (val is Map && val.containsKey('score')) {
+          qScore = double.tryParse(val['score'].toString()) ?? 1.0;
+        }
+      }
+      total += qScore;
+    }
+    return total;
+  }
+
+  double getQuestionScore(String qNum, String? setIndex) {
+    if (answerKey.isEmpty) return 1.0;
+
+    Map<String, dynamic> targetSet = {};
+    if (setIndex != null && answerKey.containsKey(setIndex)) {
+      targetSet = answerKey[setIndex]!;
+    } else if (answerKey.containsKey('0')) {
+      targetSet = answerKey['0']!;
+    } else if (answerKey.containsKey('1')) {
+      targetSet = answerKey['1']!;
+    } else {
+      targetSet = answerKey.values.first;
+    }
+
+    if (targetSet.containsKey(qNum)) {
+      final val = targetSet[qNum];
+      if (val is Map && val.containsKey('score')) {
+        return double.tryParse(val['score'].toString()) ?? 1.0;
+      }
+    }
+    return 1.0;
+  }
+
   static List<Map<String, dynamic>> _parseStudentsSnapshot(dynamic raw) {
     if (raw is! List) return [];
     return raw
@@ -86,8 +140,21 @@ class ExamModel {
   static Map<String, Map<String, dynamic>> _parseAnswerKey(dynamic raw) {
     if (raw is! Map) return {};
 
-    // Check if it's a flat map (e.g., {"1": "A", "2": "B"})
-    if (raw.isNotEmpty && raw.values.first is! Map) {
+    // Check if it's a flat map
+    // A flat map can be {"1": "A", "2": "B"} (values are not maps)
+    // OR {"1": {"answer": "A", "score": 1.0}} (values are maps, but contain "answer" or "score" keys)
+    bool isFlatMap = false;
+    if (raw.isNotEmpty) {
+      final firstVal = raw.values.first;
+      if (firstVal is! Map) {
+        isFlatMap = true;
+      } else if (firstVal.containsKey('answer') ||
+          firstVal.containsKey('score')) {
+        isFlatMap = true;
+      }
+    }
+
+    if (isFlatMap) {
       return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
     }
 

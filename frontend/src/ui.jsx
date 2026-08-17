@@ -34,17 +34,31 @@ export function apiBaseUrls() {
   return [...new Set(urls)];
 }
 
-export async function apiFetch(path, options) {
+export async function apiFetch(path, options, timeoutMs = 30000) {
   let lastError;
   const baseUrls = apiBaseUrls();
   if (!baseUrls.length) {
     throw new Error("ยังไม่ได้ตั้งค่า VITE_API_BASE_URL สำหรับ Backend");
   }
   for (const baseUrl of baseUrls) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      return await fetch(`${baseUrl}${path}`, options);
+      const res = await fetch(`${baseUrl}${path}`, {
+        signal: controller.signal,
+        ...options,
+      });
+      clearTimeout(timer);
+      return res;
     } catch (error) {
-      lastError = error;
+      clearTimeout(timer);
+      if (error.name === "AbortError") {
+        lastError = new Error(
+          "การเชื่อมต่อ Backend หมดเวลา กรุณาลองใหม่อีกครั้ง",
+        );
+      } else {
+        lastError = error;
+      }
     }
   }
   throw lastError;

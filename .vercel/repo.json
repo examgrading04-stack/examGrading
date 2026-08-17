@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_ihvbG9DAAUB0IP2zSTOH9Ec0VHEH",
+      "name": "exam-grading",
+      "directory": ".",
+      "orgId": "team_kO9p155XUdr3inhBuS79aWI2"
+    }
+  ]
+}

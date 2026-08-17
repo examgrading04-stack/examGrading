@@ -1,3 +1,4 @@
+import hashlib
 import os
 import uuid
 from pathlib import Path
@@ -12,6 +13,8 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
+from fastapi.middleware.gzip import GZipMiddleware
 # pyrefly: ignore [missing-import]
 from fastapi.responses import FileResponse
 # pyrefly: ignore [missing-import]
@@ -73,6 +76,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -80,11 +84,16 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://exam-grading-mu.vercel.app",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# URL สาธารณะของ Backend (ใช้ใน production)
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")
 
 
 
@@ -413,6 +422,7 @@ async def scan_sheet(
     summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
 
     image_url = upload_to_cloudinary(image_path)
+    now = datetime.now()
 
     payload = {
         "examId": exam_id,
@@ -432,8 +442,8 @@ async def scan_sheet(
         "metadata": metadata,
         "imageUrl": image_url,
         "overwrite": overwrite,
-        "createdAt": datetime.now(),
-        "timestamp": datetime.now(),
+        "createdAt": now,
+        "timestamp": now,
     }
 
     result_id = None
@@ -544,6 +554,7 @@ async def scan_cloudinary(
     score = calculate_score(result.answers, answer_key)
     summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
 
+    now = datetime.now()
     payload_to_save = {
         "examId": exam_id,
         "examName": exam.get("name", ""),
@@ -561,8 +572,8 @@ async def scan_cloudinary(
         "summary": summary,
         "metadata": metadata,
         "imageUrl": image_url,
-        "createdAt": datetime.now(),
-        "timestamp": datetime.now(),
+        "createdAt": now,
+        "timestamp": now,
     }
 
     result_id = None
@@ -626,7 +637,7 @@ async def upload_profile_picture(
     path = UPLOADS_DIR / file_name
     with open(path, "wb") as out:
         out.write(await file.read())
-    return {"url": f"http://localhost:8000/static/uploads/{file_name}"}
+    return {"url": f"{BACKEND_PUBLIC_URL}/static/uploads/{file_name}"}
 
 @app.post("/api/auth/register")
 def auth_register(payload: dict = Body(...), db=Depends(get_db)):
@@ -661,7 +672,6 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
     if user_doc and user_doc.get("status") == "suspended":
         raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
         
-    import hashlib
     hashed_input = hashlib.sha256(password.encode()).hexdigest()
     if not user_doc or (user_doc.get("password") != password and user_doc.get("password") != hashed_input):
         raise HTTPException(status_code=401, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
@@ -842,6 +852,46 @@ def db_delete(path: str, db=Depends(get_db)):
     return {"ok": True}
 
 
+@app.get("/api/migrate_db")
+def migrate_db(db=Depends(get_db)):
+    # pyrefly: ignore [missing-import]
+    from sqlalchemy import text
+    session = db._get_session()
+    logs = []
+    try:
+        # Drop FKs referencing subjects_sec.section_id
+        for table in ["student_enrollments", "exams"]:
+            res = session.execute(text(f"SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = '{table}' AND COLUMN_NAME = 'section_id' AND REFERENCED_TABLE_NAME = 'subjects_sec'")).fetchall()
+            for r in res:
+                fk_name = r[0]
+                logs.append(f"Dropping FK: {fk_name} from {table}")
+                session.execute(text(f"ALTER TABLE {table} DROP FOREIGN KEY {fk_name}"))
+            
+        logs.append("Modifying subjects_sec.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Modifying student_enrollments.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Modifying exams.section_id to VARCHAR(50)")
+        session.execute(text("ALTER TABLE exams MODIFY COLUMN section_id VARCHAR(50)"))
+        
+        logs.append("Adding FKs back")
+        session.execute(text("ALTER TABLE student_enrollments ADD CONSTRAINT student_enrollments_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
+        session.execute(text("ALTER TABLE exams ADD CONSTRAINT exams_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
+        
+        session.commit()
+        logs.append("Migration successful")
+    except Exception as e:
+        session.rollback()
+        logs.append(f"Error: {str(e)}")
+        return {"status": "error", "logs": logs}
+    finally:
+        session.close()
+    
+    return {"status": "success", "logs": logs}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper: แปลง user_email → user_id ในตาราง users
 # ─────────────────────────────────────────────────────────────────────────────
@@ -867,15 +917,14 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
     apassword = payload.get("apassword")
     if not aname or not apassword:
         raise HTTPException(status_code=400, detail="กรุณากรอกชื่อผู้ใช้และรหัสผ่าน")
-        
-    import hashlib
-    # Find user in users collection
-    users = db.get_collection("users")
-    
-    has_default_admin = any(u.get("username") == "admin" or u.get("email") == "admin@localhost" for u in users)
-    
-    if not has_default_admin:
-        # Create default admin if it doesn't exist
+
+    hashed_input = hashlib.sha256(apassword.encode()).hexdigest()
+
+    # ตรวจสอบว่ามี default admin หรือยัง (query ตรงๆ แทนการโหลดทั้ง table)
+    admin_user = db.get_admin_by_name(aname)
+
+    if admin_user is None:
+        # สร้าง default admin ถ้ายังไม่มีในระบบ
         default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
         db.set_doc("users", "admin@localhost", None, {
             "email": "admin@localhost",
@@ -884,17 +933,9 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
             "role": "admin",
             "displayName": "System Admin"
         })
-        users = db.get_collection("users")
-        
-    hashed_input = hashlib.sha256(apassword.encode()).hexdigest()
-    
-    for user in users:
-        # Check if role is admin and credentials match
-        if user.get("role") == "admin":
-            admin_name = user.get("username") or user.get("email")
-            admin_pass = user.get("password")
-            # If aname matches either username or email
-            if (admin_name == aname or user.get("email") == aname) and admin_pass == hashed_input:
-                return user
-                
+        admin_user = db.get_admin_by_name(aname)
+
+    if admin_user and admin_user.get("role") == "admin" and admin_user.get("password") == hashed_input:
+        return admin_user
+
     raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์ผู้ดูแลระบบ")

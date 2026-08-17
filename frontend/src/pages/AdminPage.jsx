@@ -190,6 +190,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       activity,
       datetime: window.firebase.firestore.FieldValue.serverTimestamp(),
       admin: session?.aname || "Admin",
+      userEmail: session?.aid || user?.email || user?.id,
     });
   }
 
@@ -369,19 +370,19 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
     });
     const id = (editingUser?.id || userForm.id || userForm.email).trim();
     if (!id) return;
-    await db
-      .collection("users")
-      .doc(id)
-      .set(
-        {
-          displayName: userForm.displayName.trim(),
-          email: userForm.email.trim() || id,
-          role: userForm.role,
-          status: editingUser?.status || "active",
-          updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
+    const payload = {
+      displayName: userForm.displayName.trim(),
+      email: userForm.email.trim() || id,
+      role: userForm.role,
+      status: editingUser?.status || "active",
+      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (!editingUser) {
+      payload.password = "123456";
+    }
+
+    await db.collection("users").doc(id).set(payload, { merge: true });
     await writeLog(`${editingUser ? "แก้ไข" : "เพิ่ม"}ข้อมูลผู้ใช้งาน: ${id}`);
     setEditingUser(null);
     setUserForm({ id: "", displayName: "", email: "", role: "user" });
@@ -533,6 +534,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       <AdminLoginPage
         setSession={setSession}
         writeAnonymousLog={writeAnonymousLog}
+        navigate={navigate}
       />
     );
   }
@@ -743,103 +745,90 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
 
           {activePage === "users" && (
             <div className="space-y-6">
-              <form
-                onSubmit={saveUser}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 grid grid-cols-1 lg:grid-cols-5 gap-4 items-end"
-              >
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    รหัสผู้ใช้ / อีเมล
-                  </label>
-                  <input
-                    type="text"
-                    value={userForm.id}
-                    onChange={(event) =>
-                      setUserForm({ ...userForm, id: event.target.value })
-                    }
-                    placeholder="รหัสผู้ใช้"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
-                    disabled={editingUser !== null}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    ชื่อ
-                  </label>
-                  <input
-                    type="text"
-                    value={userForm.displayName}
-                    onChange={(event) =>
-                      setUserForm({
-                        ...userForm,
-                        displayName: event.target.value,
-                      })
-                    }
-                    placeholder="สมชาย ใจดี"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    อีเมล
-                  </label>
-                  <input
-                    type="text"
-                    value={userForm.email}
-                    onChange={(event) =>
-                      setUserForm({ ...userForm, email: event.target.value })
-                    }
-                    placeholder="somchai@example.com"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    บทบาท
-                  </label>
-                  <select
-                    value={userForm.role}
-                    onChange={(event) =>
-                      setUserForm({ ...userForm, role: event.target.value })
-                    }
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 transition-colors"
-                  >
-                    <option value="user">ผู้ใช้งานทั่วไป (User)</option>
-                    <option value="admin">ผู้ดูแลระบบ (Admin)</option>
-                  </select>
-                </div>
-                <div className="flex gap-2 h-[42px]">
-                  <button
-                    type="submit"
-                    className="flex-1 justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
-                  >
-                    <Icon
-                      name={editingUser ? "fa-floppy-disk" : "fa-user-plus"}
-                    />{" "}
-                    {editingUser ? "บันทึก" : "เพิ่ม"}
-                  </button>
-                  {editingUser && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingUser(null);
+              <div className="sticky top-[73px] z-20 bg-slate-100 py-2 -mt-2">
+                <form
+                  onSubmit={saveUser}
+                  className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 items-end"
+                >
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                      อีเมล
+                    </label>
+                    <input
+                      type="text"
+                      value={userForm.email}
+                      onChange={(event) =>
+                        setUserForm({ ...userForm, email: event.target.value })
+                      }
+                      placeholder="somchai@example.com"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
+                      disabled={editingUser !== null}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                      ชื่อในระบบ
+                    </label>
+                    <input
+                      type="text"
+                      value={userForm.displayName}
+                      onChange={(event) =>
                         setUserForm({
-                          id: "",
-                          displayName: "",
-                          email: "",
-                          role: "user",
-                        });
-                      }}
-                      className="px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-colors"
+                          ...userForm,
+                          displayName: event.target.value,
+                        })
+                      }
+                      placeholder="สมชาย ใจดี"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder-slate-400 transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                      บทบาท
+                    </label>
+                    <select
+                      value={userForm.role}
+                      onChange={(event) =>
+                        setUserForm({ ...userForm, role: event.target.value })
+                      }
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 transition-colors"
                     >
-                      <Icon name="fa-xmark" />
+                      <option value="user">ผู้ใช้งานทั่วไป (User)</option>
+                      <option value="admin">ผู้ดูแลระบบ (Admin)</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 h-[42px]">
+                    <button
+                      type="submit"
+                      className="flex-1 justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+                    >
+                      <Icon
+                        name={editingUser ? "fa-floppy-disk" : "fa-user-plus"}
+                      />{" "}
+                      {editingUser ? "บันทึก" : "เพิ่ม"}
                     </button>
-                  )}
-                </div>
-              </form>
+                    {editingUser && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingUser(null);
+                          setUserForm({
+                            id: "",
+                            displayName: "",
+                            email: "",
+                            role: "user",
+                          });
+                        }}
+                        className="px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-colors"
+                      >
+                        <Icon name="fa-xmark" />
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
 
               <div className="flex justify-between items-center gap-4">
                 <h3 className="text-lg font-bold text-slate-800">

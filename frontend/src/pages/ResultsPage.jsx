@@ -13,20 +13,117 @@ import {
 } from "../ui.jsx";
 
 function getCorrectAnswer(exam, question) {
-  if (!exam || !exam.answerKey || typeof exam.answerKey !== "object")
-    return "-";
-  if (exam.answerKey["0"] && typeof exam.answerKey["0"][question] === "string")
-    return exam.answerKey["0"][question];
-  if (exam.answerKey["1"] && typeof exam.answerKey["1"][question] === "string")
-    return exam.answerKey["1"][question];
-  if (typeof exam.answerKey[question] === "string")
-    return exam.answerKey[question];
-  const firstSet = Object.values(exam.answerKey).find(
-    (v) => typeof v === "object",
+  if (!exam || !exam.answerKey) return "-";
+
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return "-";
+    }
+  }
+  if (typeof ak !== "object" || ak === null) return "-";
+
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].answer !== undefined
+  ) {
+    return String(ak[question].answer);
+  }
+  if (typeof ak[question] === "string" || typeof ak[question] === "number") {
+    return String(ak[question]);
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (
+        typeof ak[setKey][question] === "string" ||
+        typeof ak[setKey][question] === "number"
+      )
+        return String(ak[setKey][question]);
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].answer !== undefined
+      ) {
+        return String(ak[setKey][question].answer);
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
   );
-  if (firstSet && typeof firstSet[question] === "string")
-    return firstSet[question];
+  if (firstSet) {
+    if (
+      typeof firstSet[question] === "string" ||
+      typeof firstSet[question] === "number"
+    )
+      return String(firstSet[question]);
+    if (
+      firstSet[question] &&
+      typeof firstSet[question] === "object" &&
+      firstSet[question].answer !== undefined
+    ) {
+      return String(firstSet[question].answer);
+    }
+  }
   return "-";
+}
+
+function getQuestionScore(exam, question) {
+  if (!exam || !exam.answerKey) return 1.0;
+
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return 1.0;
+    }
+  }
+  if (typeof ak !== "object" || ak === null) return 1.0;
+
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].score !== undefined
+  ) {
+    return Number(ak[question].score) || 1.0;
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].score !== undefined
+      ) {
+        return Number(ak[setKey][question].score) || 1.0;
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
+  );
+  if (
+    firstSet &&
+    firstSet[question] &&
+    typeof firstSet[question] === "object" &&
+    firstSet[question].score !== undefined
+  ) {
+    return Number(firstSet[question].score) || 1.0;
+  }
+  return 1.0;
 }
 
 export function ResultsPage({ data, api, refresh, query }) {
@@ -53,36 +150,47 @@ export function ResultsPage({ data, api, refresh, query }) {
       );
       const questionsCount = Number(exam?.questions || row.totalQuestions || 0);
 
-      let dynamicScore = row.score || 0;
-
       // Recalculate score dynamically based on current answer key
+      let dynamicScore = row.score || 0;
+      let totalMaxScore = questionsCount;
+
       if (exam && (row.answers || row.itemResults)) {
         let calculatedScore = 0;
+        let calculatedMax = 0;
         for (let i = 1; i <= questionsCount; i++) {
           const qStr = String(i);
           const correctAns = getCorrectAnswer(exam, qStr);
+          const qScore = getQuestionScore(exam, qStr);
+          calculatedMax += qScore;
 
           if (row.answers) {
             if (row.answers[qStr] === correctAns && correctAns !== "-") {
-              calculatedScore++;
+              calculatedScore += qScore;
+            } else if (row.total && i > Number(row.total)) {
+              calculatedScore += qScore;
             }
           } else if (row.itemResults) {
             if (row.itemResults[qStr] === true) {
-              calculatedScore++;
+              calculatedScore += qScore;
+            } else if (row.total && i > Number(row.total)) {
+              calculatedScore += qScore;
             }
           }
         }
         dynamicScore = calculatedScore;
+        totalMaxScore = calculatedMax;
+      } else if (row.total) {
+        totalMaxScore = row.total;
       }
 
-      const percentage = questionsCount
-        ? (dynamicScore / questionsCount) * 100
+      const percentage = totalMaxScore
+        ? (dynamicScore / totalMaxScore) * 100
         : 0;
 
       return {
         ...row,
         score: dynamicScore,
-        totalQuestions: questionsCount,
+        totalQuestions: totalMaxScore,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
         examName: exam?.name || "",
@@ -377,7 +485,9 @@ export function ResultsPage({ data, api, refresh, query }) {
 
       {/* Print-only Table (shows all rows) */}
       <div className="hidden print:block mt-8">
-        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4">รายละเอียดผลคะแนน</h3>
+        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-4">
+          รายละเอียดผลคะแนน
+        </h3>
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b-2 border-black">
@@ -421,6 +531,8 @@ export function ResultsPage({ data, api, refresh, query }) {
               selectedResult
             }
             exam={data.exams.find((e) => e.id === selectedResult.examId)}
+            api={api}
+            refresh={refresh}
           />
         )}
       </Modal>
@@ -428,7 +540,7 @@ export function ResultsPage({ data, api, refresh, query }) {
   );
 }
 
-function StudentAnswersView({ result, exam }) {
+function StudentAnswersView({ result, exam, api, refresh }) {
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(1);
   const imgContainerRef = useRef(null);
@@ -463,6 +575,20 @@ function StudentAnswersView({ result, exam }) {
 
   const pageSize = 10;
   if (!exam) return null;
+
+  const handleFlag = async (id, flagged) => {
+    try {
+      await api.update("results", id, { flagged });
+      await refresh("อัปเดตสถานะการตรวจสอบแล้ว");
+    } catch (e) {
+      console.error(e);
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        e.message || "ไม่สามารถอัปเดตข้อมูลได้",
+        "error",
+      );
+    }
+  };
 
   const questionsCount = Number(exam.questions || result.totalQuestions || 0);
   const rows = Array.from({ length: questionsCount }, (_, i) => {
@@ -566,17 +692,45 @@ function StudentAnswersView({ result, exam }) {
         </div>
       </div>
 
-      {result.flagged && (
-        <div className="bg-amber-100/50 text-amber-800 rounded-lg p-4 text-base flex flex-col gap-1.5 border border-amber-200/50">
-          <div className="flex items-center gap-2 font-bold">
-            <Icon name="fa-triangle-exclamation" className="text-lg" />
+      {result.flagged ? (
+        <div className="bg-amber-50 text-amber-900 rounded-lg p-4 text-base flex flex-col gap-2 border border-amber-200">
+          <div className="flex items-center gap-2 font-bold text-amber-800">
+            <Icon
+              name="fa-triangle-exclamation"
+              className="text-lg text-amber-600"
+            />
             <span>รอตรวจสอบความถูกต้อง</span>
           </div>
-          <ul className="list-disc list-inside pl-1 text-amber-700/90 text-sm space-y-0.5 font-medium">
+          <ul className="list-disc list-inside pl-1 text-amber-700 text-sm space-y-1 font-medium">
             {flaggedReasons.map((reason, idx) => (
               <li key={idx}>{reason}</li>
             ))}
           </ul>
+
+          <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-amber-200/60">
+            <PrimaryButton
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              onClick={() => handleFlag(result.id, false)}
+            >
+              <Icon name="fa-check" /> ยืนยันว่าตรวจสอบแล้ว
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between bg-emerald-50 text-emerald-800 rounded-lg p-3.5 px-4 text-sm border border-emerald-200">
+          <div className="flex items-center gap-2 font-semibold">
+            <Icon
+              name="fa-circle-check"
+              className="text-emerald-600 text-base"
+            />
+            <span>สถานะ: ตรวจสอบสมบูรณ์แล้ว</span>
+          </div>
+          <GhostButton
+            className="text-xs text-slate-600 hover:text-amber-700 border-slate-200"
+            onClick={() => handleFlag(result.id, true)}
+          >
+            <Icon name="fa-flag" /> เปลี่ยนเป็นรอตรวจสอบ
+          </GhostButton>
         </div>
       )}
 

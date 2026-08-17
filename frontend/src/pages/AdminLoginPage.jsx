@@ -12,7 +12,11 @@ import { Loader } from "../components/Loader.jsx";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-export default function AdminLoginPage({ setSession, writeAnonymousLog }) {
+export default function AdminLoginPage({
+  setSession,
+  writeAnonymousLog,
+  navigate,
+}) {
   const [loginForm, setLoginForm] = useState({
     aname: "",
     apassword: "",
@@ -146,6 +150,18 @@ export default function AdminLoginPage({ setSession, writeAnonymousLog }) {
               <span>เข้าสู่ระบบ</span>
             </button>
           </form>
+
+          {navigate && (
+            <div className="mt-6 pt-4 border-t border-slate-700/60 text-center">
+              <button
+                type="button"
+                onClick={() => navigate("login")}
+                className="text-xs font-bold text-slate-400 hover:text-blue-400 transition-colors inline-flex items-center gap-2"
+              >
+                <Icon name="fa-arrow-left" /> กลับสู่หน้าเข้าสู่ระบบสำหรับผู้ใช้ทั่วไป
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

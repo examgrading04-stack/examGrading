@@ -61,6 +61,7 @@ class _SectionsScreenState extends State<SectionsScreen> {
   void _showSectionDialog([SectionModel? section]) {
     final isEdit = section != null;
     final secController = TextEditingController(text: section?.sec);
+    final countController = TextEditingController(text: "1");
 
     showDialog(
       context: context,
@@ -106,11 +107,28 @@ class _SectionsScreenState extends State<SectionsScreen> {
                   ],
                 ),
                 const SizedBox(height: 28),
-                _buildPopupField(
-                  'รหัสกลุ่มเรียน (Sec)',
-                  secController,
-                  FontAwesomeIcons.users,
-                ),
+                if (isEdit) ...[
+                  _buildPopupField(
+                    'กลุ่มเรียน (Section)',
+                    secController,
+                    FontAwesomeIcons.users,
+                  ),
+                ] else ...[
+                  _buildPopupField(
+                    'จำนวนกลุ่มเรียนที่ต้องการเพิ่ม',
+                    countController,
+                    FontAwesomeIcons.users,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'ระบบจะสร้างหมายเลขกลุ่มเรียนถัดไปให้อัตโนมัติ (เช่น กลุ่ม 1, 2, 3...)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 Row(
                   children: [
@@ -142,32 +160,73 @@ class _SectionsScreenState extends State<SectionsScreen> {
                         ),
                         child: ElevatedButton(
                           onPressed: () async {
-                            if (secController.text.trim().isEmpty) {
-                              QuickAlert.show(
-                                context: context,
-                                type: QuickAlertType.warning,
-                                text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-                                confirmBtnColor: AppColors.primary,
-                              );
-                              return;
-                            }
-
-                            final data = {'sec': secController.text.trim()};
-
                             try {
                               if (isEdit) {
-                                await ApiService.instance.updateDoc(
+                                if (secController.text.trim().isEmpty) {
+                                  QuickAlert.show(
+                                    context: context,
+                                    type: QuickAlertType.warning,
+                                    text: 'กรุณากรอกรหัสกลุ่มเรียน',
+                                    confirmBtnColor: AppColors.primary,
+                                  );
+                                  return;
+                                }
+                                await ApiService.instance.setNestedDoc(
                                   _uid,
+                                  'subjects',
+                                  widget.subject.id,
                                   'sections',
                                   section.id,
-                                  data,
+                                  {
+                                    'subject': widget.subject.id,
+                                    'sec': secController.text.trim(),
+                                    'created_at': DateTime.now()
+                                        .toIso8601String(),
+                                  },
                                 );
                               } else {
-                                await ApiService.instance.addDoc(
-                                  _uid,
-                                  'sections',
-                                  {...data, 'subject_id': widget.subject.id},
-                                );
+                                final count =
+                                    int.tryParse(countController.text.trim()) ??
+                                    1;
+                                if (count < 1) {
+                                  QuickAlert.show(
+                                    context: context,
+                                    type: QuickAlertType.warning,
+                                    text:
+                                        'กรุณาระบุจำนวนกลุ่มเรียนที่ต้องการเพิ่มเป็นตัวเลขอย่างน้อย 1',
+                                    confirmBtnColor: AppColors.primary,
+                                  );
+                                  return;
+                                }
+                                final existingNums = _sections
+                                    .map((s) => int.tryParse(s.sec))
+                                    .whereType<int>()
+                                    .toList();
+                                final maxNum = existingNums.isNotEmpty
+                                    ? existingNums.reduce(
+                                        (a, b) => a > b ? a : b,
+                                      )
+                                    : 0;
+
+                                for (int i = 1; i <= count; i++) {
+                                  final secNum = maxNum + i;
+                                  final secStr = secNum.toString();
+                                  final secId = '${widget.subject.id}_$secStr';
+                                  await ApiService.instance.setNestedDoc(
+                                    _uid,
+                                    'subjects',
+                                    widget.subject.id,
+                                    'sections',
+                                    secId,
+                                    {
+                                      'id': secId,
+                                      'subject': widget.subject.id,
+                                      'sec': secStr,
+                                      'created_at': DateTime.now()
+                                          .toIso8601String(),
+                                    },
+                                  );
+                                }
                               }
                               await _loadSections();
                               if (!mounted || !context.mounted) return;
@@ -197,9 +256,9 @@ class _SectionsScreenState extends State<SectionsScreen> {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text(
-                            'บันทึก',
-                            style: TextStyle(
+                          child: Text(
+                            isEdit ? 'บันทึก' : 'สร้างกลุ่มเรียน',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -260,10 +319,12 @@ class _SectionsScreenState extends State<SectionsScreen> {
   Widget _buildPopupField(
     String label,
     TextEditingController controller,
-    IconData icon,
-  ) {
+    IconData icon, {
+    TextInputType? keyboardType,
+  }) {
     return TextField(
       controller: controller,
+      keyboardType: keyboardType,
       style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,

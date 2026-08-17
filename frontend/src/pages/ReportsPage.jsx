@@ -9,6 +9,190 @@ import {
   StatCard,
 } from "../ui.jsx";
 
+function getCorrectAnswer(exam, question) {
+  if (!exam || !exam.answerKey) return "-";
+
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return "-";
+    }
+  }
+  if (typeof ak !== "object" || ak === null) return "-";
+
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].answer !== undefined
+  ) {
+    return String(ak[question].answer);
+  }
+  if (typeof ak[question] === "string" || typeof ak[question] === "number") {
+    return String(ak[question]);
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (
+        typeof ak[setKey][question] === "string" ||
+        typeof ak[setKey][question] === "number"
+      )
+        return String(ak[setKey][question]);
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].answer !== undefined
+      ) {
+        return String(ak[setKey][question].answer);
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
+  );
+  if (firstSet) {
+    if (
+      typeof firstSet[question] === "string" ||
+      typeof firstSet[question] === "number"
+    )
+      return String(firstSet[question]);
+    if (
+      firstSet[question] &&
+      typeof firstSet[question] === "object" &&
+      firstSet[question].answer !== undefined
+    ) {
+      return String(firstSet[question].answer);
+    }
+  }
+  return "-";
+}
+
+function getQuestionScore(exam, question) {
+  if (!exam || !exam.answerKey) return 1.0;
+
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return 1.0;
+    }
+  }
+  if (typeof ak !== "object" || ak === null) return 1.0;
+
+  if (
+    ak[question] &&
+    typeof ak[question] === "object" &&
+    ak[question].score !== undefined
+  ) {
+    return Number(ak[question].score) || 1.0;
+  }
+
+  for (const setKey of ["0", "1", "A", "B", ""]) {
+    if (ak[setKey] && typeof ak[setKey] === "object") {
+      if (
+        ak[setKey][question] &&
+        typeof ak[setKey][question] === "object" &&
+        ak[setKey][question].score !== undefined
+      ) {
+        return Number(ak[setKey][question].score) || 1.0;
+      }
+    }
+  }
+
+  const firstSet = Object.values(ak).find(
+    (v) =>
+      typeof v === "object" &&
+      v !== null &&
+      Object.keys(v).some((k) => !isNaN(Number(k))),
+  );
+  if (
+    firstSet &&
+    firstSet[question] &&
+    typeof firstSet[question] === "object" &&
+    firstSet[question].score !== undefined
+  ) {
+    return Number(firstSet[question].score) || 1.0;
+  }
+  return 1.0;
+}
+
+function getExamTotalScore(exam) {
+  if (!exam || !exam.answerKey) return Number(exam?.questions || 0);
+
+  let ak = exam.answerKey;
+  if (typeof ak === "string") {
+    try {
+      ak = JSON.parse(ak);
+    } catch (e) {
+      return Number(exam?.questions || 0);
+    }
+  }
+  if (typeof ak !== "object" || ak === null)
+    return Number(exam?.questions || 0);
+
+  let totalScore = 0;
+  let hasValidScore = false;
+
+  for (let i = 1; i <= Number(exam.questions || 0); i++) {
+    const qStr = String(i);
+    let qScore = 1.0;
+
+    if (
+      ak[qStr] &&
+      typeof ak[qStr] === "object" &&
+      ak[qStr].score !== undefined
+    ) {
+      qScore = Number(ak[qStr].score) || 1.0;
+      hasValidScore = true;
+    } else {
+      let foundNested = false;
+      for (const setKey of ["0", "1", "A", "B", ""]) {
+        if (ak[setKey] && typeof ak[setKey] === "object") {
+          if (
+            ak[setKey][qStr] &&
+            typeof ak[setKey][qStr] === "object" &&
+            ak[setKey][qStr].score !== undefined
+          ) {
+            qScore = Number(ak[setKey][qStr].score) || 1.0;
+            hasValidScore = true;
+            foundNested = true;
+            break;
+          }
+        }
+      }
+      if (!foundNested) {
+        const firstSet = Object.values(ak).find(
+          (v) =>
+            typeof v === "object" &&
+            v !== null &&
+            Object.keys(v).some((k) => !isNaN(Number(k))),
+        );
+        if (
+          firstSet &&
+          firstSet[qStr] &&
+          typeof firstSet[qStr] === "object" &&
+          firstSet[qStr].score !== undefined
+        ) {
+          qScore = Number(firstSet[qStr].score) || 1.0;
+          hasValidScore = true;
+        }
+      }
+    }
+    totalScore += qScore;
+  }
+
+  if (!hasValidScore && Object.keys(ak).length === 0)
+    return Number(exam?.questions || 0);
+  return totalScore;
+}
+
 export function ReportsPage({ data }) {
   const [selectedSubject, setSelectedSubject] = useState("");
 
@@ -27,7 +211,37 @@ export function ReportsPage({ data }) {
       : exam.subject || "ไม่ระบุวิชา";
     const results = data.results.filter((result) => result.examId === exam.id);
     const scores = results
-      .map((r) => Number(r.score || 0))
+      .map((row) => {
+        let dynamicScore = row.score || 0;
+        const questionsCount = Number(
+          exam?.questions || row.totalQuestions || 0,
+        );
+
+        if (exam && (row.answers || row.itemResults)) {
+          let calculatedScore = 0;
+          for (let i = 1; i <= questionsCount; i++) {
+            const qStr = String(i);
+            const correctAns = getCorrectAnswer(exam, qStr);
+            const qScore = getQuestionScore(exam, qStr);
+
+            if (row.answers) {
+              if (row.answers[qStr] === correctAns && correctAns !== "-") {
+                calculatedScore += qScore;
+              } else if (row.total && i > Number(row.total)) {
+                calculatedScore += qScore;
+              }
+            } else if (row.itemResults) {
+              if (row.itemResults[qStr] === true) {
+                calculatedScore += qScore;
+              } else if (row.total && i > Number(row.total)) {
+                calculatedScore += qScore;
+              }
+            }
+          }
+          dynamicScore = calculatedScore;
+        }
+        return Number(dynamicScore);
+      })
       .sort((a, b) => a - b);
 
     const average = scores.length
@@ -43,17 +257,25 @@ export function ReportsPage({ data }) {
           : (scores[mid - 1] + scores[mid]) / 2;
     }
 
-    let mode = 0;
+    let mode = "-";
     if (scores.length > 0) {
       const counts = {};
       let maxCount = 0;
+      let modes = [];
       scores.forEach((s) => {
         counts[s] = (counts[s] || 0) + 1;
         if (counts[s] > maxCount) {
           maxCount = counts[s];
-          mode = s;
+          modes = [s];
+        } else if (counts[s] === maxCount) {
+          if (!modes.includes(s)) modes.push(s);
         }
       });
+      const uniqueCounts = Object.values(counts);
+      mode =
+        maxCount <= 1 || uniqueCounts.every((c) => c === maxCount)
+          ? "ไม่มี"
+          : modes.join(", ");
     }
 
     const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
@@ -76,6 +298,7 @@ export function ReportsPage({ data }) {
       mode,
       maxScore,
       minScore,
+      totalMaxScore: getExamTotalScore(exam),
     };
   });
 
@@ -89,7 +312,7 @@ export function ReportsPage({ data }) {
     }
   });
   const availableSubjectsList = Array.from(availableSubjectsMap.entries()).map(
-    ([key, name]) => ({ key, name })
+    ([key, name]) => ({ key, name }),
   );
 
   const reportRows = selectedSubject
@@ -118,7 +341,7 @@ export function ReportsPage({ data }) {
       รายวิชา: row.subjectName,
       กลุ่มเรียน: row.sectionName,
       จำนวนผู้สอบ: row.participantCount,
-      คะแนนเต็ม: row.questions || 0,
+      คะแนนเต็ม: row.totalMaxScore,
       คะแนนเฉลี่ย: row.average.toFixed(2),
       มัธยฐาน: row.median.toFixed(2),
       ฐานนิยม: row.mode,
@@ -262,7 +485,7 @@ export function ReportsPage({ data }) {
               className: "text-center",
               render: (row) => (
                 <span className="font-bold text-blue-600">
-                  {row.questions || "-"}
+                  {row.totalMaxScore.toString().replace(/\.0$/, "")}
                 </span>
               ),
             },

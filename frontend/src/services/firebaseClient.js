@@ -401,9 +401,7 @@ class MockBatch {
     this.deletes.push(docRef);
   }
   async commit() {
-    for (const ref of this.deletes) {
-      await ref.delete();
-    }
+    await Promise.all(this.deletes.map((ref) => ref.delete()));
   }
 }
 

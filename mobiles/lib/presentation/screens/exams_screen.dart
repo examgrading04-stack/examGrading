@@ -11,6 +11,7 @@ import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 import 'package:exam_grading/presentation/screens/answer_sheets_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/data/models/student_model.dart';
+import 'package:exam_grading/data/models/section_model.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({super.key});
@@ -23,6 +24,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
   static const int _pageSize = 5;
   int _currentPage = 1;
   List<SubjectModel> _subjects = [];
+  List<SectionModel> _sections = [];
   List<ExamModel> _exams = [];
   List<StudentModel> _students = [];
   String? _selectedFilterSubject;
@@ -41,6 +43,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
         _uid,
         'subjects',
       );
+      final sectionDocs = await ApiService.instance.getCollection(
+        _uid,
+        'sections',
+      );
       final examDocs = await ApiService.instance.getCollection(_uid, 'exams');
       final studentDocs = await ApiService.instance.getCollection(
         _uid,
@@ -50,6 +56,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
         setState(() {
           _subjects = subjectDocs
               .map((d) => SubjectModel.fromMap(d['code']?.toString() ?? '', d))
+              .toList();
+          _sections = sectionDocs
+              .map((d) => SectionModel.fromMap(d['id']?.toString() ?? '', d))
               .toList();
           _exams = examDocs
               .map(
@@ -325,16 +334,35 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                   subjectCode,
                                   examSection,
                                 );
+                          final questionsCount =
+                              int.tryParse(questionsController.text) ?? 100;
+                          String finalSheetType = selectedSheetType ?? '30-A-E';
+                          int templateSize = 100;
+                          if (finalSheetType.startsWith('30')) {
+                            templateSize = 30;
+                          } else if (finalSheetType.startsWith('50')) {
+                            templateSize = 50;
+                          }
+                          
+                          if (questionsCount > templateSize) {
+                            if (questionsCount <= 30) {
+                              finalSheetType = '30-A-E';
+                            } else if (questionsCount <= 50) {
+                              finalSheetType = '50-A-E';
+                            } else {
+                              finalSheetType = '100-A-E';
+                            }
+                          }
+
                           final data = {
                             'name': nameController.text.trim(),
                             'subject': subjectCode,
                             'date': dateController.text,
                             'section': examSection,
-                            'questions':
-                                int.tryParse(questionsController.text) ?? 100,
+                            'questions': questionsCount,
                             'options': 5,
                             'sets': 1,
-                            'sheetType': selectedSheetType,
+                            'sheetType': finalSheetType,
                             'studentsSnapshot': studentsSnapshot,
                           };
                           if (isEdit) {
@@ -368,10 +396,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               subject: subjectCode,
                               date: dateController.text,
                               section: examSection,
-                              questions:
-                                  int.tryParse(questionsController.text) ?? 100,
+                              questions: questionsCount,
                               options: 5,
                               sets: 1,
+                              sheetType: finalSheetType,
                               answerKey: {},
                               studentsSnapshot: studentsSnapshot,
                             );
@@ -568,10 +596,16 @@ class _ExamsScreenState extends State<ExamsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: [
-        const DropdownMenuEntry<String>(value: '', label: 'ทุกกลุ่มเรียน'),
-        ...sections.map(
-          (s) => DropdownMenuEntry<String>(value: s, label: 'กลุ่มเรียน $s'),
-        ),
+        const DropdownMenuEntry<String>(value: '', label: 'กรุณาเลือกกลุ่มเรียน'),
+        ...sections.map((s) {
+          final sectionName = _sections
+              .firstWhere(
+                (sec) => sec.id == s,
+                orElse: () => SectionModel(id: s, sec: s),
+              )
+              .sec;
+          return DropdownMenuEntry<String>(value: s, label: sectionName);
+        }),
       ],
     );
   }
@@ -700,85 +734,90 @@ class _ExamsScreenState extends State<ExamsScreen> {
           child: const Icon(Icons.add, color: Colors.white),
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 60,
-            floating: false,
-            pinned: true,
-            backgroundColor: AppColors.surface,
-            iconTheme: IconThemeData(color: AppColors.textPrimary),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'จัดการกระดาษคำตอบ',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              background: Container(color: AppColors.surface),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: _buildFilterDropdown(),
-            ),
-          ),
-          if (_isLoading)
-            const SliverToBoxAdapter(child: ListSkeletonLoader())
-          else if (_exams.isEmpty ||
-              (_selectedFilterSubject != null &&
-                  !_exams.any((e) => e.subject == _selectedFilterSubject)))
-            SliverFillRemaining(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: const BoxDecoration(
-                          color: AppColors.warningSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            FontAwesomeIcons.fileLines,
-                            size: 24,
-                            color: AppColors.warning,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'ยังไม่มีข้อมูลกระดาษคำตอบ',
-                        style: TextStyle(
-                          color: AppColors.warningDark,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: _fetchData,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 60,
+              floating: false,
+              pinned: true,
+              backgroundColor: AppColors.surface,
+              iconTheme: IconThemeData(color: AppColors.textPrimary),
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'จัดการกระดาษคำตอบ',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
+                background: Container(color: AppColors.surface),
               ),
-            )
-          else
-            SliverToBoxAdapter(child: _buildExamsList()),
-        ],
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                child: _buildFilterDropdown(),
+              ),
+            ),
+            if (_isLoading)
+              const SliverToBoxAdapter(child: ListSkeletonLoader())
+            else if (_exams.isEmpty ||
+                (_selectedFilterSubject != null &&
+                    !_exams.any((e) => e.subject == _selectedFilterSubject)))
+              SliverFillRemaining(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            color: AppColors.warningSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.fileLines,
+                              size: 24,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'ยังไม่มีข้อมูลกระดาษคำตอบ',
+                          style: TextStyle(
+                            color: AppColors.warningDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'แตะปุ่มเครื่องหมาย + ด้านล่างเพื่อเริ่มสร้างกระดาษคำตอบ',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverToBoxAdapter(child: _buildExamsList()),
+          ],
+        ),
       ),
     );
   }

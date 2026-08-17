@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import { StatCard, pct, useChart, formatThaiDate } from "../ui.jsx";
 
-export function Dashboard({ data }) {
+export function Dashboard({ data, navigate }) {
   const canvasRef = useRef(null);
 
   const hasData = data.results.length > 0;
@@ -19,13 +19,13 @@ export function Dashboard({ data }) {
       if (percent >= 50) passed++;
       if (result.flagged) flagged++;
 
-      const key = exam.subject || "ไม่ระบุวิชา";
+      const key = exam.name || "ไม่ระบุการสอบ";
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(percent);
     });
 
-    const avg = Object.entries(grouped).map(([subject, scores]) => ({
-      subject,
+    const avg = Object.entries(grouped).map(([name, scores]) => ({
+      name,
       average: scores.reduce((sum, score) => sum + score, 0) / scores.length,
     }));
 
@@ -50,7 +50,7 @@ export function Dashboard({ data }) {
       type: "bar",
       data: {
         labels: averages.length
-          ? averages.map((item) => item.subject)
+          ? averages.map((item) => item.name)
           : ["ยังไม่มีข้อมูล"],
         datasets: [
           {
@@ -104,12 +104,12 @@ export function Dashboard({ data }) {
           ดูเหมือนว่าคุณยังไม่มีข้อมูลรายวิชาในระบบ
           ลองเพิ่มรายวิชาและเริ่มต้นสร้างการสอบของคุณได้เลย
         </p>
-        <a
-          href="/subjects"
+        <button
+          onClick={() => navigate("subjects")}
           className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-sm hover:bg-blue-700 transition-colors"
         >
           <i className="fa-solid fa-plus mr-2"></i> สร้างรายวิชาแรก
-        </a>
+        </button>
       </div>
     );
   }
@@ -156,7 +156,7 @@ export function Dashboard({ data }) {
         <div className="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[220px] sm:min-h-[300px] lg:min-h-0">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-bold text-slate-800">
-              คะแนนเฉลี่ยรายวิชา (%)
+              คะแนนเฉลี่ยผลสอบ (%)
             </h3>
           </div>
           <div className="relative flex-1 min-h-0">
@@ -175,12 +175,12 @@ export function Dashboard({ data }) {
         <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-0">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-bold text-slate-800">สแกนล่าสุด</h3>
-            <a
-              href="/results"
+            <button
+              onClick={() => navigate("results")}
               className="text-sm text-blue-600 hover:text-blue-700 font-semibold"
             >
               ดูทั้งหมด
-            </a>
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto pr-1">

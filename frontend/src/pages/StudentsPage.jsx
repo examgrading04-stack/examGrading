@@ -107,8 +107,14 @@ export function StudentsPage({ data, api, refresh }) {
       didOpen: () => Swal().showLoading(),
     });
 
+    const idsToDelete = new Set();
+    for (const uniqueId of selectedStudents) {
+      const student = data.students.find(s => `${s.id}_${s.subjectCode}` === uniqueId);
+      if (student) idsToDelete.add(student.id);
+    }
+
     await Promise.all(
-      Array.from(selectedStudents).map((id) => api.remove("students", id)),
+      Array.from(idsToDelete).map((id) => api.remove("students", id)),
     );
 
     setSelectedStudents(new Set());
@@ -191,6 +197,16 @@ export function StudentsPage({ data, api, refresh }) {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rows = window.XLSX.utils.sheet_to_json(sheet);
 
+      if (!importSubject || !importClass) {
+        setIsImporting(false);
+        Swal().fire({
+          icon: "warning",
+          title: "ข้อมูลไม่ครบถ้วน",
+          text: "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้าไฟล์ Excel",
+        });
+        return;
+      }
+
       Swal().fire({
         title: "กำลังนำเข้าข้อมูล...",
         allowOutsideClick: false,
@@ -199,37 +215,31 @@ export function StudentsPage({ data, api, refresh }) {
 
       let count = 0;
       let skipped = 0;
+
       for (const row of rows) {
         const code =
-          row["รหัสผู้เรียน"] || row.ID || row.code || row["เลขประจำตัว"];
+          row["รหัสผู้เรียน"] ||
+          row["รหัสนักศึกษา"] ||
+          row.ID ||
+          row.code ||
+          row["เลขประจำตัว"];
         const name = row["ชื่อ-นามสกุล"] || row["ชื่อ"] || row.Name || row.name;
 
         if (code && name) {
-          const section_id = resolveClassFromRow(row);
+          const subjectCode = importSubject;
+          const sectionId = importClass;
 
-          const rawSubject = getRowValue(row, [
-            "subject",
-            "Subject",
-            "subjectCode",
-            "subject_code",
-            "วิชา",
-            "รหัสวิชา",
-          ]);
-          const subject_code =
-            resolveSubjectId(rawSubject) || importSubject || "";
-
-          if (subject_code && section_id) {
-            const payload = {
-              id: String(code),
-              name: String(name),
-              section: section_id,
-              subjectCode: subject_code,
-            };
-            await api.set(`students/${payload.id}`, payload);
-            count += 1;
-          } else {
-            skipped += 1;
-          }
+          // บันทึกผู้เรียน
+          const payload = {
+            id: String(code),
+            name: String(name),
+            section: sectionId,
+            subjectCode: subjectCode,
+          };
+          await api.set(`students/${payload.id}`, payload);
+          count += 1;
+        } else {
+          skipped += 1;
         }
       }
 
@@ -237,13 +247,21 @@ export function StudentsPage({ data, api, refresh }) {
       setImportOpen(false);
       setImportSubject("");
       setImportClass("");
+
       if (skipped > 0) {
         await refresh(
-          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} คนเนื่องจากไม่มีข้อมูลวิชาหรือกลุ่มเรียน)`,
+          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} แถวที่ข้อมูลไม่สมบูรณ์หรือไม่ระบุวิชา)`,
         );
       } else {
-        await refresh(`นำเข้าผู้เรียน ${count} คนแล้ว`);
+        await refresh(`นำเข้าผู้เรียน ${count} คนเรียบร้อยแล้ว`);
       }
+    } catch (err) {
+      console.error(err);
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถนำเข้าไฟล์ Excel ได้",
+        "error",
+      );
     } finally {
       setIsImporting(false);
     }
@@ -367,10 +385,10 @@ export function StudentsPage({ data, api, refresh }) {
               render: (row) => (
                 <input
                   type="checkbox"
-                  checked={selectedStudents.has(row.id)}
+                  checked={selectedStudents.has(`${row.id}_${row.subjectCode}`)}
                   onChange={(e) => {
                     const currentIndex = filteredStudents.findIndex(
-                      (x) => x.id === row.id,
+                      (x) => x.id === row.id && x.subjectCode === row.subjectCode,
                     );
                     const next = new Set(selectedStudents);
 
@@ -404,21 +422,23 @@ export function StudentsPage({ data, api, refresh }) {
 
                       for (let i = oldStart; i <= oldEnd; i++) {
                         if (i < newStart || i > newEnd) {
-                          next.delete(filteredStudents[i].id);
+                          next.delete(`${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`);
                         }
                       }
 
                       const targetState = selectedStudents.has(
-                        filteredStudents[lastSelectedStudentIndex].id,
+                        `${filteredStudents[lastSelectedStudentIndex].id}_${filteredStudents[lastSelectedStudentIndex].subjectCode}`
                       );
                       for (let i = newStart; i <= newEnd; i++) {
-                        if (targetState) next.add(filteredStudents[i].id);
-                        else next.delete(filteredStudents[i].id);
+                        const uniqueId = `${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`;
+                        if (targetState) next.add(uniqueId);
+                        else next.delete(uniqueId);
                       }
                       setLastShiftStudentIndex(currentIndex);
                     } else {
-                      if (e.target.checked) next.add(row.id);
-                      else next.delete(row.id);
+                      const uniqueId = `${row.id}_${row.subjectCode}`;
+                      if (e.target.checked) next.add(uniqueId);
+                      else next.delete(uniqueId);
                       setLastSelectedStudentIndex(currentIndex);
                       setLastShiftStudentIndex(currentIndex);
                     }
@@ -588,7 +608,7 @@ export function StudentsPage({ data, api, refresh }) {
                   นำเข้า Excel
                 </h3>
                 <p className="text-sm text-zinc-500 mt-1">
-                  รองรับการนำเข้าหลายวิชา/หลายกลุ่มเรียนในไฟล์เดียว
+                  นำเข้ารายชื่อผู้เรียนเข้าสู่กลุ่มเรียนที่เลือก
                 </p>
               </div>
               <GhostButton
@@ -610,7 +630,7 @@ export function StudentsPage({ data, api, refresh }) {
                   setImportClass("");
                 }}
               >
-                <option value="">กรุณาเลือกวิชา</option>
+                <option value="">กรุณาเลือกรายวิชา</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.code} - {subject.name}
@@ -626,9 +646,9 @@ export function StudentsPage({ data, api, refresh }) {
                 onChange={(event) => setImportClass(event.target.value)}
               >
                 <option value="">
-                  {!importSubject
-                    ? "กรุณาเลือกวิชาก่อน"
-                    : "กรุณาเลือกกลุ่มเรียน"}
+                  {importSubject
+                    ? "กรุณาเลือกกลุ่มเรียน"
+                    : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
                 </option>
                 {importSections.map((section) => (
                   <option key={section.id} value={section.id}>
@@ -638,15 +658,17 @@ export function StudentsPage({ data, api, refresh }) {
               </Select>
             </Field>
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-              <div className="font-bold text-zinc-700 mb-2">รูปแบบไฟล์</div>
-              <div>รหัสผู้เรียน | ชื่อ-นามสกุล</div>
-              <div className="mt-1 text-zinc-500">
-                รองรับคอลัมน์ภาษาอังกฤษ: code | name
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-2">
+              <div className="font-bold text-zinc-700">
+                รูปแบบคอลัมน์ในไฟล์ Excel
               </div>
-              <div className="mt-1 text-zinc-500">
-                ถ้าต้องการกำหนดหลายวิชา/หลายกลุ่มในไฟล์เดียว เพิ่มคอลัมน์:
-                subject (หรือ subjectCode/วิชา/รหัสวิชา) และ section (หรือ sec)
+              <div className="space-y-1">
+                <div>
+                  • <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)
+                </div>
+                <div>
+                  • <b>ชื่อ-นามสกุล</b> (ชื่อ / name)
+                </div>
               </div>
             </div>
 

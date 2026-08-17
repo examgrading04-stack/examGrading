@@ -27,7 +27,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
   bool _isCustomScore = false;
   final TextEditingController _globalScoreController = TextEditingController(
-    text: "1",
+    text: "0.5",
   );
 
   int get _sheetTypeCount {
@@ -59,6 +59,14 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (r != null && r is Map) {
           rawAnswerKey = _parseRawAnswerKeyDynamic(r);
         }
+
+        if (examData['isCustomScore'] != null) {
+          _isCustomScore = examData['isCustomScore'] == true;
+        }
+
+        if (examData['defaultScore'] != null) {
+          _globalScoreController.text = examData['defaultScore'].toString();
+        }
       }
 
       final numSets = widget.exam.sets > 0 ? widget.exam.sets : 1;
@@ -79,12 +87,12 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
           if (v is Map) {
             tempAnswerKeys[sId]![q] = v['answer']?.toString() ?? '';
             final scoreVal =
-                double.tryParse(v['score']?.toString() ?? '1') ?? 1.0;
+                double.tryParse(v['score']?.toString() ?? '0.5') ?? 0.5;
             tempScores[sId]![q] = scoreVal;
-            if (scoreVal != 1.0) hasCustomScore = true;
+            if (scoreVal != 0.5) hasCustomScore = true;
           } else {
             tempAnswerKeys[sId]![q] = v.toString();
-            tempScores[sId]![q] = 1.0;
+            tempScores[sId]![q] = 0.5;
           }
         }
       }
@@ -92,7 +100,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       setState(() {
         _answerKeys = tempAnswerKeys;
         _scores = tempScores;
-        _isCustomScore = hasCustomScore;
+        _isCustomScore = _isCustomScore || hasCustomScore;
         _isLoading = false;
       });
     } catch (e) {
@@ -103,8 +111,11 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
   Map<String, Map<String, dynamic>> _parseRawAnswerKeyDynamic(dynamic raw) {
     if (raw is! Map) return {};
-    if (raw.isNotEmpty && raw.values.first is! Map) {
-      return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
+    if (raw.isNotEmpty) {
+      final firstVal = raw.values.first;
+      if (firstVal is! Map || firstVal.containsKey('answer')) {
+        return {'0': raw.map((k, v) => MapEntry(k.toString(), v))};
+      }
     }
     return raw.map((setIndex, answers) {
       final answerMap = answers is Map ? answers : <dynamic, dynamic>{};
@@ -118,7 +129,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   }
 
   void _syncGlobalScore() {
-    final gScore = double.tryParse(_globalScoreController.text) ?? 1.0;
+    final gScore = double.tryParse(_globalScoreController.text) ?? 0.5;
     setState(() {
       for (var sId in _scores.keys) {
         for (var qNum in _scores[sId]!.keys) {
@@ -161,7 +172,9 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         if (ans == null || ans.isEmpty) continue;
 
         if (_isCustomScore) {
-          final s = _scores[sId]?[qNum] ?? 1.0;
+          final s =
+              _scores[sId]?[qNum] ??
+              (double.tryParse(_globalScoreController.text) ?? 0.5);
           payload[sId]![qNum] = {'answer': ans, 'score': s};
         } else {
           payload[sId]![qNum] = ans;
@@ -172,6 +185,8 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     try {
       await ApiService.instance.updateDoc(_uid, 'exams', widget.exam.id, {
         'answerKey': payload,
+        'isCustomScore': _isCustomScore,
+        'defaultScore': double.tryParse(_globalScoreController.text) ?? 0.5,
       });
 
       if (!mounted) return;
@@ -336,7 +351,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
 
                 final score =
                     _scores[_currentSetIndex.toString()]?[qNum.toString()] ??
-                    (double.tryParse(_globalScoreController.text) ?? 1.0);
+                    (double.tryParse(_globalScoreController.text) ?? 0.5);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -477,7 +492,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                                                   double.tryParse(
                                                     _globalScoreController.text,
                                                   ) ??
-                                                  1.0;
+                                                  0.5;
                                             }
                                           });
                                         },

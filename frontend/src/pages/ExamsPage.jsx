@@ -79,8 +79,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   }, [sheetModal]);
 
   // Template label logic
-  function getTemplateInfo(q) {
-    const num = Number(q) || 0;
+  function getTemplateInfo(sheetType, questions) {
+    const typeStr = sheetType ? String(sheetType).replace("-A-E", "") : "";
+    const num = Number(typeStr) || Number(questions) || 0;
     if (num <= 30)
       return { label: "แบบ 30 ข้อ", color: "emerald", icon: "fa-file-lines" };
     if (num <= 50)
@@ -137,6 +138,17 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
 
   async function createExam(event) {
     event.preventDefault();
+
+    if (!form.subject) {
+      Swal().fire("แจ้งเตือน", "กรุณาเลือกวิชาก่อนสร้างกระดาษคำตอบ", "warning");
+      return;
+    }
+
+    if (!form.name || form.name.trim() === "") {
+      Swal().fire("แจ้งเตือน", "กรุณากรอกชื่อกระดาษคำตอบ", "warning");
+      return;
+    }
+
     const isEdit = !!form.id;
     Swal().fire({
       title: isEdit ? "กำลังแก้ไขกระดาษคำตอบ..." : "กำลังสร้างกระดาษคำตอบ...",
@@ -145,6 +157,13 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     });
     const subject = data.subjects.find((item) => item.id === form.subject);
     const questions = Number(form.questions);
+    let finalSheetType = Number(form.sheetType || 30);
+
+    if (questions > finalSheetType) {
+      if (questions <= 30) finalSheetType = 30;
+      else if (questions <= 50) finalSheetType = 50;
+      else finalSheetType = 100;
+    }
 
     const payload = {
       name: form.name,
@@ -152,7 +171,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       subjectName: subject?.name || "",
       section: form.section || "All Section",
       questions,
-      sheetType: Number(form.sheetType || 30),
+      sheetType: finalSheetType,
       answerKey: {},
     };
 
@@ -465,7 +484,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                                     (s) => String(s.id) === String(row.section),
                                   )?.sec || row.section,
                             questions: row.questions || 50,
-                            sheetType: String(row.sheetType || 30).replace(
+                            sheetType: String(row.sheetType || row.template_id || 30).replace(
                               "-A-E",
                               "",
                             ),
@@ -552,7 +571,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 onChange={(e) => setForm({ ...form, section: e.target.value })}
                 disabled={!form.subject}
               >
-                <option value="">ทุกกลุ่มเรียน</option>
+                <option value="">กรุณาเลือกกลุ่มเรียน</option>
                 {currentSections.map((s) => (
                   <option key={s.id} value={s.sec}>
                     {s.sec}
@@ -596,11 +615,11 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             </Field>
             {form.sheetType && (
               <div
-                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType).color]}`}
+                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType, form.questions).color]}`}
               >
-                <Icon name={getTemplateInfo(form.sheetType).icon} />
+                <Icon name={getTemplateInfo(form.sheetType, form.questions).icon} />
                 <span className="text-xs font-bold">
-                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType).label}
+                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType, form.questions).label}
                 </span>
               </div>
             )}
@@ -674,7 +693,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
-                  const info = getTemplateInfo(sheetModal.exam.questions);
+                  const info = getTemplateInfo(sheetModal.exam.sheetType || sheetModal.exam.template_id, sheetModal.exam.questions);
                   return (
                     <>
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
