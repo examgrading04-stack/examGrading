@@ -242,6 +242,12 @@ class SqlExamDetail(Base):
         ),
     )
 
+class SqlSystemSetting(Base):
+    __tablename__ = "system_settings"
+    key = Column("setting_key", String(100), primary_key=True)
+    value = Column("setting_value", Text, nullable=True)
+    updated_at = Column("updated_at", DateTime, default=datetime.now)
+
 def _get_model_class(collection: str):
     mapping = {
         "users":           SqlUser,
@@ -253,6 +259,7 @@ def _get_model_class(collection: str):
         "results":         SqlResult,
         "systemLogs":      SqlSystemLog,
         "student_enrollments": SqlStudentEnrollment,
+        "settings":        SqlSystemSetting,
     }
     return mapping.get(collection)
 
@@ -662,11 +669,11 @@ class MySQLAdapter(BaseDBAdapter):
                     query = query.filter(model_cls.email == doc_id)
             elif hasattr(model_cls, "logid"):
                 query = query.filter(model_cls.logid == doc_id)
+            elif hasattr(model_cls, "key"):
+                query = query.filter(model_cls.key == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
                 row = query.filter(model_cls.user_email == user_email).first()
-                if not row:
-                    row = query.first()
             else:
                 row = query.first()
             return self._to_dict(row) if row else None
@@ -706,11 +713,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.email == doc_id)
             elif hasattr(model_cls, "logid"):
                 query = query.filter(model_cls.logid == doc_id)
+            elif hasattr(model_cls, "key"):
+                query = query.filter(model_cls.key == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
                 row = query.filter(model_cls.user_email == user_email).first()
-                if not row:
-                    row = query.first()
             else:
                 row = query.first()
             valid_cols = {c.key for c in getattr(model_cls, "__mapper__").column_attrs}
@@ -808,6 +815,8 @@ class MySQLAdapter(BaseDBAdapter):
                     mapped_data["email"] = doc_id
                 elif hasattr(model_cls, "logid"):
                     mapped_data["logid"] = doc_id
+                elif hasattr(model_cls, "key"):
+                    mapped_data["key"] = doc_id
                     
                 if collection in ("users", "profiles"):
                     mapped_data["user_id"] = doc_id
@@ -912,7 +921,15 @@ class MySQLAdapter(BaseDBAdapter):
                 
                 row = model_cls(**cleaned_data)
                 session.add(row)
-                session.flush()
+                try:
+                    session.flush()
+                except Exception as e:
+                    session.rollback()
+                    if "Duplicate entry" in str(e) or "IntegrityError" in str(type(e)):
+                        from fastapi import HTTPException
+                        item_name = "รหัสวิชา" if collection == "subjects" else "รหัส"
+                        raise HTTPException(status_code=400, detail=f"{item_name}นี้มีอยู่ในระบบแล้ว (อาจถูกสร้างโดยผู้ใช้งานอื่น) กรุณาใช้รหัสอื่น")
+                    raise
                 
                 if collection == "exams" and "answerKey" in mapped_data:
                     raw_ak = mapped_data["answerKey"]

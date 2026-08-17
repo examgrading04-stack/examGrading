@@ -12,6 +12,7 @@ import {
 } from "../ui.jsx";
 import { Loader } from "../components/Loader.jsx";
 import AdminLoginPage from "./AdminLoginPage.jsx";
+import { AdminSettingsPage } from "./AdminSettingsPage.jsx";
 
 const BASE_URL = API_BASE_URL || "http://127.0.0.1:8000";
 const ADMIN_COLLECTIONS = ["Admin", "admins"];
@@ -132,7 +133,12 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
       const stored =
         localStorage.getItem("examAdminSession") ||
         sessionStorage.getItem("examAdminSession");
-      return stored ? JSON.parse(stored) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (!parsed.aid) return null; // Force logout for invalid sessions
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -201,9 +207,10 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action,
+          activity: action,
           displayName: session.aname,
           role: "Teacher",
+          userEmail: session.aid,
         }),
       });
     } catch (error) {
@@ -572,6 +579,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
           {[
             ["dashboard", "fa-chart-line", "แดชบอร์ด"],
             ["users", "fa-users-gear", "จัดการผู้ใช้งาน"],
+            ["settings", "fa-cogs", "ตั้งค่าระบบ"],
             ["logs", "fa-list-check", "ประวัติการใช้งาน"],
           ].map(([id, icon, label]) => (
             <button
@@ -634,6 +642,7 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 <h2 className="text-xl sm:text-2xl font-black text-slate-800 leading-tight">
                   {activePage === "dashboard" && "แดชบอร์ด"}
                   {activePage === "users" && "จัดการผู้ใช้งาน"}
+                  {activePage === "settings" && "ตั้งค่าระบบ"}
                   {activePage === "logs" && "ประวัติการใช้งาน"}
                 </h2>
               </div>
@@ -971,6 +980,10 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 )}
               </div>
             </div>
+          )}
+
+          {activePage === "settings" && (
+            <AdminSettingsPage user={{ role: "admin", email: session?.aid }} />
           )}
 
           {activePage === "logs" && (

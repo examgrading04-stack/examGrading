@@ -44,8 +44,8 @@ export default function AdminLoginPage({
 
       const admin = await res.json();
       const nextSession = {
-        aid: admin.user_id || admin.aid || admin.id,
-        aname: admin.username || admin.aname || admin.id,
+        aid: admin.username || admin.email,
+        aname: admin.displayName || admin.username || "Admin",
       };
 
       if (loginForm.remember) {
