@@ -27,8 +27,28 @@ export function StudentsPage({ data, api, refresh }) {
   const [lastShiftStudentIndex, setLastShiftStudentIndex] = useState(null);
   const fileRef = useRef(null);
 
+  function getSectionsForSubject(subjectIdOrCode) {
+    if (!subjectIdOrCode) return [];
+    const target = data.subjects.find(
+      (s) =>
+        String(s.id) === String(subjectIdOrCode) ||
+        String(s.code) === String(subjectIdOrCode),
+    );
+    const targetId = target ? String(target.id) : String(subjectIdOrCode);
+    const targetCode = target ? String(target.code) : String(subjectIdOrCode);
+
+    return data.sections.filter((s) => {
+      const subjStr = String(s.subject || "");
+      return (
+        subjStr === targetId ||
+        subjStr === targetCode ||
+        subjStr === String(subjectIdOrCode)
+      );
+    });
+  }
+
   const importSections = importSubject
-    ? data.sections.filter((section) => section.subject === importSubject)
+    ? getSectionsForSubject(importSubject)
     : data.sections;
 
   const subjectById = new Map(data.subjects.map((s) => [String(s.id), s]));
@@ -562,11 +582,15 @@ export function StudentsPage({ data, api, refresh }) {
               key: "section",
               label: "กลุ่มเรียน",
               className: "w-[100px] text-center",
-              render: (row) =>
-                data.sections.find((s) => String(s.id) === String(row.section))
-                  ?.sec ||
-                row.section ||
-                "ไม่ระบุ",
+              render: (row) => {
+                const sec = data.sections.find(
+                  (s) =>
+                    String(s.id) === String(row.section) ||
+                    String(s.sec) === String(row.section) ||
+                    String(s.realId) === String(row.section),
+                );
+                return sec ? sec.sec : row.section || "ไม่ระบุ";
+              },
             },
             {
               key: "actions",
@@ -673,13 +697,14 @@ export function StudentsPage({ data, api, refresh }) {
               {!form.subjectCode ? "กรุณาเลือกวิชาก่อน" : "ไม่ระบุ"}
             </option>
             {form.subjectCode &&
-              data.sections
-                .filter((s) => s.subject === form.subjectCode)
-                .map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.sec}
-                  </option>
-                ))}
+              getSectionsForSubject(form.subjectCode).map((section) => (
+                <option
+                  key={section.id || section.sec}
+                  value={section.id || section.sec}
+                >
+                  {section.sec}
+                </option>
+              ))}
           </Select>
         </Field>
         <PrimaryButton className="w-full">
