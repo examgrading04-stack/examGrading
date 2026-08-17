@@ -53,6 +53,32 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
 
   const currentSubject = data.subjects.find((s) => s.id === activeSubject);
 
+  async function createSectionsForSubject(subjectId, count = 1) {
+    const existingSections = (data.sections || []).filter(
+      (s) => s.subject === subjectId,
+    );
+    const existingNums = existingSections
+      .map((s) => parseInt(s.sec, 10))
+      .filter((n) => !isNaN(n));
+    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
+
+    const promises = [];
+    for (let i = 1; i <= count; i++) {
+      const secNum = maxNum + i;
+      const secStr = String(secNum);
+      const secId = `${subjectId}_${secStr}`;
+      promises.push(
+        api.set(`subjects/${subjectId}/sections/${secId}`, {
+          id: secId,
+          subject: subjectId,
+          sec: secStr,
+          created_at: new Date().toISOString(),
+        }),
+      );
+    }
+    await Promise.all(promises);
+  }
+
   async function saveSubject(event) {
     event.preventDefault();
 
@@ -102,15 +128,8 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       } else {
         await api.set(`subjects/${payload.code}`, payload);
 
-        // Automatically create a default section (group 1) for the new subject
-        const secStr = "1";
-        const secId = `${payload.code}_${secStr}`;
-        await api.set(`subjects/${payload.code}/sections/${secId}`, {
-          id: secId,
-          subject: payload.code,
-          sec: secStr,
-          created_at: new Date().toISOString(),
-        });
+        // สร้างกลุ่มเรียนที่ 1 อัตโนมัติด้วยฟังก์ชันสร้างกลุ่มเรียนมาตรฐานเดียวกัน
+        await createSectionsForSubject(payload.code, 1);
       }
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
@@ -148,6 +167,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
           didOpen: () => Swal().showLoading(),
         });
         await api.set(`subjects/${subjectId}/sections/${sectionForm.id}`, {
+          id: sectionForm.id,
           subject: subjectId,
           sec: sectionForm.sec,
           created_at: new Date().toISOString(),
@@ -169,30 +189,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
           didOpen: () => Swal().showLoading(),
         });
 
-        // ค้นหากลุ่มเรียนที่มีอยู่เดิมในรายวิชานี้เพื่อรันตัวเลขกลุ่มต่อ
-        const existingSections = data.sections.filter(
-          (s) => s.subject === subjectId,
-        );
-        const existingNums = existingSections
-          .map((s) => parseInt(s.sec, 10))
-          .filter((n) => !isNaN(n));
-        const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
-
-        const promises = [];
-        for (let i = 1; i <= count; i++) {
-          const secNum = maxNum + i;
-          const secStr = String(secNum);
-          const secId = `${subjectId}_${secStr}`;
-          promises.push(
-            api.set(`subjects/${subjectId}/sections/${secId}`, {
-              id: secId,
-              subject: subjectId,
-              sec: secStr,
-              created_at: new Date().toISOString(),
-            }),
-          );
-        }
-        await Promise.all(promises);
+        await createSectionsForSubject(subjectId, count);
       }
 
       setSectionForm(emptyForm(["id", "subject", "sec", "count"]));
