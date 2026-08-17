@@ -280,6 +280,7 @@ class MySQLAdapter(BaseDBAdapter):
                 for sql in [
                     "ALTER TABLE exams ADD COLUMN is_custom_score TINYINT(1) DEFAULT 0",
                     "ALTER TABLE exams ADD COLUMN default_score FLOAT DEFAULT 1.0",
+                    "ALTER TABLE exams ADD COLUMN exam_date VARCHAR(50) NULL",
                     "ALTER TABLE exams MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE results MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE student_enrollments DROP FOREIGN KEY student_enrollments_ibfk_2",
