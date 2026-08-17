@@ -53,7 +53,9 @@ export async function apiFetch(path, options, timeoutMs = 30000) {
     } catch (error) {
       clearTimeout(timer);
       if (error.name === "AbortError") {
-        lastError = new Error("การเชื่อมต่อ Backend หมดเวลา กรุณาลองใหม่อีกครั้ง");
+        lastError = new Error(
+          "การเชื่อมต่อ Backend หมดเวลา กรุณาลองใหม่อีกครั้ง",
+        );
       } else {
         lastError = error;
       }
