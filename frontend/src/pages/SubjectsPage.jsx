@@ -706,10 +706,9 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
             <Field label="ผู้สอน">
               <Input
                 value={subjectForm.teacher}
-                onChange={(e) =>
-                  setSubjectForm({ ...subjectForm, teacher: e.target.value })
-                }
-                placeholder="เช่น ผศ.ดร.สมชาย"
+                placeholder="ชื่อผู้สอน"
+                disabled
+                className="bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200"
               />
             </Field>
             <PrimaryButton className="w-full">
