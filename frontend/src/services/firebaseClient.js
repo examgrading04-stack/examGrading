@@ -331,12 +331,14 @@ class MockCollectionReference {
     return this.path.at(-1);
   }
   doc(id) {
+    if (id === null || id === "") {
+      id = undefined;
+    }
     const docId =
-      id ||
-      (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID().replace(/-/g, "")
+      id !== undefined
+        ? id
         : Math.random().toString(36).substring(2, 15) +
-        Math.random().toString(36).substring(2, 15));
+          Math.random().toString(36).substring(2, 15);
     return new MockDocReference([...this.path, docId], this.firestore);
   }
   where(field, op, value) {

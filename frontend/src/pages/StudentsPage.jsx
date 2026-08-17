@@ -132,16 +132,23 @@ export function StudentsPage({ data, api, refresh }) {
     };
 
     try {
+      Swal().fire({
+        title: "กำลังบันทึก...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal().showLoading();
+        },
+      });
       await api.set(`students/${payload.id}`, payload);
       setForm(emptyForm(["id", "name", "section", "subjectCode"]));
       setIsEditing(false);
-      await refresh("บันทึกผู้เรียนเรียบร้อยแล้ว");
+      await refresh("บันทึกข้อมูลผู้เรียนเรียบร้อยแล้ว");
     } catch (err) {
-      Swal().fire(
-        "เกิดข้อผิดพลาด",
-        err.message || "ไม่สามารถบันทึกข้อมูลผู้เรียนได้",
-        "error",
-      );
+      Swal().fire({
+        title: "เกิดข้อผิดพลาด",
+        text: err.message || "ไม่สามารถบันทึกข้อมูลได้",
+        icon: "error",
+      });
     }
   }
 
@@ -162,16 +169,17 @@ export function StudentsPage({ data, api, refresh }) {
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
-
     try {
-      await api.remove("students", row.id);
+      if (row.id != null && row.id !== "") {
+        await api.remove("students", row.id);
+      }
       await refresh("ลบผู้เรียนแล้ว");
     } catch (err) {
-      Swal().fire(
-        "เกิดข้อผิดพลาด",
-        err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
-        "error",
-      );
+      Swal().fire({
+        title: "เกิดข้อผิดพลาด",
+        text: err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
+        icon: "error",
+      });
     }
   }
 
@@ -195,28 +203,29 @@ export function StudentsPage({ data, api, refresh }) {
       didOpen: () => Swal().showLoading(),
     });
 
-    const idsToDelete = new Set();
-    for (const uniqueId of selectedStudents) {
-      const student = data.students.find(
-        (s) => `${s.id}_${s.subjectCode}` === uniqueId || s.id === uniqueId,
-      );
-      if (student) idsToDelete.add(student.id);
-      else idsToDelete.add(uniqueId.split("_")[0]);
-    }
-
     try {
+      const idsToDelete = new Set();
+      for (const uniqueId of selectedStudents) {
+        const student = data.students.find(
+          (s) => `${s.id}_${s.subjectCode}` === uniqueId || s.id === uniqueId,
+        );
+        if (student) idsToDelete.add(student.id);
+        else idsToDelete.add(uniqueId.split("_")[0]);
+      }
+
+      const validIds = Array.from(idsToDelete).filter(id => id != null && id !== "");
       await Promise.all(
-        Array.from(idsToDelete).map((id) => api.remove("students", id)),
+        validIds.map((id) => api.remove("students", id)),
       );
 
       setSelectedStudents(new Set());
-      await refresh(`ลบผู้เรียน ${selectedStudents.size} รายการแล้ว`);
+      await refresh(`ลบผู้เรียน ${validIds.length} รายการแล้ว`);
     } catch (err) {
-      Swal().fire(
-        "เกิดข้อผิดพลาด",
-        err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
-        "error",
-      );
+      Swal().fire({
+        title: "เกิดข้อผิดพลาด",
+        text: err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
+        icon: "error",
+      });
     }
   }
 

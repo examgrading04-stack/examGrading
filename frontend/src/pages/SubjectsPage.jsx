@@ -317,7 +317,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
     await refresh("ลบกลุ่มเรียนที่เลือกเรียบร้อยแล้ว");
   }
   return (
-    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-[auto_1fr] gap-x-6 gap-y-3 items-start">
+    <div className="page-enter max-w-[1600px] mx-auto px-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[auto_1fr] gap-x-6 gap-y-3 items-start">
       <div className="order-1 xl:row-start-1 xl:col-start-1 min-w-0">
         {!activeSubject ? (
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -467,25 +467,25 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                 {
                   key: "code",
                   label: "รหัสวิชา",
-                  className: "w-24 text-left",
+                  className: "w-32 text-left",
                 },
                 { key: "name", label: "ชื่อวิชา" },
                 {
                   key: "termYear",
-                  label: "ภาค/ปี",
-                  className: "w-20 text-center",
+                  label: "ภาค/ปีการศึกษา",
+                  className: "w-36 text-center",
                   render: (row) => `${row.term || "-"}/${row.year || "-"}`,
                 },
                 {
                   key: "teacher",
                   label: "ผู้สอน",
-                  className: "truncate text-left",
+                  className: "w-48 truncate text-left",
                 },
                 {
                   key: "actions",
                   label: "",
                   truncate: false,
-                  className: "w-[200px] text-right",
+                  className: "w-[240px] text-right",
                   render: (row) => (
                     <div className="flex flex-nowrap gap-2 justify-end">
                       <GhostButton
