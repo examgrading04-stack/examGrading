@@ -704,36 +704,42 @@ export default function App() {
         return deleted;
       },
       async removeSubjectCascade(subjectId) {
-        const subjectDoc = await root
-          .collection("subjects")
-          .doc(subjectId)
-          .get();
-        const subjectCode = String(subjectDoc.data()?.code || subjectId);
+        try {
+          const subjectDoc = await root
+            .collection("subjects")
+            .doc(subjectId)
+            .get();
+          const subjectCode = String(subjectDoc.data()?.code || subjectId);
 
-        const sectionSnapshot = await root
-          .collection("subjects")
-          .doc(subjectId)
-          .collection("sections")
-          .get();
+          const sectionSnapshot = await root
+            .collection("subjects")
+            .doc(subjectId)
+            .collection("sections")
+            .get();
 
-        const sectionIds = sectionSnapshot.docs.map(
-          (doc) => `${subjectId}_${doc.id}`,
-        );
-        await this.deleteQuerySnapshot(sectionSnapshot);
-
-        const studentsSnapshot = await root.collection("students").get();
-        const studentDocs = studentsSnapshot.docs.filter((doc) => {
-          const classId = String(doc.data()?.class || "");
-          return (
-            classId.startsWith(`${subjectId}_`) ||
-            classId.startsWith(`${subjectCode}_`) ||
-            classId === subjectId ||
-            classId === subjectCode ||
-            sectionIds.includes(classId)
+          const sectionIds = sectionSnapshot.docs.map(
+            (doc) => `${subjectId}_${doc.id}`,
           );
-        });
-        if (studentDocs.length) {
-          await this.deleteQuerySnapshot({ docs: studentDocs, empty: false });
+          if (sectionSnapshot.docs.length) {
+            await this.deleteQuerySnapshot(sectionSnapshot).catch(() => {});
+          }
+
+          const studentsSnapshot = await root.collection("students").get();
+          const studentDocs = studentsSnapshot.docs.filter((doc) => {
+            const classId = String(doc.data()?.class || doc.data()?.section || "");
+            return (
+              classId.startsWith(`${subjectId}_`) ||
+              classId.startsWith(`${subjectCode}_`) ||
+              classId === subjectId ||
+              classId === subjectCode ||
+              sectionIds.includes(classId)
+            );
+          });
+          if (studentDocs.length) {
+            await this.deleteQuerySnapshot({ docs: studentDocs, empty: false }).catch(() => {});
+          }
+        } catch (err) {
+          console.warn("removeSubjectCascade note:", err);
         }
 
         await root.collection("subjects").doc(subjectId).delete();

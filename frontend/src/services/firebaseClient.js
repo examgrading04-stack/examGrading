@@ -1,6 +1,6 @@
 import { GOOGLE_CLIENT_ID } from "../config/google.js";
 import { API_BASE_URL } from "../ui.jsx";
-const BASE_URL = API_BASE_URL || "http://127.0.0.1:8000";
+const BASE_URL = API_BASE_URL || "http://localhost:5173/";
 
 class MockUser {
   constructor(data, authInstance) {
@@ -181,7 +181,7 @@ class MockAuth {
               reject(
                 new Error(
                   tokenResponse.error_description ||
-                    "Google Popup closed or failed",
+                  "Google Popup closed or failed",
                 ),
               );
               return;
@@ -303,12 +303,19 @@ class MockDocReference {
     }
   }
   async delete() {
-    const res = await fetch(`${BASE_URL}/api/db/${this.path.join("/")}`, {
+    const cleanPath = (this.path || []).filter(
+      (p) => p !== undefined && p !== null && String(p).trim() !== "",
+    );
+    if (cleanPath.length === 0 || cleanPath.length % 2 !== 0) {
+      console.warn("Skipping delete for invalid path:", this.path);
+      return;
+    }
+    const res = await fetch(`${BASE_URL}/api/db/${cleanPath.join("/")}`, {
       method: "DELETE",
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Delete document failed");
+      const err = await res.json().catch(() => ({}));
+      console.warn("Delete document note:", err.detail || "Delete document failed");
     }
   }
 }
@@ -329,7 +336,7 @@ class MockCollectionReference {
       (typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID().replace(/-/g, "")
         : Math.random().toString(36).substring(2, 15) +
-          Math.random().toString(36).substring(2, 15));
+        Math.random().toString(36).substring(2, 15));
     return new MockDocReference([...this.path, docId], this.firestore);
   }
   where(field, op, value) {
@@ -376,19 +383,31 @@ class MockCollectionReference {
       return new MockQuerySnapshot([]);
     }
     const dataList = await res.json();
-    const docs = (dataList || []).map((item) => {
-      const docId = item.id || item.code || item.email || item.logid;
-      let refPath = [...this.path, docId];
-      if (
-        item.user_email &&
-        this.path.length === 1 &&
-        ["exams", "students", "results", "subjects"].includes(this.path[0])
-      ) {
-        refPath = ["users", item.user_email, this.path[0], docId];
-      }
-      const ref = new MockDocReference(refPath, this.firestore);
-      return new MockQueryDocumentSnapshot(docId, ref, item);
-    });
+    const docs = (dataList || [])
+      .map((item) => {
+        const docId =
+          item.id ||
+          item.realId ||
+          item.section_id ||
+          item.code ||
+          item.email ||
+          item.logid ||
+          (item.sec !== undefined && item.sec !== null ? String(item.sec) : "");
+
+        if (!docId) return null;
+
+        let refPath = [...this.path, docId];
+        if (
+          item.user_email &&
+          this.path.length === 1 &&
+          ["exams", "students", "results", "subjects"].includes(this.path[0])
+        ) {
+          refPath = ["users", item.user_email, this.path[0], docId];
+        }
+        const ref = new MockDocReference(refPath, this.firestore);
+        return new MockQueryDocumentSnapshot(docId, ref, item);
+      })
+      .filter(Boolean);
     return new MockQuerySnapshot(docs);
   }
 }
@@ -426,7 +445,7 @@ class MockFirestore {
 
 // Define the global windows object
 const authFunc = () => new MockAuth();
-authFunc.GoogleAuthProvider = class {};
+authFunc.GoogleAuthProvider = class { };
 authFunc.Auth = {
   Persistence: {
     LOCAL: "local",
@@ -441,7 +460,7 @@ firestoreFunc.FieldValue = {
 
 window.firebase = {
   apps: { length: 1 },
-  initializeApp: () => {},
+  initializeApp: () => { },
   auth: authFunc,
   firestore: firestoreFunc,
 };
