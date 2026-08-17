@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   API_BASE_URL,
   apiFetch,
@@ -14,6 +14,16 @@ import {
 } from "../ui.jsx";
 
 export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
+  const latestExamDate = useMemo(() => {
+    if (Array.isArray(data.exams) && data.exams.length > 0) {
+      const withDate = data.exams.filter((e) => e.examDate || e.date);
+      if (withDate.length > 0) {
+        return withDate[0].examDate || withDate[0].date || "";
+      }
+    }
+    return new Date().toISOString().split("T")[0];
+  }, [data.exams]);
+
   const [form, setForm] = useState({
     subject: "",
     section: "",
@@ -22,6 +32,12 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     sheetType: "30",
     examDate: "",
   });
+
+  useEffect(() => {
+    if (latestExamDate && !form.id && !form.examDate) {
+      setForm((prev) => ({ ...prev, examDate: latestExamDate }));
+    }
+  }, [latestExamDate, form.id]);
   const [sheetModal, setSheetModal] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [searchExam, setSearchExam] = useState("");
@@ -173,7 +189,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       section: form.section || "All Section",
       questions,
       sheetType: finalSheetType,
-      examDate: form.examDate || "",
+      examDate: form.examDate || latestExamDate || "",
       answerKey: {},
     };
 
@@ -185,7 +201,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
         name: "",
         questions: "",
         sheetType: "30",
-        examDate: "",
+        examDate: latestExamDate,
         id: null,
       });
       await refresh("แก้ไขกระดาษคำตอบสำเร็จ");
@@ -209,7 +225,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       name: "",
       questions: "",
       sheetType: "30",
-      examDate: "",
+      examDate: latestExamDate,
       id: null,
     });
     await refresh("สร้างกระดาษคำตอบสำเร็จ");
@@ -666,7 +682,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     name: "",
                     questions: "",
                     sheetType: "30",
-                    examDate: "",
+                    examDate: latestExamDate,
                     id: null,
                   })
                 }

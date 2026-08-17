@@ -347,6 +347,7 @@ class MySQLAdapter(BaseDBAdapter):
                 d["section"] = d.pop("section_id", None) or "All Section"
                 d["sheetType"] = d.pop("template_id", None)
                 d["subject"] = d.get("subject_id")
+                d["examDate"] = d.get("exam_date") or ""
         finally:
             if own_session:
                 session.close()
@@ -708,6 +709,8 @@ class MySQLAdapter(BaseDBAdapter):
                         mapped_data["subject_id"] = mapped_data["subject"]
                     if "name" in mapped_data and "exam_name" not in mapped_data:
                         mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
                         
                     sec = mapped_data.get("section")
                     if sec is not None:
@@ -813,6 +816,8 @@ class MySQLAdapter(BaseDBAdapter):
                         mapped_data["subject_id"] = mapped_data["subject"]
                     if "name" in mapped_data and "exam_name" not in mapped_data:
                         mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
                         
                     sec = mapped_data.get("section")
                     if sec is not None:
