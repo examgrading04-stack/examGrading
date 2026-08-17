@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DataTable,
   Field,
@@ -11,12 +11,21 @@ import {
   emptyForm,
 } from "../ui.jsx";
 
-export function SubjectsPage({ data, api, refresh }) {
+export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
+  const defaultTeacher = userName || userEmail || "";
+
   const [subjectForm, setSubjectForm] = useState({
     ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
     term: "1",
     year: String(new Date().getFullYear() + 543),
+    teacher: defaultTeacher,
   });
+
+  useEffect(() => {
+    if (defaultTeacher && !subjectForm.id && !subjectForm.teacher) {
+      setSubjectForm((prev) => ({ ...prev, teacher: defaultTeacher }));
+    }
+  }, [defaultTeacher, subjectForm.id]);
   const [sectionForm, setSectionForm] = useState(
     emptyForm(["id", "subject", "sec", "count"]),
   );
@@ -65,6 +74,7 @@ export function SubjectsPage({ data, api, refresh }) {
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
         term: "1",
         year: String(new Date().getFullYear() + 543),
+        teacher: defaultTeacher,
       });
       await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
     } catch (err) {
@@ -683,7 +693,7 @@ export function SubjectsPage({ data, api, refresh }) {
                   </button>
                 </div>
               </Field>
-              <Field label="ปี">
+              <Field label="ปีการศึกษา">
                 <Input
                   value={subjectForm.year}
                   onChange={(e) =>
