@@ -98,6 +98,33 @@ export function StudentsPage({ data, api, refresh }) {
       });
     }
 
+    const nameTrimmed = String(form.name || "").trim();
+    const existingName = data.students.find((s) => {
+      const matchName =
+        String(s.name || "").trim().toLowerCase() ===
+        nameTrimmed.toLowerCase();
+      const matchSubject =
+        String(s.subjectCode || s.subject || "").trim().toLowerCase() ===
+        String(form.subjectCode || "").trim().toLowerCase();
+      if (!isEditing) {
+        return matchName && matchSubject;
+      } else {
+        const sameRecord =
+          (s.id === form.id || s.code === form.id) &&
+          (s.subjectCode === form.subjectCode || s.subject === form.subjectCode);
+        return matchName && matchSubject && !sameRecord;
+      }
+    });
+
+    if (existingName) {
+      return Swal().fire({
+        title: "ชื่อ-นามสกุลนี้มีอยู่แล้ว",
+        text: `ชื่อ-นามสกุล "${nameTrimmed}" (รหัสผู้เรียน: ${existingName.id || existingName.code || ""}) มีอยู่ในรายวิชานี้เรียบร้อยแล้ว`,
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+    }
+
     Swal().fire({
       title: isEditing ? "กำลังแก้ไขข้อมูลผู้เรียน..." : "กำลังบันทึกผู้เรียน...",
       allowOutsideClick: false,
@@ -300,7 +327,10 @@ export function StudentsPage({ data, api, refresh }) {
       });
 
       let count = 0;
-      let skipped = 0;
+      let skippedMissing = 0;
+      let skippedDuplicates = [];
+      const processedIds = new Set();
+      const processedNames = new Set();
 
       for (const row of rows) {
         const code =
@@ -315,17 +345,48 @@ export function StudentsPage({ data, api, refresh }) {
           const subjectCode = importSubject;
           const sectionId = importClass;
 
+          const codeTrimmed = String(code).trim();
+          const nameTrimmed = String(name).trim();
+          const codeLower = codeTrimmed.toLowerCase();
+          const nameLower = nameTrimmed.toLowerCase();
+
+          // Check if already processed in this file
+          if (processedIds.has(codeLower) || processedNames.has(nameLower)) {
+            skippedDuplicates.push(nameTrimmed);
+            continue;
+          }
+
+          const duplicateName = data.students.find(s => 
+            String(s.name || "").trim().toLowerCase() === nameLower &&
+            String(s.subjectCode || s.subject || "").trim().toLowerCase() === String(subjectCode).trim().toLowerCase() &&
+            String(s.id || s.code || "").trim().toLowerCase() !== codeLower
+          );
+
+          const duplicateId = data.students.find(s =>
+             String(s.id || s.code || "").trim().toLowerCase() === codeLower &&
+             String(s.subjectCode || s.subject || "").trim().toLowerCase() === String(subjectCode).trim().toLowerCase()
+          );
+
+          if (duplicateName || duplicateId) {
+            skippedDuplicates.push(nameTrimmed);
+            continue;
+          }
+
+          // Mark as processed
+          processedIds.add(codeLower);
+          processedNames.add(nameLower);
+
           // บันทึกผู้เรียน
           const payload = {
-            id: String(code),
-            name: String(name),
+            id: codeTrimmed,
+            name: nameTrimmed,
             section: sectionId,
             subjectCode: subjectCode,
           };
           await api.set(`students/${payload.id}`, payload);
           count += 1;
         } else {
-          skipped += 1;
+          skippedMissing += 1;
         }
       }
 
@@ -334,9 +395,21 @@ export function StudentsPage({ data, api, refresh }) {
       setImportSubject("");
       setImportClass("");
 
-      if (skipped > 0) {
+      Swal().hideLoading();
+      Swal().close();
+
+      if (skippedDuplicates.length > 0) {
+        await Swal().fire({
+          icon: "warning",
+          title: "นำเข้าเสร็จสิ้น (มีข้อมูลซ้ำ)",
+          text: `นำเข้าสำเร็จ ${count} คน, ไม่สมบูรณ์ ${skippedMissing} แถว\nพบข้อมูลซ้ำซ้อนและถูกข้าม ${skippedDuplicates.length} รายการ`,
+          showConfirmButton: true,
+          didOpen: () => Swal().hideLoading(),
+        });
+        await refresh();
+      } else if (skippedMissing > 0) {
         await refresh(
-          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skipped} แถวที่ข้อมูลไม่สมบูรณ์หรือไม่ระบุวิชา)`,
+          `นำเข้าสำเร็จ ${count} คน (ข้าม ${skippedMissing} แถวที่ข้อมูลไม่สมบูรณ์หรือไม่ระบุวิชา)`,
         );
       } else {
         await refresh(`นำเข้าผู้เรียน ${count} คนเรียบร้อยแล้ว`);

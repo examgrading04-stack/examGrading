@@ -898,6 +898,7 @@ class MySQLAdapter(BaseDBAdapter):
                 except Exception as e:
                     session.rollback()
                     if "Duplicate entry" in str(e) or "IntegrityError" in str(type(e)):
+                        # pyrefly: ignore [missing-import]
                         from fastapi import HTTPException
                         item_name = "รหัสวิชา" if collection == "subjects" else "รหัส"
                         raise HTTPException(status_code=400, detail=f"{item_name}นี้มีอยู่ในระบบแล้ว (อาจถูกสร้างโดยผู้ใช้งานอื่น) กรุณาใช้รหัสอื่น")

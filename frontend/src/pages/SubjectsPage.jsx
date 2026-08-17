@@ -18,6 +18,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
   const defaultTeacher = userName || userEmail || "";
 
   const [minYear, setMinYear] = useState("");
+  const [defaultTerm, setDefaultTerm] = useState("1");
   const [subjectForm, setSubjectForm] = useState({
     ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
     term: "1",
@@ -26,13 +27,18 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
   });
 
   useEffect(() => {
-    fetch(`${BASE_URL}/api/settings/academic_year`)
+    fetch(`${BASE_URL}/api/settings/academic_year`, { cache: "no-store" })
       .then((res) => res.json())
       .then((d) => {
         if (d.year) {
           setMinYear(d.year);
+          setDefaultTerm(d.term || "1");
           if (!subjectForm.id) {
-            setSubjectForm((prev) => ({ ...prev, year: d.year }));
+            setSubjectForm((prev) => ({
+              ...prev,
+              year: d.year,
+              term: d.term || "1",
+            }));
           }
         }
       })
@@ -84,7 +90,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
     }
 
     const isEdit = !!subjectForm.id;
-    const existing = data.subjects.find(
+    const existingCode = data.subjects.find(
       (s) =>
         String(s.code || s.id)
           .trim()
@@ -92,21 +98,40 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
         (isEdit ? s.id !== subjectForm.id && s.code !== subjectForm.id : true),
     );
 
-    if (existing) {
+    if (existingCode) {
       return Swal().fire(
         "รหัสวิชานี้มีอยู่แล้ว",
-        `รหัสวิชา "${codeTrimmed}" (${existing.name || ""}) มีอยู่ในระบบเรียบร้อยแล้ว`,
+        `รหัสวิชา "${codeTrimmed}" (${existingCode.name || ""}) มีอยู่ในระบบเรียบร้อยแล้ว`,
         "warning",
       );
     }
 
-    if (minYear && parseInt(subjectForm.year) < parseInt(minYear)) {
+    const nameTrimmed = String(subjectForm.name || "").trim();
+    if (!nameTrimmed) {
       return Swal().fire(
-        "ปีการศึกษาไม่ถูกต้อง",
-        `คุณไม่สามารถระบุปีการศึกษาที่ต่ำกว่า ${minYear} ได้ (สามารถกรอกปีล่วงหน้าได้เท่านั้น)`,
+        "กรุณากรอกชื่อวิชา",
+        "ชื่อวิชาต้องไม่เป็นค่าว่าง",
         "warning",
       );
     }
+
+    const existingName = data.subjects.find(
+      (s) =>
+        String(s.name || "")
+          .trim()
+          .toLowerCase() === nameTrimmed.toLowerCase() &&
+        (isEdit ? s.id !== subjectForm.id : true),
+    );
+
+    if (existingName) {
+      return Swal().fire(
+        "ชื่อวิชานี้มีอยู่แล้ว",
+        `ชื่อวิชา "${nameTrimmed}" มีอยู่ในระบบเรียบร้อยแล้ว (รหัสวิชา: ${existingName.code || existingName.id})`,
+        "warning",
+      );
+    }
+
+    // Remove the client side validation for minYear because the field is now disabled and enforced by the system
 
     Swal().fire({
       title: isEdit ? "กำลังแก้ไขรายวิชา..." : "กำลังบันทึกรายวิชา...",
@@ -140,7 +165,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       }
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
-        term: "1",
+        term: defaultTerm,
         year: minYear || String(new Date().getFullYear() + 543),
         teacher: defaultTeacher,
       });
@@ -496,9 +521,9 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                 {
                   key: "code",
                   label: "รหัสวิชา",
-                  className: "w-32 text-left",
+                  className: "w-24 text-left",
                 },
-                { key: "name", label: "ชื่อวิชา" },
+                { key: "name", label: "ชื่อวิชา", className: "text-left" },
                 {
                   key: "termYear",
                   label: "ภาค/ปีการศึกษา",
@@ -538,9 +563,10 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                               "teacher",
                             ]),
                             ...row,
-                            term: row.term || "1",
+                            term: row.term || defaultTerm,
                             year:
                               row.year ||
+                              minYear ||
                               String(new Date().getFullYear() + 543),
                           })
                         }
@@ -751,66 +777,30 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="ภาคเรียน">
-                <div className="flex items-center justify-between border border-gray-200 rounded-xl overflow-hidden h-[42px] px-2 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white transition-colors">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const v = parseInt(subjectForm.term) || 1;
-                      if (v > 1)
-                        setSubjectForm({ ...subjectForm, term: String(v - 1) });
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
-                  >
-                    <Icon name="fa-minus" />
-                  </button>
-                  <span className="font-semibold text-slate-700 text-sm">
+                <div className="flex items-center justify-center border border-gray-200 rounded-xl overflow-hidden h-[42px] px-2 bg-slate-100 text-slate-500 cursor-not-allowed">
+                  <span className="font-semibold text-sm">
                     {subjectForm.term || "1"}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const v = parseInt(subjectForm.term) || 1;
-                      if (v < 3)
-                        setSubjectForm({ ...subjectForm, term: String(v + 1) });
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 transition-colors"
-                  >
-                    <Icon name="fa-plus" />
-                  </button>
                 </div>
               </Field>
               <Field label="ปีการศึกษา">
                 <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setSubjectForm((p) => ({ ...p, year: String(parseInt(p.year || minYear || 2567) - 1) }))}
-                    className="w-12 h-[42px] flex items-center justify-center bg-slate-100 border border-slate-300 border-r-0 rounded-l-xl hover:bg-slate-200 transition-colors shrink-0"
-                  >
-                    <Icon name="fa-minus text-slate-600" />
-                  </button>
                   <input
                     type="text"
-                    readOnly
+                    disabled
                     value={subjectForm.year}
-                    className="w-full h-[42px] text-center border border-slate-300 focus:outline-none bg-white font-medium text-slate-700"
+                    className="w-full h-[42px] text-center border border-slate-300 rounded-xl focus:outline-none bg-slate-100 font-medium text-slate-500 cursor-not-allowed"
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setSubjectForm((p) => ({ ...p, year: String(parseInt(p.year || minYear || 2567) + 1) }))}
-                    className="w-12 h-[42px] flex items-center justify-center bg-slate-100 border border-slate-300 border-l-0 rounded-r-xl hover:bg-slate-200 transition-colors shrink-0"
-                  >
-                    <Icon name="fa-plus text-slate-600" />
-                  </button>
                 </div>
               </Field>
             </div>
             <Field label="ผู้สอน">
-              <Input
-                value={subjectForm.teacher}
-                placeholder="ชื่อผู้สอน"
+              <input
+                type="text"
                 disabled
-                className="bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200"
+                value={subjectForm.teacher}
+                className="w-full h-[42px] px-4 text-left border border-slate-300 rounded-xl focus:outline-none bg-slate-100 font-medium text-slate-500 cursor-not-allowed"
               />
             </Field>
             <PrimaryButton className="w-full">

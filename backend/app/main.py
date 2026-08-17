@@ -848,8 +848,12 @@ def db_patch(path: str, payload: dict = Body(...), db=Depends(get_db)):
 
 @app.get("/api/settings/academic_year")
 def get_academic_year(db=Depends(get_db)):
-    doc = db.get_doc("settings", "academic_year")
-    return {"year": doc.get("value") if doc else "2567"}
+    doc_year = db.get_doc("settings", "academic_year")
+    doc_term = db.get_doc("settings", "academic_term")
+    return {
+        "year": doc_year.get("value") if doc_year and doc_year.get("value") else "2567",
+        "term": doc_term.get("value") if doc_term and doc_term.get("value") else "1"
+    }
 
 @app.put("/api/settings/academic_year")
 def set_academic_year(
@@ -862,7 +866,13 @@ def set_academic_year(
     print(f"DEBUG: authorization={authorization}, user_email={user_email}, admin_user={admin_user}")
     if not admin_user or admin_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    db.set_doc("settings", "academic_year", None, {"value": str(payload.get("year"))})
+        
+    db.set_doc("settings", "academic_year", None, {
+        "value": str(payload.get("year", "2567")),
+    })
+    db.set_doc("settings", "academic_term", None, {
+        "value": str(payload.get("term", "1"))
+    })
     return {"ok": True}
 
 @app.delete("/api/db/{path:path}")
