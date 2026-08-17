@@ -719,10 +719,14 @@ def decide_answers(raw_scores, n_q=None):
             answers[q_no]=None
         elif len(sr) > 1 and max_n > 0:
             second_n = sr[1][1]
-            # กันอ่านผิดกรณีฝนติดกัน 2 ช่อง: ให้เป็น invalid แทนการเดา
+            # กันอ่านผิดกรณีฝนติดกัน 2 ช่อง: ให้เป็น invalid แทนการเดา แต่เก็บตัวเลือกที่ฝนไว้
             if second_n >= dynamic_fill_min and (second_n / max_n) >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.92)):
-                flagged.append({"question":q_no,"reason":"multiple_mark","ratios":dict(zip(choices,ratios))})
-                answers[q_no]=None
+                multi_choices = [choices[i] for i, n in enumerate(norm) if n >= dynamic_fill_min]
+                if not multi_choices:
+                    multi_choices = [choices[max_idx], choices[sr[1][0]]]
+                detected_str = ",".join(multi_choices)
+                flagged.append({"question": q_no, "reason": "multiple_mark", "detected": detected_str, "ratios": dict(zip(choices, ratios))})
+                answers[q_no] = detected_str
                 continue
             if gap<OMRConfig.NORM_GAP_MIN:
                 flagged.append({"question":q_no,"reason":"low_confidence","ratios":dict(zip(choices,ratios))})

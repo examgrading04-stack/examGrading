@@ -39,39 +39,90 @@ export function StudentsPage({ data, api, refresh }) {
   async function saveStudent(event) {
     event.preventDefault();
 
+    const studentIdTrimmed = String(form.id || "").trim();
+    if (!studentIdTrimmed) {
+      return Swal().fire({
+        title: "กรุณากรอกรหัสผู้เรียน",
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+    }
+
+    if (!form.name || !form.name.trim()) {
+      return Swal().fire({
+        title: "กรุณากรอกชื่อ-นามสกุล",
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+    }
+
     if (!form.subjectCode) {
-      Swal().fire({
+      return Swal().fire({
         title: "กรุณาเลือกวิชา",
         icon: "warning",
         confirmButtonText: "ตกลง",
       });
-      return;
     }
 
     if (!form.section) {
-      Swal().fire({
+      return Swal().fire({
         title: "กรุณาเลือกกลุ่มเรียน",
         icon: "warning",
         confirmButtonText: "ตกลง",
       });
-      return;
+    }
+
+    const existingStudent = data.students.find((s) => {
+      const matchId =
+        String(s.id || s.code || "").trim().toLowerCase() ===
+        studentIdTrimmed.toLowerCase();
+      const matchSubject =
+        String(s.subjectCode || s.subject || "").trim().toLowerCase() ===
+        String(form.subjectCode || "").trim().toLowerCase();
+      if (!isEditing) {
+        return matchId && matchSubject;
+      } else {
+        const sameRecord =
+          (s.id === form.id || s.code === form.id) &&
+          (s.subjectCode === form.subjectCode || s.subject === form.subjectCode);
+        return matchId && matchSubject && !sameRecord;
+      }
+    });
+
+    if (existingStudent) {
+      return Swal().fire({
+        title: "รหัสผู้เรียนนี้มีอยู่แล้ว",
+        text: `รหัสผู้เรียน "${studentIdTrimmed}" (${existingStudent.name || ""}) มีอยู่ในรายวิชานี้เรียบร้อยแล้ว`,
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
     }
 
     Swal().fire({
-      title: "กำลังบันทึกผู้เรียน...",
+      title: isEditing ? "กำลังแก้ไขข้อมูลผู้เรียน..." : "กำลังบันทึกผู้เรียน...",
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
+
     const payload = {
-      id: form.id,
-      name: form.name,
+      id: studentIdTrimmed,
+      name: form.name.trim(),
       section: form.section,
       subjectCode: form.subjectCode || "",
     };
-    await api.set(`students/${payload.id}`, payload);
-    setForm(emptyForm(["id", "name", "section", "subjectCode"]));
-    setIsEditing(false);
-    await refresh("บันทึกผู้เรียนแล้ว");
+
+    try {
+      await api.set(`students/${payload.id}`, payload);
+      setForm(emptyForm(["id", "name", "section", "subjectCode"]));
+      setIsEditing(false);
+      await refresh("บันทึกผู้เรียนเรียบร้อยแล้ว");
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถบันทึกข้อมูลผู้เรียนได้",
+        "error",
+      );
+    }
   }
 
   async function deleteStudent(row) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DataTable,
   Field,
@@ -11,12 +11,21 @@ import {
   emptyForm,
 } from "../ui.jsx";
 
-export function SubjectsPage({ data, api, refresh }) {
+export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
+  const defaultTeacher = userName || userEmail || "";
+
   const [subjectForm, setSubjectForm] = useState({
     ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
     term: "1",
     year: String(new Date().getFullYear() + 543),
+    teacher: defaultTeacher,
   });
+
+  useEffect(() => {
+    if (defaultTeacher && !subjectForm.id && !subjectForm.teacher) {
+      setSubjectForm((prev) => ({ ...prev, teacher: defaultTeacher }));
+    }
+  }, [defaultTeacher, subjectForm.id]);
   const [sectionForm, setSectionForm] = useState(
     emptyForm(["id", "subject", "sec", "count"]),
   );
@@ -46,25 +55,56 @@ export function SubjectsPage({ data, api, refresh }) {
 
   async function saveSubject(event) {
     event.preventDefault();
+
+    const codeTrimmed = String(subjectForm.code || "").trim();
+    if (!codeTrimmed) {
+      return Swal().fire(
+        "กรุณากรอกรหัสวิชา",
+        "รหัสวิชาต้องไม่เป็นค่าว่าง",
+        "warning",
+      );
+    }
+
+    const isEdit = !!subjectForm.id;
+    const existing = data.subjects.find(
+      (s) =>
+        String(s.code || s.id).trim().toLowerCase() === codeTrimmed.toLowerCase() &&
+        (isEdit ? s.id !== subjectForm.id && s.code !== subjectForm.id : true),
+    );
+
+    if (existing) {
+      return Swal().fire(
+        "รหัสวิชานี้มีอยู่แล้ว",
+        `รหัสวิชา "${codeTrimmed}" (${existing.name || ""}) มีอยู่ในระบบเรียบร้อยแล้ว`,
+        "warning",
+      );
+    }
+
     Swal().fire({
-      title: "กำลังบันทึกรายวิชา...",
+      title: isEdit ? "กำลังแก้ไขรายวิชา..." : "กำลังบันทึกรายวิชา...",
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
+
     const payload = {
-      code: subjectForm.code,
+      code: codeTrimmed,
       name: subjectForm.name,
       term: subjectForm.term,
       year: subjectForm.year,
       teacher: subjectForm.teacher,
     };
+
     try {
-      if (subjectForm.id) await api.update("subjects", subjectForm.id, payload);
-      else await api.set(`subjects/${payload.code}`, payload);
+      if (isEdit) {
+        await api.update("subjects", subjectForm.id, payload);
+      } else {
+        await api.set(`subjects/${payload.code}`, payload);
+      }
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
         term: "1",
         year: String(new Date().getFullYear() + 543),
+        teacher: defaultTeacher,
       });
       await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
     } catch (err) {
@@ -683,7 +723,7 @@ export function SubjectsPage({ data, api, refresh }) {
                   </button>
                 </div>
               </Field>
-              <Field label="ปี">
+              <Field label="ปีการศึกษา">
                 <Input
                   value={subjectForm.year}
                   onChange={(e) =>
@@ -696,10 +736,9 @@ export function SubjectsPage({ data, api, refresh }) {
             <Field label="ผู้สอน">
               <Input
                 value={subjectForm.teacher}
-                onChange={(e) =>
-                  setSubjectForm({ ...subjectForm, teacher: e.target.value })
-                }
-                placeholder="เช่น ผศ.ดร.สมชาย"
+                placeholder="ชื่อผู้สอน"
+                disabled
+                className="bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200"
               />
             </Field>
             <PrimaryButton className="w-full">

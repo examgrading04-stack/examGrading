@@ -237,6 +237,7 @@ function Shell({
       navigate,
       query,
       userEmail: user.email,
+      userName: effectiveDisplayName,
     };
     if (routeId === "dashboard") return <Dashboard {...props} />;
     if (routeId === "subjects") return <SubjectsPage {...props} />;

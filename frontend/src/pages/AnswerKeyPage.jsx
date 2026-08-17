@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Icon, PrimaryButton, Input, Swal } from "../ui.jsx";
+import { Icon, PrimaryButton, GhostButton, Input, Swal } from "../ui.jsx";
 
 export function AnswerKeyPage({ data, api, refresh, query }) {
   const [examId, setExamId] = useState(query.examId || data.exams[0]?.id || "");
@@ -114,6 +114,34 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
     await refresh("บันทึกเฉลยแล้ว");
   }
 
+  function toggleAnswer(question, option) {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      if (next[question] === option) {
+        delete next[question];
+      } else {
+        next[question] = option;
+      }
+      return next;
+    });
+  }
+
+  function clearAll() {
+    Swal().fire({
+      title: "ล้างคำตอบทั้งหมด?",
+      text: "คุณต้องการล้างเฉลยทุกข้อใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ล้างทั้งหมด",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#ef4444",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setAnswers({});
+      }
+    });
+  }
+
   const sheetTypeCount = Number(
     String(exam?.sheetType || exam?.questions || 30).replace("-A-E", ""),
   );
@@ -154,9 +182,19 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
               </div>
             </div>
           </div>
-          <PrimaryButton onClick={save} disabled={!exam} className="px-8">
-            <Icon name="fa-floppy-disk" /> บันทึกเฉลย
-          </PrimaryButton>
+          <div className="flex items-center gap-3">
+            <GhostButton
+              variant="danger"
+              onClick={clearAll}
+              className="py-2 px-3 text-sm"
+              title="ล้างคำตอบทั้งหมด"
+            >
+              <Icon name="fa-rotate-left" /> ล้างเฉลย
+            </GhostButton>
+            <PrimaryButton onClick={save} disabled={!exam} className="px-8">
+              <Icon name="fa-floppy-disk" /> บันทึกเฉลย
+            </PrimaryButton>
+          </div>
         </div>
 
         {/* Settings Bar */}
@@ -228,14 +266,12 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
                   </div>
 
                   <div className="relative flex gap-1.5 justify-center">
-                    {/* Placeholder options to maintain height */}
                     <div className="flex gap-1.5 invisible">
                       {options.map((option) => (
                         <div key={`dummy-${option}`} className="w-8 h-8" />
                       ))}
                     </div>
 
-                    {/* Overlay badge */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
                         ไม่ได้เปิดใช้งาน
@@ -295,9 +331,7 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
                       <button
                         key={option}
                         type="button"
-                        onClick={() =>
-                          setAnswers({ ...answers, [question]: option })
-                        }
+                        onClick={() => toggleAnswer(question, option)}
                         className={`w-8 h-8 shrink-0 rounded-full text-sm font-bold transition-colors border-2 ${
                           isSelected
                             ? "bg-blue-600 text-white border-blue-600"
@@ -314,10 +348,13 @@ export function AnswerKeyPage({ data, api, refresh, query }) {
           })}
         </div>
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-md p-10 text-center text-zinc-500">
-          เลือกข้อสอบเพื่อกำหนดเฉลย
+        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 shadow-sm">
+          <Icon name="fa-key" className="text-4xl text-slate-300 mb-3" />
+          <p className="font-semibold text-lg text-slate-600">ไม่พบข้อมูลข้อสอบ</p>
+          <p className="text-sm text-slate-400">กรุณาเลือกข้อสอบจากหน้าจัดการกระดาษคำตอบ</p>
         </div>
       )}
     </div>
   );
 }
+

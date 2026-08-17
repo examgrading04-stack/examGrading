@@ -666,20 +666,46 @@ function StudentAnswersView({ result, exam, api, refresh }) {
     }
   };
 
+  const flaggedMap = useMemo(() => {
+    const map = {};
+    if (Array.isArray(result.flagged)) {
+      result.flagged.forEach((f) => {
+        if (f && f.question) {
+          map[String(f.question)] = f;
+        }
+      });
+    }
+    return map;
+  }, [result.flagged]);
+
   const questionsCount = Number(exam.questions || result.totalQuestions || 0);
   const rows = Array.from({ length: questionsCount }, (_, i) => {
     const questionStr = String(i + 1);
     const correctAns = getCorrectAnswer(exam, questionStr);
+    const flagInfo = flaggedMap[questionStr];
     let studentAns = "-";
     let isCorrect = false;
     let isSkipped = false;
+    let isMultiMark = false;
 
     if (result.answers) {
-      studentAns = result.answers[questionStr] || "-";
-      if (studentAns === "-") {
-        isSkipped = true;
+      const val = result.answers[questionStr];
+      if (val !== undefined && val !== null && val !== "" && val !== "-") {
+        studentAns = String(val);
+        isSkipped = false;
+        if (studentAns.includes(",") || studentAns.length > 1) {
+          isMultiMark = true;
+          isCorrect = false;
+        } else {
+          isCorrect = studentAns === correctAns;
+        }
+      } else if (flagInfo && flagInfo.reason === "multiple_mark") {
+        isMultiMark = true;
+        isSkipped = false;
+        studentAns = flagInfo.detected || "ฝนมากกว่า 1 ตัวเลือก";
       } else {
-        isCorrect = studentAns === correctAns;
+        studentAns = "-";
+        isSkipped = true;
       }
     } else if (result.itemResults) {
       isCorrect = result.itemResults[questionStr] === true;
@@ -691,12 +717,18 @@ function StudentAnswersView({ result, exam, api, refresh }) {
       if (studentAns === "-") isSkipped = true;
     }
 
+    if (flagInfo && flagInfo.reason === "multiple_mark") {
+      isMultiMark = true;
+    }
+
     return {
       question: questionStr,
       studentAns,
       correctAns,
       isCorrect,
       isSkipped,
+      isMultiMark,
+      flagInfo,
     };
   });
 
@@ -705,25 +737,44 @@ function StudentAnswersView({ result, exam, api, refresh }) {
 
   const flaggedReasons = [];
   if (result.flagged) {
-    const skippedQs = rows.filter((r) => r.isSkipped).map((r) => r.question);
-    const multiQs = rows
-      .filter(
-        (r) => r.studentAns && r.studentAns !== "-" && r.studentAns.length > 1,
-      )
-      .map((r) => r.question);
+    if (Array.isArray(result.flagged) && result.flagged.length > 0) {
+      result.flagged.forEach((f) => {
+        if (typeof f === "object" && f !== null) {
+          const q = f.question;
+          if (f.reason === "not_filled") {
+            flaggedReasons.push(`ข้อ ${q}: ไม่ได้ฝนคำตอบ`);
+          } else if (f.reason === "multiple_mark") {
+            flaggedReasons.push(
+              `ข้อ ${q}: ฝนมากกว่า 1 ตัวเลือก${f.detected ? ` (สแกนพบ: ${f.detected})` : ""}`,
+            );
+          } else if (f.reason === "low_confidence") {
+            flaggedReasons.push(
+              `ข้อ ${q}: ความมั่นใจในการอ่านคำตอบต่ำ (ฝนจางหรือลบไม่สะอาด)`,
+            );
+          } else {
+            flaggedReasons.push(`ข้อ ${q}: ${f.reason || "ต้องตรวจสอบ"}`);
+          }
+        }
+      });
+    }
 
-    if (skippedQs.length > 0) {
-      flaggedReasons.push(`พบข้อที่ไม่ได้ฝนคำตอบ: ข้อ ${skippedQs.join(", ")}`);
-    }
-    if (multiQs.length > 0) {
-      flaggedReasons.push(
-        `พบข้อที่ฝนมากกว่า 1 ตัวเลือก: ข้อ ${multiQs.join(", ")}`,
-      );
-    }
     if (flaggedReasons.length === 0) {
-      flaggedReasons.push(
-        "ความมั่นใจในการอ่านจุดฝนต่ำ (อาจฝนจางหรือลบไม่สะอาด)",
-      );
+      const skippedQs = rows.filter((r) => r.isSkipped).map((r) => r.question);
+      const multiQs = rows.filter((r) => r.isMultiMark).map((r) => r.question);
+
+      if (skippedQs.length > 0) {
+        flaggedReasons.push(`พบข้อที่ไม่ได้ฝนคำตอบ: ข้อ ${skippedQs.join(", ")}`);
+      }
+      if (multiQs.length > 0) {
+        flaggedReasons.push(
+          `พบข้อที่ฝนมากกว่า 1 ตัวเลือก: ข้อ ${multiQs.join(", ")}`,
+        );
+      }
+      if (flaggedReasons.length === 0) {
+        flaggedReasons.push(
+          "ความมั่นใจในการอ่านจุดฝนต่ำ (อาจฝนจางหรือลบไม่สะอาด)",
+        );
+      }
     }
   }
 
@@ -836,11 +887,42 @@ function StudentAnswersView({ result, exam, api, refresh }) {
                   <td className="px-4 py-3 font-bold text-slate-700">
                     {row.question}
                   </td>
-                  <td className="px-4 py-3 text-center font-bold text-slate-800">
-                    {row.isSkipped ? (
-                      <span className="text-slate-300">-</span>
+                  <td className="px-4 py-3 text-center font-bold">
+                    {row.isMultiMark ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        <Icon
+                          name="fa-triangle-exclamation"
+                          className="text-amber-600"
+                        />
+                        {row.studentAns}{" "}
+                        <span className="text-[11px] font-normal text-amber-700">
+                          (ฝนซ้ำ)
+                        </span>
+                      </span>
+                    ) : row.flagInfo?.reason === "low_confidence" ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <Icon
+                          name="fa-triangle-exclamation"
+                          className="text-amber-500 text-xs"
+                        />
+                        {row.studentAns}{" "}
+                        <span className="text-[11px] font-normal text-amber-600">
+                          (ฝนจาง)
+                        </span>
+                      </span>
+                    ) : row.isSkipped ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-400">
+                        -{" "}
+                        <span className="text-[10px] text-slate-400">
+                          (ไม่ได้ฝน)
+                        </span>
+                      </span>
                     ) : (
-                      row.studentAns
+                      <span
+                        className={`text-base font-bold ${row.isCorrect ? "text-slate-800" : "text-rose-700"}`}
+                      >
+                        {row.studentAns}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center font-bold text-emerald-600">

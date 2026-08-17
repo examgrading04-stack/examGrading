@@ -165,6 +165,7 @@ class SqlExam(Base):
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="SET NULL"), nullable=True)
     isCustomScore = Column("is_custom_score", Boolean, default=False)
     defaultScore = Column("default_score", Float, default=1.0)
+    exam_date = Column("exam_date", String(50), nullable=True)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
     __table_args__ = (
@@ -279,6 +280,7 @@ class MySQLAdapter(BaseDBAdapter):
                 for sql in [
                     "ALTER TABLE exams ADD COLUMN is_custom_score TINYINT(1) DEFAULT 0",
                     "ALTER TABLE exams ADD COLUMN default_score FLOAT DEFAULT 1.0",
+                    "ALTER TABLE exams ADD COLUMN exam_date VARCHAR(50) NULL",
                     "ALTER TABLE exams MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE results MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE student_enrollments DROP FOREIGN KEY student_enrollments_ibfk_2",
@@ -345,6 +347,7 @@ class MySQLAdapter(BaseDBAdapter):
                 d["section"] = d.pop("section_id", None) or "All Section"
                 d["sheetType"] = d.pop("template_id", None)
                 d["subject"] = d.get("subject_id")
+                d["examDate"] = d.get("exam_date") or ""
         finally:
             if own_session:
                 session.close()
@@ -649,9 +652,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             return self._to_dict(row) if row else None
         finally:
             session.close()
@@ -691,9 +696,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             valid_cols = {c.key for c in getattr(model_cls, "__mapper__").column_attrs}
             
             if row:
@@ -702,6 +709,8 @@ class MySQLAdapter(BaseDBAdapter):
                         mapped_data["subject_id"] = mapped_data["subject"]
                     if "name" in mapped_data and "exam_name" not in mapped_data:
                         mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
                         
                     sec = mapped_data.get("section")
                     if sec is not None:
@@ -780,7 +789,13 @@ class MySQLAdapter(BaseDBAdapter):
                                 pass
             else:
                 if hasattr(model_cls, "id"):
-                    mapped_data["id"] = doc_id
+                    if model_cls == SqlSection:
+                        try:
+                            mapped_data["id"] = int(doc_id)
+                        except (ValueError, TypeError):
+                            mapped_data.pop("id", None)
+                    else:
+                        mapped_data["id"] = doc_id
                 elif hasattr(model_cls, "code"):
                     mapped_data["code"] = doc_id
                 elif hasattr(model_cls, "email"):
@@ -801,6 +816,8 @@ class MySQLAdapter(BaseDBAdapter):
                         mapped_data["subject_id"] = mapped_data["subject"]
                     if "name" in mapped_data and "exam_name" not in mapped_data:
                         mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
                         
                     sec = mapped_data.get("section")
                     if sec is not None:
@@ -954,9 +971,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             if row:
                 mapped_data = dict(data)
                         
@@ -1086,9 +1105,11 @@ class MySQLAdapter(BaseDBAdapter):
                 query = query.filter(model_cls.logid == doc_id)
                 
             if hasattr(model_cls, "user_email") and user_email:
-                query = query.filter(model_cls.user_email == user_email)
-                
-            row = query.first()
+                row = query.filter(model_cls.user_email == user_email).first()
+                if not row:
+                    row = query.first()
+            else:
+                row = query.first()
             if row:
                 session.delete(row)
                 session.commit()
