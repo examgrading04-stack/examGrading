@@ -801,13 +801,7 @@ class MySQLAdapter(BaseDBAdapter):
                                 pass
             else:
                 if hasattr(model_cls, "id"):
-                    if model_cls == SqlSection:
-                        try:
-                            mapped_data["id"] = int(doc_id)
-                        except (ValueError, TypeError):
-                            mapped_data.pop("id", None)
-                    else:
-                        mapped_data["id"] = doc_id
+                    mapped_data["id"] = str(doc_id)
                 elif hasattr(model_cls, "code"):
                     mapped_data["code"] = doc_id
                 elif hasattr(model_cls, "email"):
