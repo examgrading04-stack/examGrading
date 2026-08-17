@@ -130,6 +130,35 @@ export function ResultsPage({ data, api, refresh, query }) {
   const [selectedExamId, setSelectedExamId] = useState(query?.examId || "");
   const [selectedResult, setSelectedResult] = useState(null);
   const [searchResult, setSearchResult] = useState("");
+  const [selectedResults, setSelectedResults] = useState(new Set());
+
+  const deleteSelectedResults = async () => {
+    if (selectedResults.size === 0) return;
+    const count = selectedResults.size;
+    const res = await Swal().fire({
+      title: "ลบผลการตรวจที่เลือก?",
+      text: `ต้องการลบผลการตรวจจำนวน ${count} รายการหรือไม่ (ข้อมูลจะไม่สามารถกู้คืนได้)`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบรายการที่เลือก",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#e11d48",
+    });
+    if (!res.isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
+    await Promise.all(
+      Array.from(selectedResults).map((id) => api.remove("results", id)),
+    );
+
+    setSelectedResults(new Set());
+    await refresh(`ลบผลการตรวจ ${count} รายการแล้ว`);
+  };
 
   useEffect(() => {
     if (query?.examId) {
@@ -306,45 +335,92 @@ export function ResultsPage({ data, api, refresh, query }) {
       )}
 
       {/* Search and Filter */}
-      <div className="w-full flex flex-col sm:flex-row items-start sm:items-end gap-3 print:hidden">
-        <div className="w-full sm:w-56 max-w-full">
-          <Input
-            value={searchResult}
-            onChange={(e) => setSearchResult(e.target.value)}
-            placeholder="รหัส หรือ ชื่อ-สกุล..."
-            className="bg-white"
-          />
+      <div className="w-full flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 print:hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-56 max-w-full">
+            <Input
+              value={searchResult}
+              onChange={(e) => setSearchResult(e.target.value)}
+              placeholder="รหัส หรือ ชื่อ-สกุล..."
+              className="bg-white"
+            />
+          </div>
+          <div className="w-full sm:w-80">
+            <Select
+              value={selectedExamId}
+              onChange={(e) => setSelectedExamId(e.target.value)}
+              className="w-full bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">ดูผลการตรวจคะแนนทั้งหมด</option>
+              {data.exams.map((exam) => {
+                const secName =
+                  exam.section === "All Section" || !exam.section
+                    ? "All Section"
+                    : data.sections?.find(
+                        (s) => String(s.id) === String(exam.section),
+                      )?.sec || exam.section;
+                return (
+                  <option key={exam.id} value={exam.id}>
+                    {exam.subject}{" "}
+                    {secName !== "All Section" ? `(${secName})` : ""} -{" "}
+                    {exam.name}
+                  </option>
+                );
+              })}
+            </Select>
+          </div>
         </div>
-        <div className="w-full sm:w-80">
-          <Select
-            value={selectedExamId}
-            onChange={(e) => setSelectedExamId(e.target.value)}
-            className="w-full bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        {selectedResults.size > 0 && (
+          <button
+            onClick={deleteSelectedResults}
+            className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+            title="ลบผลการตรวจที่เลือก"
           >
-            <option value="">ดูผลการตรวจคะแนนทั้งหมด</option>
-            {data.exams.map((exam) => {
-              const secName =
-                exam.section === "All Section" || !exam.section
-                  ? "All Section"
-                  : data.sections?.find(
-                      (s) => String(s.id) === String(exam.section),
-                    )?.sec || exam.section;
-              return (
-                <option key={exam.id} value={exam.id}>
-                  {exam.subject}{" "}
-                  {secName !== "All Section" ? `(${secName})` : ""} -{" "}
-                  {exam.name}
-                </option>
-              );
-            })}
-          </Select>
-        </div>
+            <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedResults.size})
+          </button>
+        )}
       </div>
 
       {/* Main Table Section */}
       <section className="space-y-4 print:hidden">
         <DataTable
           columns={[
+            {
+              key: "select",
+              className: "w-12 text-center px-2",
+              label: (
+                <input
+                  type="checkbox"
+                  checked={
+                    filteredResults.length > 0 &&
+                    filteredResults.every((r) => selectedResults.has(r.id))
+                  }
+                  onChange={(e) => {
+                    const next = new Set(selectedResults);
+                    if (e.target.checked) {
+                      filteredResults.forEach((r) => next.add(r.id));
+                    } else {
+                      filteredResults.forEach((r) => next.delete(r.id));
+                    }
+                    setSelectedResults(next);
+                  }}
+                  className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+              ),
+              render: (row) => (
+                <input
+                  type="checkbox"
+                  checked={selectedResults.has(row.id)}
+                  onChange={(e) => {
+                    const next = new Set(selectedResults);
+                    if (e.target.checked) next.add(row.id);
+                    else next.delete(row.id);
+                    setSelectedResults(next);
+                  }}
+                  className="w-4 h-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                />
+              ),
+            },
             {
               key: "studentName",
               label: "ผู้สอบ",

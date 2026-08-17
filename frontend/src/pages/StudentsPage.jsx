@@ -90,9 +90,10 @@ export function StudentsPage({ data, api, refresh }) {
 
   async function deleteSelectedStudents() {
     if (selectedStudents.size === 0) return;
+    const count = selectedStudents.size;
     const result = await Swal().fire({
-      title: "ลบรายการที่เลือก?",
-      text: `ต้องการลบข้อมูลผู้เรียนจำนวน ${selectedStudents.size} คนหรือไม่`,
+      title: "ลบผู้เรียนที่เลือก?",
+      text: `ต้องการลบข้อมูลผู้เรียนจำนวน ${count} คนหรือไม่`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "ลบ",
@@ -109,8 +110,11 @@ export function StudentsPage({ data, api, refresh }) {
 
     const idsToDelete = new Set();
     for (const uniqueId of selectedStudents) {
-      const student = data.students.find(s => `${s.id}_${s.subjectCode}` === uniqueId);
+      const student = data.students.find(
+        (s) => `${s.id}_${s.subjectCode}` === uniqueId || s.id === uniqueId,
+      );
       if (student) idsToDelete.add(student.id);
+      else idsToDelete.add(uniqueId.split("_")[0]);
     }
 
     await Promise.all(
@@ -367,13 +371,22 @@ export function StudentsPage({ data, api, refresh }) {
               label: (
                 <input
                   type="checkbox"
-                  checked={selectedStudents.size > 0}
+                  checked={
+                    filteredStudents.length > 0 &&
+                    filteredStudents.every((s) =>
+                      selectedStudents.has(`${s.id}_${s.subjectCode}`),
+                    )
+                  }
                   onChange={(e) => {
                     const next = new Set(selectedStudents);
                     if (e.target.checked) {
-                      filteredStudents.forEach((s) => next.add(s.id));
+                      filteredStudents.forEach((s) =>
+                        next.add(`${s.id}_${s.subjectCode}`),
+                      );
                     } else {
-                      next.clear();
+                      filteredStudents.forEach((s) =>
+                        next.delete(`${s.id}_${s.subjectCode}`),
+                      );
                     }
                     setSelectedStudents(next);
                     setLastSelectedStudentIndex(null);
