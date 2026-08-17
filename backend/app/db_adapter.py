@@ -165,6 +165,7 @@ class SqlExam(Base):
     template_id = Column("template_id", String(50), ForeignKey("templates.template_id", ondelete="SET NULL"), nullable=True)
     isCustomScore = Column("is_custom_score", Boolean, default=False)
     defaultScore = Column("default_score", Float, default=1.0)
+    exam_date = Column("exam_date", String(50), nullable=True)
     user_email = Column("user_id", String(100), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
 
     __table_args__ = (

@@ -111,7 +111,7 @@ def build_sheet_payload(exam: dict, student: dict) -> dict:
         "subject_name": exam.get("subjectName") or exam.get("subject_name") or exam.get("subject_title") or "",
         "student_id": student_code,
         "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
-        "exam_date": exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
+        "exam_date": exam.get("examDate") or exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
         "total_questions": int(exam.get("questions") or exam.get("total_questions") or 50),
         "sheet_type": exam.get("template_id") or exam.get("sheetType"),
         "sheet_id": f"{exam_id}:{student_doc_id or student_code}",

@@ -20,6 +20,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     name: "",
     questions: "",
     sheetType: "30",
+    examDate: "",
   });
   const [sheetModal, setSheetModal] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -172,6 +173,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       section: form.section || "All Section",
       questions,
       sheetType: finalSheetType,
+      examDate: form.examDate || "",
       answerKey: {},
     };
 
@@ -183,6 +185,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
         name: "",
         questions: "",
         sheetType: "30",
+        examDate: "",
         id: null,
       });
       await refresh("แก้ไขกระดาษคำตอบสำเร็จ");
@@ -206,6 +209,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       name: "",
       questions: "",
       sheetType: "30",
+      examDate: "",
       id: null,
     });
     await refresh("สร้างกระดาษคำตอบสำเร็จ");
@@ -443,18 +447,34 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 },
                 {
                   key: "date",
-                  label: "วันที่สร้าง",
+                  label: "วันที่จะสอบ / วันที่สร้าง",
                   className: "pl-6 text-slate-600",
                   render: (row) => {
-                    const displayDate =
+                    const createdDateStr =
                       row.date ||
                       (row.createdAt
                         ? formatThaiDate(new Date(row.createdAt))
                         : "-");
+                    const examDateStr = row.examDate
+                      ? formatThaiDate(new Date(row.examDate))
+                      : null;
                     return (
-                      <span className="text-slate-600 text-sm">
-                        {displayDate}
-                      </span>
+                      <div className="flex flex-col text-sm">
+                        {examDateStr ? (
+                          <>
+                            <span className="font-semibold text-slate-800">
+                              สอบ: {examDateStr}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              สร้าง: {createdDateStr}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-600">
+                            {createdDateStr}
+                          </span>
+                        )}
+                      </div>
                     );
                   },
                 },
@@ -488,6 +508,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                               "-A-E",
                               "",
                             ),
+                            examDate: row.examDate || row.date || "",
                           });
                         }}
                         title="แก้ไขข้อมูลกระดาษคำตอบ"
@@ -587,6 +608,13 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 required
               />
             </Field>
+            <Field label="วันที่จะสอบ">
+              <Input
+                type="date"
+                value={form.examDate}
+                onChange={(e) => setForm({ ...form, examDate: e.target.value })}
+              />
+            </Field>
             <Field label="จำนวนข้อที่ต้องการกำหนดเฉลย">
               <Input
                 type="number"
@@ -638,6 +666,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     name: "",
                     questions: "",
                     sheetType: "30",
+                    examDate: "",
                     id: null,
                   })
                 }
