@@ -133,10 +133,26 @@ export function StudentsPage({ data, api, refresh }) {
       showCancelButton: true,
       confirmButtonText: "ลบ",
       cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#e11d48",
     });
     if (!result.isConfirmed) return;
-    await api.remove("students", row.id);
-    await refresh("ลบผู้เรียนแล้ว");
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
+    try {
+      await api.remove("students", row.id);
+      await refresh("ลบผู้เรียนแล้ว");
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
+        "error",
+      );
+    }
   }
 
   async function deleteSelectedStudents() {
@@ -164,12 +180,20 @@ export function StudentsPage({ data, api, refresh }) {
       if (student) idsToDelete.add(student.id);
     }
 
-    await Promise.all(
-      Array.from(idsToDelete).map((id) => api.remove("students", id)),
-    );
+    try {
+      await Promise.all(
+        Array.from(idsToDelete).map((id) => api.remove("students", id)),
+      );
 
-    setSelectedStudents(new Set());
-    await refresh(`ลบผู้เรียน ${selectedStudents.size} รายการแล้ว`);
+      setSelectedStudents(new Set());
+      await refresh(`ลบผู้เรียน ${selectedStudents.size} รายการแล้ว`);
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถลบข้อมูลผู้เรียนได้",
+        "error",
+      );
+    }
   }
 
   function getRowValue(row, keys) {

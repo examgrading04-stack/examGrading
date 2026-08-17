@@ -436,11 +436,23 @@ class MySQLAdapter(BaseDBAdapter):
     def get_exams(self, user_email: str) -> List[dict]:
         session = self._get_session()
         try:
-            # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
-            rows = session.query(SqlExam).outerjoin(
-                SqlSubject,
-                (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
-            ).filter(SqlExam.user_email == user_email).all()
+            try:
+                # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
+                rows = session.query(SqlExam).outerjoin(
+                    SqlSubject,
+                    (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
+                ).filter(SqlExam.user_email == user_email).all()
+            except Exception as ex:
+                if "1054" in str(ex) or "unknown column" in str(ex).lower():
+                    session.close()
+                    self._auto_migrate()
+                    session = self._get_session()
+                    rows = session.query(SqlExam).outerjoin(
+                        SqlSubject,
+                        (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
+                    ).filter(SqlExam.user_email == user_email).all()
+                else:
+                    raise
 
             # Batch-load subjects เพื่อลด N+1
             subject_ids = list({r.subject_id for r in rows if r.subject_id})
@@ -1111,8 +1123,18 @@ class MySQLAdapter(BaseDBAdapter):
             else:
                 row = query.first()
             if row:
+                if collection == "students":
+                    # ลบข้อมูลการลงทะเบียนเรียนที่เกี่ยวข้องก่อน เพื่อไม่ให้ติด Foreign Key
+                    session.query(SqlStudentEnrollment).filter(
+                        SqlStudentEnrollment.student_code == doc_id,
+                        SqlStudentEnrollment.user_id == user_email
+                    ).delete()
                 session.delete(row)
                 session.commit()
+        except Exception as e:
+            session.rollback()
+            print(f"Error in delete_doc ({collection}, {doc_id}): {e}")
+            raise
         finally:
             session.close()
 
