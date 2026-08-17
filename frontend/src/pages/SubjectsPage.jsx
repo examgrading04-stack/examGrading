@@ -68,7 +68,9 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
     const isEdit = !!subjectForm.id;
     const existing = data.subjects.find(
       (s) =>
-        String(s.code || s.id).trim().toLowerCase() === codeTrimmed.toLowerCase() &&
+        String(s.code || s.id)
+          .trim()
+          .toLowerCase() === codeTrimmed.toLowerCase() &&
         (isEdit ? s.id !== subjectForm.id && s.code !== subjectForm.id : true),
     );
 
@@ -91,7 +93,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       name: subjectForm.name,
       term: subjectForm.term,
       year: subjectForm.year,
-      teacher: subjectForm.teacher,
+      teacher: subjectForm.teacher || defaultTeacher,
     };
 
     try {
@@ -99,6 +101,16 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
         await api.update("subjects", subjectForm.id, payload);
       } else {
         await api.set(`subjects/${payload.code}`, payload);
+
+        // Automatically create a default section (group 1) for the new subject
+        const secStr = "1";
+        const secId = `${payload.code}_${secStr}`;
+        await api.set(`subjects/${payload.code}/sections/${secId}`, {
+          id: secId,
+          subject: payload.code,
+          sec: secStr,
+          created_at: new Date().toISOString(),
+        });
       }
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
@@ -204,6 +216,13 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       cancelButtonText: "ยกเลิก",
     });
     if (!result.isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
     await api.remove("subjects", subject.id);
     await refresh("ลบรายวิชาเรียบร้อยแล้ว");
   }
@@ -218,6 +237,13 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       cancelButtonText: "ยกเลิก",
     });
     if (!result.isConfirmed) return;
+
+    Swal().fire({
+      title: "กำลังลบข้อมูล...",
+      allowOutsideClick: false,
+      didOpen: () => Swal().showLoading(),
+    });
+
     await api.remove(
       `subjects/${section.subject}/sections`,
       section.realId || section.id,
@@ -441,7 +467,11 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                     />
                   ),
                 },
-                { key: "code", label: "รหัสวิชา", className: "w-24" },
+                {
+                  key: "code",
+                  label: "รหัสวิชา",
+                  className: "w-24 text-left",
+                },
                 { key: "name", label: "ชื่อวิชา" },
                 {
                   key: "termYear",
