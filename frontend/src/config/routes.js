@@ -18,6 +18,14 @@ export const routes = [
     hidden: true,
   },
   {
+    id: "admin-settings",
+    path: "/admin/settings",
+    label: "ตั้งค่าระบบ",
+    subtitle: "กำหนดค่าเริ่มต้น",
+    icon: "fa-cogs",
+    adminOnly: true,
+  },
+  {
     id: "subjects",
     path: "/subjects",
     file: "subjects.html",

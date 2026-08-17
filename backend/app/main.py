@@ -110,7 +110,7 @@ def get_user_email(
         return user_email
     if authorization and authorization.startswith("Bearer "):
         token = authorization.removeprefix("Bearer ").strip()
-        if "@" in token:
+        if token:
             return token
     raise HTTPException(status_code=401, detail="Missing user_email or authorization header")
 
@@ -625,6 +625,13 @@ def parse_db_path(path: str):
         result["collection"] = parts[0]
         if len(parts) > 1:
             result["doc_id"] = parts[1]
+            if len(parts) > 2:
+                result["parent_doc_id"] = parts[1]
+                result["collection"] = parts[2]
+                if len(parts) > 3:
+                    result["doc_id"] = parts[3]
+                else:
+                    result["doc_id"] = None
     return result
 
 @app.post("/api/upload-profile-picture")
@@ -837,6 +844,25 @@ def db_patch(path: str, payload: dict = Body(...), db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid path")
         
     db.update_doc(collection, doc_id, user_email, payload)
+    return {"ok": True}
+
+@app.get("/api/settings/academic_year")
+def get_academic_year(db=Depends(get_db)):
+    doc = db.get_doc("settings", "academic_year")
+    return {"year": doc.get("value") if doc else "2567"}
+
+@app.put("/api/settings/academic_year")
+def set_academic_year(
+    payload: dict = Body(...),
+    authorization: str | None = Header(None),
+    db=Depends(get_db)
+):
+    user_email = get_user_email(authorization)
+    admin_user = db.get_doc("users", user_email)
+    print(f"DEBUG: authorization={authorization}, user_email={user_email}, admin_user={admin_user}")
+    if not admin_user or admin_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    db.set_doc("settings", "academic_year", None, {"value": str(payload.get("year"))})
     return {"ok": True}
 
 @app.delete("/api/db/{path:path}")

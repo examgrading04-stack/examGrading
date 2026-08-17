@@ -9,17 +9,35 @@ import {
   Select,
   Swal,
   emptyForm,
+  API_BASE_URL,
 } from "../ui.jsx";
+
+const BASE_URL = API_BASE_URL || "http://127.0.0.1:8000";
 
 export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
   const defaultTeacher = userName || userEmail || "";
 
+  const [minYear, setMinYear] = useState("");
   const [subjectForm, setSubjectForm] = useState({
     ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
     term: "1",
     year: String(new Date().getFullYear() + 543),
     teacher: defaultTeacher,
   });
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/api/settings/academic_year`)
+      .then((res) => res.json())
+      .then((d) => {
+        if (d.year) {
+          setMinYear(d.year);
+          if (!subjectForm.id) {
+            setSubjectForm((prev) => ({ ...prev, year: d.year }));
+          }
+        }
+      })
+      .catch((e) => console.error("Error fetching academic_year", e));
+  }, []);
 
   useEffect(() => {
     if (defaultTeacher && !subjectForm.id && !subjectForm.teacher) {
@@ -82,6 +100,14 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       );
     }
 
+    if (minYear && parseInt(subjectForm.year) < parseInt(minYear)) {
+      return Swal().fire(
+        "ปีการศึกษาไม่ถูกต้อง",
+        `คุณไม่สามารถระบุปีการศึกษาที่ต่ำกว่า ${minYear} ได้ (สามารถกรอกปีล่วงหน้าได้เท่านั้น)`,
+        "warning",
+      );
+    }
+
     Swal().fire({
       title: isEdit ? "กำลังแก้ไขรายวิชา..." : "กำลังบันทึกรายวิชา...",
       allowOutsideClick: false,
@@ -115,7 +141,7 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
       setSubjectForm({
         ...emptyForm(["id", "code", "name", "term", "year", "teacher"]),
         term: "1",
-        year: String(new Date().getFullYear() + 543),
+        year: minYear || String(new Date().getFullYear() + 543),
         teacher: defaultTeacher,
       });
       await refresh("บันทึกรายวิชาเรียบร้อยแล้ว");
@@ -754,13 +780,29 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                 </div>
               </Field>
               <Field label="ปีการศึกษา">
-                <Input
-                  value={subjectForm.year}
-                  onChange={(e) =>
-                    setSubjectForm({ ...subjectForm, year: e.target.value })
-                  }
-                  placeholder="เช่น 2567"
-                />
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setSubjectForm((p) => ({ ...p, year: String(parseInt(p.year || minYear || 2567) - 1) }))}
+                    className="w-12 h-[42px] flex items-center justify-center bg-slate-100 border border-slate-300 border-r-0 rounded-l-xl hover:bg-slate-200 transition-colors shrink-0"
+                  >
+                    <Icon name="fa-minus text-slate-600" />
+                  </button>
+                  <input
+                    type="text"
+                    readOnly
+                    value={subjectForm.year}
+                    className="w-full h-[42px] text-center border border-slate-300 focus:outline-none bg-white font-medium text-slate-700"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSubjectForm((p) => ({ ...p, year: String(parseInt(p.year || minYear || 2567) + 1) }))}
+                    className="w-12 h-[42px] flex items-center justify-center bg-slate-100 border border-slate-300 border-l-0 rounded-r-xl hover:bg-slate-200 transition-colors shrink-0"
+                  >
+                    <Icon name="fa-plus text-slate-600" />
+                  </button>
+                </div>
               </Field>
             </div>
             <Field label="ผู้สอน">

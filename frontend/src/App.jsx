@@ -3,6 +3,7 @@ import { AnswerKeyPage } from "./pages/AnswerKeyPage.jsx";
 import { AnswerSheet } from "./pages/AnswerSheet.jsx";
 import { AnalysisPage } from "./pages/AnalysisPage.jsx";
 import { AdminPage } from "./pages/AdminPage.jsx";
+import { AdminSettingsPage } from "./pages/AdminSettingsPage.jsx";
 import { Dashboard } from "./pages/Dashboard.jsx";
 import { ExamsPage } from "./pages/ExamsPage.jsx";
 import { ReportsPage } from "./pages/ReportsPage.jsx";
@@ -248,6 +249,7 @@ function Shell({
     if (routeId === "analysis") return <AnalysisPage {...props} />;
     if (routeId === "reports") return <ReportsPage {...props} />;
     if (routeId === "answer-sheet") return <AnswerSheet />;
+    if (routeId === "admin-settings") return <AdminSettingsPage user={user} />;
     return <Dashboard {...props} />;
   }
 
