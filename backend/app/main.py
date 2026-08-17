@@ -10,7 +10,7 @@ load_dotenv()
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 # pyrefly: ignore [missing-import]
-from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request
+from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request, BackgroundTasks
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
@@ -27,6 +27,7 @@ from .models.schemas import (
     SheetPdfRequest,
 )
 from .services.diagnostics import diagnose
+from .services.report_generator import generate_excel_report, generate_pdf_report
 from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_marks
 from .services.pdf_sheets import generate_pdf_for_students
 from .db_adapter import get_db_adapter
@@ -375,6 +376,80 @@ def download_answer_sheets_pdf(
         pdf_path,
         media_type="application/pdf",
         filename=f"{payload.exam_id}_answer_sheets.pdf",
+    )
+
+@app.post("/api/results/report/excel/download")
+def download_excel_report(
+    payload: dict = Body(...),
+    authorization: str | None = Header(None),
+    db=Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    email = get_user_email(authorization)
+    exam_id = payload.get("examId")
+    if not exam_id:
+        raise HTTPException(status_code=400, detail="Missing examId")
+    
+    exam = db.get_doc("exams", exam_id, email)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+        
+    subject = db.get_doc("subjects", exam.get("subject_id"), email)
+    subject_name = subject.get("name") if subject else "Unknown Subject"
+    
+    result_ids = payload.get("resultIds")
+    results = [r for r in db.get_collection("results", email) if r.get("examId") == exam_id or r.get("exam_id") == exam_id]
+    if result_ids:
+        results = [r for r in results if r.get("id") in result_ids]
+        
+    students = db.get_collection("students", email)
+    sections = db.get_collection("sections", email)
+    
+    filepath = generate_excel_report(exam, results, students, subject_name, sections)
+    background_tasks.add_task(os.unlink, filepath)
+    
+    return FileResponse(
+        filepath,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=f"Report_{exam_id}.xlsx",
+        background=background_tasks
+    )
+
+@app.post("/api/results/report/pdf/download")
+def download_pdf_report(
+    payload: dict = Body(...),
+    authorization: str | None = Header(None),
+    db=Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    email = get_user_email(authorization)
+    exam_id = payload.get("examId")
+    if not exam_id:
+        raise HTTPException(status_code=400, detail="Missing examId")
+    
+    exam = db.get_doc("exams", exam_id, email)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+        
+    subject = db.get_doc("subjects", exam.get("subject_id"), email)
+    subject_name = subject.get("name") if subject else "Unknown Subject"
+    
+    result_ids = payload.get("resultIds")
+    results = [r for r in db.get_collection("results", email) if r.get("examId") == exam_id or r.get("exam_id") == exam_id]
+    if result_ids:
+        results = [r for r in results if r.get("id") in result_ids]
+        
+    students = db.get_collection("students", email)
+    sections = db.get_collection("sections", email)
+    
+    filepath = generate_pdf_report(exam, results, students, subject_name, sections)
+    background_tasks.add_task(os.unlink, filepath)
+    
+    return FileResponse(
+        filepath,
+        media_type="application/pdf",
+        filename=f"Report_{exam_id}.pdf",
+        background=background_tasks
     )
 
 

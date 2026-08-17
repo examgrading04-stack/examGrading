@@ -10,6 +10,7 @@ import {
   Modal,
   Pagination,
   StatCard,
+  API_BASE_URL,
 } from "../ui.jsx";
 
 function getCorrectAnswer(exam, question) {
@@ -126,11 +127,77 @@ function getQuestionScore(exam, question) {
   return 1.0;
 }
 
-export function ResultsPage({ data, api, refresh, query }) {
+export function ResultsPage({ data, api, refresh, query, userEmail }) {
   const [selectedExamId, setSelectedExamId] = useState(query?.examId || "");
   const [selectedResult, setSelectedResult] = useState(null);
   const [searchResult, setSearchResult] = useState("");
   const [selectedResults, setSelectedResults] = useState(new Set());
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingExcel, setDownloadingExcel] = useState(false);
+
+  const downloadReportPdf = async () => {
+    if (!selectedExamId) return;
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/results/report/pdf/download`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userEmail || ""}`,
+        },
+        body: JSON.stringify({ 
+          examId: selectedExamId,
+          resultIds: selectedResults.size > 0 ? Array.from(selectedResults) : null 
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to download PDF report");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Report_${selectedExamId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      Swal().fire("Error", "ไม่สามารถดาวน์โหลด PDF ได้", "error");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const downloadReportExcel = async () => {
+    if (!selectedExamId) return;
+    setDownloadingExcel(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/results/report/excel/download`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userEmail || ""}`,
+        },
+        body: JSON.stringify({ 
+          examId: selectedExamId,
+          resultIds: selectedResults.size > 0 ? Array.from(selectedResults) : null 
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to download Excel report");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Report_${selectedExamId}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      Swal().fire("Error", "ไม่สามารถดาวน์โหลด Excel ได้", "error");
+    } finally {
+      setDownloadingExcel(false);
+    }
+  };
 
   const deleteSelectedResults = async () => {
     if (selectedResults.size === 0) return;
@@ -369,6 +436,26 @@ export function ResultsPage({ data, api, refresh, query }) {
               })}
             </Select>
           </div>
+          {selectedExamId && (
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={downloadReportExcel}
+                disabled={downloadingExcel || filteredResults.length === 0}
+                className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-10"
+                title="ดาวน์โหลด Excel"
+              >
+                <Icon name={downloadingExcel ? "fa-spinner fa-spin" : "fa-file-excel"} /> Excel
+              </button>
+              <button
+                onClick={downloadReportPdf}
+                disabled={downloadingPdf || filteredResults.length === 0}
+                className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-10"
+                title="ดาวน์โหลด PDF"
+              >
+                <Icon name={downloadingPdf ? "fa-spinner fa-spin" : "fa-file-pdf"} /> PDF
+              </button>
+            </div>
+          )}
         </div>
         {selectedResults.size > 0 && (
           <button
@@ -439,9 +526,13 @@ export function ResultsPage({ data, api, refresh, query }) {
                     </span>
                     <span className="text-[11px] font-normal text-slate-400">
                       {row.subject || "-"}{" "}
-                      {row.examSection && row.examSection !== "All Section"
-                        ? `(${row.examSection})`
-                        : ""}
+                      {(() => {
+                        const secId = row.studentSec || row.examSection;
+                        if (!secId || secId === "All Section") return "";
+                        const sec = data.sections?.find((s) => String(s.id) === String(secId));
+                        const secName = sec ? (sec.name || sec.sec || sec.section_name) : secId;
+                        return `(${secName})`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -580,7 +671,12 @@ export function ResultsPage({ data, api, refresh, query }) {
                 <td className="py-2 pr-4">{r.studentCode || "-"}</td>
                 <td className="py-2 pr-4">{r.studentName || "-"}</td>
                 <td className="py-2 pr-4">
-                  {r.studentSec || r.examSection || "-"}
+                  {(() => {
+                    const secId = r.studentSec || r.examSection;
+                    if (!secId || secId === "All Section") return "All Section";
+                    const sec = data.sections?.find((s) => String(s.id) === String(secId));
+                    return sec ? (sec.name || sec.sec || sec.section_name) : secId;
+                  })()}
                 </td>
                 <td className="py-2 pr-4 text-center">
                   {r.score}/{r.totalQuestions}

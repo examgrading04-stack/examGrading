@@ -395,6 +395,16 @@ class MySQLAdapter(BaseDBAdapter):
             if subj:
                 d["subjectName"] = subj.name
                 d["subject_name"] = subj.name
+                
+            if row.section_id:
+                sec = session.query(SqlSection).filter(SqlSection.id == row.section_id).first()
+                if sec:
+                    d["section"] = sec.sec
+                else:
+                    d["section"] = row.section_id
+            else:
+                d["section"] = None
+                
             return d
         finally:
             session.close()
@@ -1002,6 +1012,8 @@ class MySQLAdapter(BaseDBAdapter):
                         mapped_data["subject_id"] = mapped_data["subject"]
                     if "name" in mapped_data and "exam_name" not in mapped_data:
                         mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
                         
                     sec = mapped_data.get("section")
                     if sec is not None:

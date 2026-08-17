@@ -105,10 +105,15 @@ def build_sheet_payload(exam: dict, student: dict) -> dict:
     student_doc_id = student.get("id") or student.get("docId") or ""
     student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or student_doc_id
     exam_id = exam.get("id") or exam.get("examId") or ""
+    
+    subj_name = exam.get("subjectName") or exam.get("subject_name") or exam.get("subject_title") or ""
+    section = exam.get("section")
+    if section and str(section).strip() and str(section).strip().lower() != "all section":
+        subj_name = f"{subj_name} (กลุ่ม {str(section).strip()})"
 
     return {
         "subject_code": subject_code,
-        "subject_name": exam.get("subjectName") or exam.get("subject_name") or exam.get("subject_title") or "",
+        "subject_name": subj_name,
         "student_id": student_code,
         "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
         "exam_date": exam.get("examDate") or exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
