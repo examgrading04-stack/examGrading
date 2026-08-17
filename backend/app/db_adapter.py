@@ -861,6 +861,22 @@ class MySQLAdapter(BaseDBAdapter):
                         else:
                             mapped_data["template_id"] = str(mapped_data["sheetType"])
                         
+                if collection in ("sections", "exams"):
+                    subject_id = mapped_data.get("subject") or mapped_data.get("subject_id")
+                    if subject_id and user_email:
+                        subj = session.query(SqlSubject).filter(
+                            SqlSubject.code == subject_id,
+                            SqlSubject.user_email == user_email
+                        ).first()
+                        if not subj:
+                            new_subj = SqlSubject(
+                                code=subject_id,
+                                name=f"วิชา {subject_id}",
+                                user_email=user_email
+                            )
+                            session.add(new_subj)
+                            session.flush()
+
                 if collection == "results":
                     student_code = mapped_data.get("studentCode") or mapped_data.get("student_code")
                     if not student_code:
