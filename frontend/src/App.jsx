@@ -24,6 +24,7 @@ import {
   API_BASE_URL,
   apiFetch,
   SplitScreenAuthLayout,
+  PasswordInput,
 } from "./ui.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -72,6 +73,120 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
   );
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  const [view, setView] = useState("PROFILE");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const isGoogleUser =
+    user?.providerData?.some((p) => p.providerId === "google.com") ||
+    auth.currentUser?.providerData?.some((p) => p.providerId === "google.com");
+
+  function resetPasswordForms() {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setView("PROFILE");
+  }
+
+  function handleCloseModal() {
+    resetPasswordForms();
+    onClose();
+  }
+
+  async function handleVerifyPassword(e) {
+    e.preventDefault();
+    if (!currentPassword) {
+      Swal().fire("กรุณากรอกรหัสผ่านปัจจุบัน", "", "warning");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const baseUrl =
+        typeof API_BASE_URL !== "undefined" && API_BASE_URL
+          ? API_BASE_URL
+          : "http://127.0.0.1:8000";
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, password: currentPassword }),
+      });
+      if (!res.ok) {
+        throw new Error("รหัสผ่านไม่ถูกต้อง");
+      }
+      setView("SET_NEW_PASSWORD");
+    } catch (error) {
+      console.error(error);
+      Swal().fire(
+        "รหัสผ่านไม่ถูกต้อง",
+        "กรุณาตรวจสอบรหัสผ่านปัจจุบันของคุณอีกครั้ง",
+        "error",
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      Swal().fire(
+        "ข้อมูลไม่ครบ",
+        "กรุณากรอกรหัสผ่านใหม่และยืนยันรหัสผ่าน",
+        "warning",
+      );
+      return;
+    }
+    if (currentPassword && newPassword === currentPassword) {
+      Swal().fire(
+        "รหัสผ่านซ้ำซ้อน",
+        "ไม่สามารถตั้งรหัสผ่านซ้ำกับรหัสผ่านเดิมได้ กรุณาตั้งรหัสผ่านใหม่",
+        "warning",
+      );
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Swal().fire(
+        "รหัสผ่านไม่ตรงกัน",
+        "กรุณายืนยันรหัสผ่านใหม่ให้ถูกต้อง",
+        "warning",
+      );
+      return;
+    }
+    if (newPassword.length < 6) {
+      Swal().fire(
+        "รหัสผ่านสั้นเกินไป",
+        "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
+        "warning",
+      );
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await window.firebase
+        .firestore()
+        .collection("users")
+        .doc(user.email)
+        .update({
+          password: newPassword,
+        });
+      Swal().fire("สำเร็จ", "ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว", "success");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setView("PROFILE");
+    } catch (error) {
+      console.error(error);
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        error.message || "ไม่สามารถเปลี่ยนรหัสผ่านได้",
+        "error",
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  }
 
   async function save(e) {
     e.preventDefault();
@@ -133,78 +248,173 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/50 flex items-center justify-center p-4">
-      <form
-        onSubmit={save}
-        className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm w-full max-w-md space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="font-extrabold text-lg">ตั้งค่าโปรไฟล์</h3>
-          <GhostButton type="button" className="py-2 px-3" onClick={onClose}>
-            <Icon name="fa-xmark" />
-          </GhostButton>
-        </div>
-
-        <div className="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-          <div className="w-24 h-24 rounded-full bg-slate-50 from-blue-100 to-emerald-100 flex items-center justify-center text-blue-700 font-bold text-3xl overflow-hidden shadow-sm border-4 border-white">
-            <AvatarImage
-              src={photoURL}
-              name={displayName || user.email}
-              iconFallback
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-bold text-slate-700">
-              รูปตัวอย่างโปรไฟล์
-            </p>
-            <p className="text-xs text-slate-500">
-              แสดงผลเมื่อใส่ URL ที่ถูกต้อง
-            </p>
-          </div>
-        </div>
-
-        <Field label="ชื่อที่แสดง">
-          <Input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="เช่น อาจารย์สมชาย ใจดี"
-          />
-        </Field>
-        <Field label="รูปโปรไฟล์ (URL หรือ อัปโหลดไฟล์)">
-          <div className="flex gap-2">
-            <Input
-              value={photoURL}
-              onChange={(e) => setPhotoURL(e.target.value)}
-              placeholder="https://example.com/photo.jpg"
-              className="flex-1"
-            />
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-            />
+  if (view === "VERIFY_PASSWORD") {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/50 flex flex-col items-center justify-center p-4 overflow-y-auto">
+        <form
+          onSubmit={handleVerifyPassword}
+          className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm w-full max-w-md space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-lg">ยืนยันรหัสผ่านเดิม</h3>
             <GhostButton
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="shrink-0"
-              title="อัปโหลดรูปภาพ"
+              className="py-2 px-3"
+              onClick={resetPasswordForms}
             >
-              {uploading ? (
-                <Icon name="fa-spinner fa-spin" />
-              ) : (
-                <Icon name="fa-upload" />
-              )}
+              <Icon name="fa-arrow-left" />
             </GhostButton>
           </div>
-        </Field>
-        <PrimaryButton className="w-full">
-          <Icon name="fa-floppy-disk" /> บันทึกโปรไฟล์
-        </PrimaryButton>
-      </form>
+          <p className="text-sm text-slate-500">
+            เพื่อความปลอดภัย
+            กรุณากรอกรหัสผ่านปัจจุบันของคุณเพื่อยืนยันตัวตนก่อนเปลี่ยนรหัสผ่าน
+          </p>
+          <Field label="รหัสผ่านปัจจุบัน">
+            <PasswordInput
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="รหัสผ่านปัจจุบัน"
+              autoFocus
+            />
+          </Field>
+          <PrimaryButton className="w-full" disabled={changingPassword}>
+            <Icon name={changingPassword ? "fa-spinner fa-spin" : "fa-check"} />{" "}
+            ยืนยัน
+          </PrimaryButton>
+        </form>
+      </div>
+    );
+  }
+
+  if (view === "SET_NEW_PASSWORD") {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/50 flex flex-col items-center justify-center p-4 overflow-y-auto">
+        <form
+          onSubmit={handleChangePassword}
+          className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm w-full max-w-md space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-lg">ตั้งรหัสผ่านใหม่</h3>
+            <GhostButton
+              type="button"
+              className="py-2 px-3"
+              onClick={resetPasswordForms}
+            >
+              <Icon name="fa-arrow-left" />
+            </GhostButton>
+          </div>
+          <Field label="รหัสผ่านใหม่">
+            <PasswordInput
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร"
+            />
+          </Field>
+          <Field label="ยืนยันรหัสผ่านใหม่">
+            <PasswordInput
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+            />
+          </Field>
+          <PrimaryButton className="w-full" disabled={changingPassword}>
+            <Icon name={changingPassword ? "fa-spinner fa-spin" : "fa-key"} />{" "}
+            เปลี่ยนรหัสผ่าน
+          </PrimaryButton>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/50 flex flex-col items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm w-full max-w-md my-8">
+        <form onSubmit={save} className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-lg">ตั้งค่าโปรไฟล์</h3>
+            <GhostButton
+              type="button"
+              className="py-2 px-3"
+              onClick={handleCloseModal}
+            >
+              <Icon name="fa-xmark" />
+            </GhostButton>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <div className="w-24 h-24 rounded-full bg-slate-50 from-blue-100 to-emerald-100 flex items-center justify-center text-blue-700 font-bold text-3xl overflow-hidden shadow-sm border-4 border-white">
+              <AvatarImage
+                src={photoURL}
+                name={displayName || user.email}
+                iconFallback
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-slate-700">
+                รูปตัวอย่างโปรไฟล์
+              </p>
+              <p className="text-xs text-slate-500">
+                แสดงผลเมื่อใส่ URL ที่ถูกต้อง
+              </p>
+            </div>
+          </div>
+
+          <Field label="ชื่อที่แสดง">
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="เช่น อาจารย์สมชาย ใจดี"
+            />
+          </Field>
+          <Field label="รูปโปรไฟล์ (URL หรือ อัปโหลดไฟล์)">
+            <div className="flex gap-2">
+              <Input
+                value={photoURL}
+                onChange={(e) => setPhotoURL(e.target.value)}
+                placeholder="https://example.com/photo.jpg"
+                className="flex-1"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+              <GhostButton
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="shrink-0"
+                title="อัปโหลดรูปภาพ"
+              >
+                {uploading ? (
+                  <Icon name="fa-spinner fa-spin" />
+                ) : (
+                  <Icon name="fa-upload" />
+                )}
+              </GhostButton>
+            </div>
+          </Field>
+          <PrimaryButton className="w-full">
+            <Icon name="fa-floppy-disk" /> บันทึกโปรไฟล์
+          </PrimaryButton>
+        </form>
+
+        <div className="border-t border-slate-100 p-6 space-y-4 bg-slate-50 rounded-b-lg">
+          <h3 className="font-extrabold text-md text-slate-800">ความปลอดภัย</h3>
+          <GhostButton
+            type="button"
+            variant="primary"
+            className="w-full border border-blue-200 bg-white"
+            onClick={() =>
+              setView(!isGoogleUser ? "VERIFY_PASSWORD" : "SET_NEW_PASSWORD")
+            }
+          >
+            <Icon name="fa-key" /> เปลี่ยนรหัสผ่าน
+          </GhostButton>
+        </div>
+      </div>
     </div>
   );
 }

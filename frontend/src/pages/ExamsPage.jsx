@@ -15,8 +15,6 @@ import {
   formatThaiDate,
 } from "../ui.jsx";
 
-
-
 const getTodayStr = () => {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -285,6 +283,24 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   สร้างกระดาษคำตอบและพิมพ์กระดาษคำตอบ
                 </p>
               </div>
+              {selectedExams.size > 0 && (
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={deleteSelectedExams}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ลบรายการที่เลือก"
+                  >
+                    <Icon name="fa-trash-can" /> ลบ
+                  </button>
+                  <button
+                    onClick={() => setSelectedExams(new Set())}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ยกเลิกการเลือก"
+                  >
+                    <Icon name="fa-xmark" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -315,15 +331,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   </Select>
                 </div>
               </div>
-              {selectedExams.size > 0 && (
-                <button
-                  onClick={deleteSelectedExams}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
-                  title="ลบรายการที่เลือก"
-                >
-                  <Icon name="fa-trash-can" /> ({selectedExams.size})
-                </button>
-              )}
             </div>
             <DataTable
               columns={[

@@ -56,17 +56,13 @@ export function StudentsPage({ data, api, refresh }) {
       });
     }
 
-    if (!form.subjectCode) {
+    if (
+      (form.subjectCode && !form.section) ||
+      (!form.subjectCode && form.section)
+    ) {
       return Swal().fire({
-        title: "กรุณาเลือกวิชา",
-        icon: "warning",
-        confirmButtonText: "ตกลง",
-      });
-    }
-
-    if (!form.section) {
-      return Swal().fire({
-        title: "กรุณาเลือกกลุ่มเรียน",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "หากต้องการเพิ่มนักเรียนเข้าวิชา กรุณาเลือกทั้ง 'วิชา' และ 'กลุ่มเรียน'",
         icon: "warning",
         confirmButtonText: "ตกลง",
       });
@@ -74,17 +70,23 @@ export function StudentsPage({ data, api, refresh }) {
 
     const existingStudent = data.students.find((s) => {
       const matchId =
-        String(s.id || s.code || "").trim().toLowerCase() ===
-        studentIdTrimmed.toLowerCase();
+        String(s.id || s.code || "")
+          .trim()
+          .toLowerCase() === studentIdTrimmed.toLowerCase();
       const matchSubject =
-        String(s.subjectCode || s.subject || "").trim().toLowerCase() ===
-        String(form.subjectCode || "").trim().toLowerCase();
+        String(s.subjectCode || s.subject || "")
+          .trim()
+          .toLowerCase() ===
+        String(form.subjectCode || "")
+          .trim()
+          .toLowerCase();
       if (!isEditing) {
         return matchId && matchSubject;
       } else {
         const sameRecord =
           (s.id === form.id || s.code === form.id) &&
-          (s.subjectCode === form.subjectCode || s.subject === form.subjectCode);
+          (s.subjectCode === form.subjectCode ||
+            s.subject === form.subjectCode);
         return matchId && matchSubject && !sameRecord;
       }
     });
@@ -101,17 +103,23 @@ export function StudentsPage({ data, api, refresh }) {
     const nameTrimmed = String(form.name || "").trim();
     const existingName = data.students.find((s) => {
       const matchName =
-        String(s.name || "").trim().toLowerCase() ===
-        nameTrimmed.toLowerCase();
+        String(s.name || "")
+          .trim()
+          .toLowerCase() === nameTrimmed.toLowerCase();
       const matchSubject =
-        String(s.subjectCode || s.subject || "").trim().toLowerCase() ===
-        String(form.subjectCode || "").trim().toLowerCase();
+        String(s.subjectCode || s.subject || "")
+          .trim()
+          .toLowerCase() ===
+        String(form.subjectCode || "")
+          .trim()
+          .toLowerCase();
       if (!isEditing) {
         return matchName && matchSubject;
       } else {
         const sameRecord =
           (s.id === form.id || s.code === form.id) &&
-          (s.subjectCode === form.subjectCode || s.subject === form.subjectCode);
+          (s.subjectCode === form.subjectCode ||
+            s.subject === form.subjectCode);
         return matchName && matchSubject && !sameRecord;
       }
     });
@@ -126,7 +134,9 @@ export function StudentsPage({ data, api, refresh }) {
     }
 
     Swal().fire({
-      title: isEditing ? "กำลังแก้ไขข้อมูลผู้เรียน..." : "กำลังบันทึกผู้เรียน...",
+      title: isEditing
+        ? "กำลังแก้ไขข้อมูลผู้เรียน..."
+        : "กำลังบันทึกผู้เรียน...",
       allowOutsideClick: false,
       didOpen: () => Swal().showLoading(),
     });
@@ -218,10 +228,10 @@ export function StudentsPage({ data, api, refresh }) {
         else idsToDelete.add(uniqueId.split("_")[0]);
       }
 
-      const validIds = Array.from(idsToDelete).filter(id => id != null && id !== "");
-      await Promise.all(
-        validIds.map((id) => api.remove("students", id)),
+      const validIds = Array.from(idsToDelete).filter(
+        (id) => id != null && id !== "",
       );
+      await Promise.all(validIds.map((id) => api.remove("students", id)));
 
       setSelectedStudents(new Set());
       await refresh(`ลบผู้เรียน ${validIds.length} รายการแล้ว`);
@@ -231,6 +241,72 @@ export function StudentsPage({ data, api, refresh }) {
         text: err.message || "ไม่สามารถลบข้อมูลได้",
         icon: "error",
       });
+    }
+  }
+
+  const [batchEnrollOpen, setBatchEnrollOpen] = useState(false);
+  const [batchSubject, setBatchSubject] = useState("");
+  const [batchClass, setBatchClass] = useState("");
+  const [isBatchEnrolling, setIsBatchEnrolling] = useState(false);
+
+  const batchSections = batchSubject
+    ? data.sections.filter((section) => section.subject === batchSubject)
+    : [];
+
+  async function enrollSelectedStudents() {
+    if (selectedStudents.size === 0) return;
+    if (!batchSubject || !batchClass) {
+      Swal().fire({
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณาเลือกวิชาและกลุ่มเรียน",
+        icon: "warning",
+      });
+      return;
+    }
+
+    setIsBatchEnrolling(true);
+    try {
+      const uniqueIds = new Set();
+      for (const uniqueId of selectedStudents) {
+        uniqueIds.add(uniqueId.split("_")[0]);
+      }
+
+      const studentsToEnroll = Array.from(uniqueIds).map((id) => {
+        return (
+          data.students.find((s) => s.id === id || s.code === id) || {
+            id,
+            name: "",
+          }
+        );
+      });
+
+      let count = 0;
+      for (const student of studentsToEnroll) {
+        if (!student.name) continue;
+
+        const payload = {
+          id: student.id,
+          name: student.name,
+          section: batchClass,
+          subjectCode: batchSubject,
+        };
+        await api.set(`students/${payload.id}`, payload);
+        count++;
+      }
+
+      setBatchEnrollOpen(false);
+      setBatchSubject("");
+      setBatchClass("");
+      setSelectedStudents(new Set());
+      await refresh(`ลงทะเบียนผู้เรียน ${count} คน เรียบร้อยแล้ว`);
+    } catch (err) {
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        err.message || "ไม่สามารถลงทะเบียนได้",
+        "error",
+      );
+    } finally {
+      setIsBatchEnrolling(false);
     }
   }
 
@@ -310,12 +386,12 @@ export function StudentsPage({ data, api, refresh }) {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rows = window.XLSX.utils.sheet_to_json(sheet);
 
-      if (!importSubject || !importClass) {
+      if (importSubject && !importClass) {
         setIsImporting(false);
         Swal().fire({
           icon: "warning",
           title: "ข้อมูลไม่ครบถ้วน",
-          text: "กรุณาเลือกรายวิชาและกลุ่มเรียนก่อนนำเข้าไฟล์ Excel",
+          text: "กรุณาเลือกกลุ่มเรียนให้ครบถ้วนก่อนนำเข้าไฟล์ Excel",
         });
         return;
       }
@@ -351,30 +427,38 @@ export function StudentsPage({ data, api, refresh }) {
           const nameLower = nameTrimmed.toLowerCase();
 
           // Check if already processed in this file
-          if (processedIds.has(codeLower) || processedNames.has(nameLower)) {
+          if (processedIds.has(codeLower)) {
             skippedDuplicates.push(nameTrimmed);
             continue;
           }
 
-          const duplicateName = data.students.find(s => 
-            String(s.name || "").trim().toLowerCase() === nameLower &&
-            String(s.subjectCode || s.subject || "").trim().toLowerCase() === String(subjectCode).trim().toLowerCase() &&
-            String(s.id || s.code || "").trim().toLowerCase() !== codeLower
-          );
+          const isMasterListImport = !subjectCode;
 
-          const duplicateId = data.students.find(s =>
-             String(s.id || s.code || "").trim().toLowerCase() === codeLower &&
-             String(s.subjectCode || s.subject || "").trim().toLowerCase() === String(subjectCode).trim().toLowerCase()
-          );
+          const duplicateId = data.students.find((s) => {
+            const matchId =
+              String(s.id || s.code || "")
+                .trim()
+                .toLowerCase() === codeLower;
+            if (!matchId) return false;
 
-          if (duplicateName || duplicateId) {
+            if (isMasterListImport) {
+              return true; // Any existing record means it's already in the system
+            } else {
+              return (
+                String(s.subjectCode || s.subject || "")
+                  .trim()
+                  .toLowerCase() === String(subjectCode).trim().toLowerCase()
+              );
+            }
+          });
+
+          if (duplicateId) {
             skippedDuplicates.push(nameTrimmed);
             continue;
           }
 
           // Mark as processed
           processedIds.add(codeLower);
-          processedNames.add(nameLower);
 
           // บันทึกผู้เรียน
           const payload = {
@@ -428,17 +512,22 @@ export function StudentsPage({ data, api, refresh }) {
 
   const [filterSubject, setFilterSubject] = useState("");
   const [filterSection, setFilterSection] = useState("");
-  const filterSections = filterSubject
-    ? data.sections.filter((section) => section.subject === filterSubject)
-    : data.sections;
+  const filterSections =
+    filterSubject && filterSubject !== "__UNSPECIFIED__"
+      ? data.sections.filter((section) => section.subject === filterSubject)
+      : data.sections;
   const normalizedSearch = searchText.trim().toLowerCase();
   const filteredStudents = data.students.filter((student) => {
-    const matchesSubject = filterSubject
-      ? student.subjectCode === filterSubject ||
+    let matchesSubject = true;
+    if (filterSubject === "__UNSPECIFIED__") {
+      matchesSubject = !student.subjectCode || student.subjectCode === "";
+    } else if (filterSubject) {
+      matchesSubject =
+        student.subjectCode === filterSubject ||
         (student.section &&
           (String(student.section).startsWith(filterSubject + "_") ||
-            String(student.section).includes(filterSubject)))
-      : true;
+            String(student.section).includes(filterSubject)));
+    }
     const matchesSection = filterSection
       ? String(student.section) === String(filterSection)
       : true;
@@ -464,6 +553,37 @@ export function StudentsPage({ data, api, refresh }) {
               เพิ่มรายชื่อ หรือนำเข้าผู้เรียนจากไฟล์ Excel เข้าสู่กลุ่มเรียน
             </p>
           </div>
+          {selectedStudents.size > 0 && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setBatchEnrollOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                title="ลงทะเบียนเข้าวิชา"
+              >
+                <Icon name="fa-user-plus" /> ลงทะเบียนวิชา (
+                {
+                  new Set(
+                    Array.from(selectedStudents).map((id) => id.split("_")[0]),
+                  ).size
+                }
+                )
+              </button>
+              <button
+                onClick={deleteSelectedStudents}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                title="ลบรายการที่เลือก"
+              >
+                <Icon name="fa-trash-can" /> ลบ
+              </button>
+              <button
+                onClick={() => setSelectedStudents(new Set())}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                title="ยกเลิกการเลือก"
+              >
+                <Icon name="fa-xmark" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <section className="space-y-3 order-3 xl:row-start-2 xl:col-start-1 min-w-0">
@@ -485,6 +605,7 @@ export function StudentsPage({ data, api, refresh }) {
                 }}
               >
                 <option value="">ทุกวิชา</option>
+                <option value="__UNSPECIFIED__">ไม่ระบุวิชา</option>
                 {data.subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.name}
@@ -492,7 +613,7 @@ export function StudentsPage({ data, api, refresh }) {
                 ))}
               </Select>
             </div>
-            {filterSubject && (
+            {filterSubject && filterSubject !== "__UNSPECIFIED__" && (
               <div className="w-full sm:w-48 shrink-0">
                 <Select
                   value={filterSection}
@@ -508,15 +629,6 @@ export function StudentsPage({ data, api, refresh }) {
               </div>
             )}
           </div>
-          {selectedStudents.size > 0 && (
-            <button
-              onClick={deleteSelectedStudents}
-              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
-              title="ลบรายการที่เลือก"
-            >
-              <Icon name="fa-trash-can" /> ({selectedStudents.size})
-            </button>
-          )}
         </div>
         <DataTable
           columns={[
@@ -556,7 +668,8 @@ export function StudentsPage({ data, api, refresh }) {
                   checked={selectedStudents.has(`${row.id}_${row.subjectCode}`)}
                   onChange={(e) => {
                     const currentIndex = filteredStudents.findIndex(
-                      (x) => x.id === row.id && x.subjectCode === row.subjectCode,
+                      (x) =>
+                        x.id === row.id && x.subjectCode === row.subjectCode,
                     );
                     const next = new Set(selectedStudents);
 
@@ -590,12 +703,14 @@ export function StudentsPage({ data, api, refresh }) {
 
                       for (let i = oldStart; i <= oldEnd; i++) {
                         if (i < newStart || i > newEnd) {
-                          next.delete(`${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`);
+                          next.delete(
+                            `${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`,
+                          );
                         }
                       }
 
                       const targetState = selectedStudents.has(
-                        `${filteredStudents[lastSelectedStudentIndex].id}_${filteredStudents[lastSelectedStudentIndex].subjectCode}`
+                        `${filteredStudents[lastSelectedStudentIndex].id}_${filteredStudents[lastSelectedStudentIndex].subjectCode}`,
                       );
                       for (let i = newStart; i <= newEnd; i++) {
                         const uniqueId = `${filteredStudents[i].id}_${filteredStudents[i].subjectCode}`;
@@ -687,9 +802,9 @@ export function StudentsPage({ data, api, refresh }) {
       >
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-lg font-bold text-slate-800">
-            {isEditing ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียน"}
+            {isEditing ? "แก้ไขผู้เรียน" : "เพิ่มผู้เรียนใหม่"}
           </h4>
-          {!isEditing && (
+          {!isEditing ? (
             <>
               <input
                 ref={fileRef}
@@ -707,6 +822,17 @@ export function StudentsPage({ data, api, refresh }) {
                 <Icon name="fa-file-import" /> นำเข้า Excel
               </GhostButton>
             </>
+          ) : (
+            <GhostButton
+              type="button"
+              onClick={() => {
+                setForm(emptyForm(["id", "name", "section", "subjectCode"]));
+                setIsEditing(false);
+              }}
+              className="py-1 px-3 text-sm whitespace-nowrap text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100"
+            >
+              <Icon name="fa-xmark" /> ยกเลิก
+            </GhostButton>
           )}
         </div>
         <Field label="รหัสผู้เรียน">
@@ -726,13 +852,12 @@ export function StudentsPage({ data, api, refresh }) {
             required
           />
         </Field>
-        <Field label="วิชา">
+        <Field label="วิชา (ตัวเลือก)">
           <Select
             value={form.subjectCode || ""}
             onChange={(e) => {
               setForm({ ...form, subjectCode: e.target.value, section: "" });
             }}
-            required
           >
             <option value="">ไม่ระบุ</option>
             {data.subjects.map((subject) => (
@@ -742,26 +867,23 @@ export function StudentsPage({ data, api, refresh }) {
             ))}
           </Select>
         </Field>
-        <Field label="กลุ่มเรียน">
-          <Select
-            value={form.section || ""}
-            onChange={(e) => setForm({ ...form, section: e.target.value })}
-            disabled={!form.subjectCode}
-            required
-          >
-            <option value="">
-              {!form.subjectCode ? "กรุณาเลือกวิชาก่อน" : "ไม่ระบุ"}
-            </option>
-            {form.subjectCode &&
-              data.sections
+        {form.subjectCode && (
+          <Field label="กลุ่มเรียน (ตัวเลือก)">
+            <Select
+              value={form.section || ""}
+              onChange={(e) => setForm({ ...form, section: e.target.value })}
+            >
+              <option value="">กรุณาเลือกกลุ่มเรียน</option>
+              {data.sections
                 .filter((s) => s.subject === form.subjectCode)
                 .map((section) => (
                   <option key={section.id} value={section.id}>
                     {section.sec}
                   </option>
                 ))}
-          </Select>
-        </Field>
+            </Select>
+          </Field>
+        )}
         <PrimaryButton className="w-full">
           <Icon name="fa-floppy-disk" /> บันทึกผู้เรียน
         </PrimaryButton>
@@ -769,15 +891,12 @@ export function StudentsPage({ data, api, refresh }) {
 
       {importOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-6 w-full max-w-lg space-y-5">
-            <div className="flex items-center justify-between gap-4">
+          <div className="relative bg-white rounded-2xl w-full max-w-lg mx-auto shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-100 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-800">
-                  นำเข้า Excel
+                <h3 className="text-xl font-bold text-slate-800">
+                  นำเข้าผู้เรียนจาก Excel
                 </h3>
-                <p className="text-sm text-zinc-500 mt-1">
-                  นำเข้ารายชื่อผู้เรียนเข้าสู่กลุ่มเรียนที่เลือก
-                </p>
               </div>
               <GhostButton
                 type="button"
@@ -789,68 +908,68 @@ export function StudentsPage({ data, api, refresh }) {
               </GhostButton>
             </div>
 
-            <Field label="รายวิชา">
-              <Select
-                value={importSubject}
-                disabled={isImporting}
-                onChange={(event) => {
-                  setImportSubject(event.target.value);
-                  setImportClass("");
-                }}
-              >
-                <option value="">กรุณาเลือกรายวิชา</option>
-                {data.subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.code} - {subject.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <div className="p-6 space-y-5 overflow-visible">
+              <Field label="รายวิชา (ตัวเลือก)">
+                <Select
+                  value={importSubject}
+                  disabled={isImporting}
+                  onChange={(event) => {
+                    setImportSubject(event.target.value);
+                    setImportClass("");
+                  }}
+                >
+                  <option value="">ไม่ระบุ</option>
+                  {data.subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
 
-            <Field label="กลุ่มเรียน">
-              <Select
-                value={importClass}
-                disabled={isImporting || !importSubject}
-                onChange={(event) => setImportClass(event.target.value)}
-              >
-                <option value="">
-                  {importSubject
-                    ? "กรุณาเลือกกลุ่มเรียน"
-                    : "กรุณาเลือกรายวิชาเพื่อเลือกกลุ่มเรียน"}
-                </option>
-                {importSections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.sec}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+              {importSubject && (
+                <Field label="กลุ่มเรียน (ตัวเลือก)">
+                  <Select
+                    value={importClass}
+                    disabled={isImporting}
+                    onChange={(event) => setImportClass(event.target.value)}
+                  >
+                    <option value="">กรุณาเลือกกลุ่มเรียน</option>
+                    {importSections.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.sec}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-2">
-              <div className="font-bold text-zinc-700">
-                รูปแบบคอลัมน์ในไฟล์ Excel
-              </div>
-              <div className="space-y-1">
-                <div>
-                  • <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 space-y-2">
+                <div className="font-bold text-zinc-700">
+                  รูปแบบคอลัมน์ในไฟล์ Excel
                 </div>
-                <div>
-                  • <b>ชื่อ-นามสกุล</b> (ชื่อ / name)
+                <div className="space-y-1">
+                  <div>
+                    • <b>รหัสผู้เรียน</b> (รหัสนักศึกษา / code / ID)
+                  </div>
+                  <div>
+                    • <b>ชื่อ-นามสกุล</b> (ชื่อ / name)
+                  </div>
                 </div>
               </div>
+
+              <PrimaryButton
+                type="button"
+                className="w-full"
+                disabled={isImporting || (importSubject && !importClass)}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Icon
+                  name={isImporting ? "fa-spinner fa-spin" : "fa-file-import"}
+                />{" "}
+                {isImporting ? "กำลังนำเข้าข้อมูล..." : "เลือกไฟล์ Excel"}
+              </PrimaryButton>
             </div>
-
-            <PrimaryButton
-              type="button"
-              className="w-full"
-              disabled={isImporting || !importSubject || !importClass}
-              onClick={() => fileRef.current?.click()}
-            >
-              <Icon
-                name={isImporting ? "fa-spinner fa-spin" : "fa-file-import"}
-              />{" "}
-              {isImporting ? "กำลังนำเข้าข้อมูล..." : "เลือกไฟล์ Excel"}
-            </PrimaryButton>
             {isImporting && (
               <div className="absolute inset-0 rounded-lg bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
                 <div className="loader" aria-live="polite" aria-busy="true">
@@ -858,6 +977,103 @@ export function StudentsPage({ data, api, refresh }) {
                 </div>
                 <p className="text-sm font-medium text-slate-600">
                   กำลังนำเข้ารายชื่อผู้เรียน...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {batchEnrollOpen && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl w-full max-w-lg mx-auto shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center px-6 py-5 border-b border-zinc-100 shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">
+                  ลงทะเบียนวิชา
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  นำนักเรียนที่เลือกทั้งหมด{" "}
+                  {
+                    new Set(
+                      Array.from(selectedStudents).map(
+                        (id) => id.split("_")[0],
+                      ),
+                    ).size
+                  }{" "}
+                  คน เข้าสู่กลุ่มเรียนใหม่
+                </p>
+              </div>
+              <GhostButton
+                type="button"
+                className="py-2 px-3"
+                disabled={isBatchEnrolling}
+                onClick={() => setBatchEnrollOpen(false)}
+              >
+                <Icon name="fa-xmark" />
+              </GhostButton>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-visible">
+              <Field label="รายวิชา">
+                <Select
+                  value={batchSubject}
+                  disabled={isBatchEnrolling}
+                  onChange={(event) => {
+                    setBatchSubject(event.target.value);
+                    setBatchClass("");
+                  }}
+                >
+                  <option value="">กรุณาเลือกรายวิชา</option>
+                  {data.subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field label="กลุ่มเรียน">
+                <Select
+                  value={batchClass}
+                  disabled={isBatchEnrolling || !batchSubject}
+                  onChange={(event) => setBatchClass(event.target.value)}
+                >
+                  <option value="">
+                    {!batchSubject
+                      ? "กรุณาเลือกวิชาก่อน"
+                      : "กรุณาเลือกกลุ่มเรียน"}
+                  </option>
+                  {batchSections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.sec}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <PrimaryButton
+                type="button"
+                className="w-full"
+                disabled={isBatchEnrolling || !batchSubject || !batchClass}
+                onClick={enrollSelectedStudents}
+              >
+                <Icon
+                  name={
+                    isBatchEnrolling ? "fa-spinner fa-spin" : "fa-user-plus"
+                  }
+                />{" "}
+                {isBatchEnrolling ? "กำลังลงทะเบียน..." : "ยืนยันการลงทะเบียน"}
+              </PrimaryButton>
+            </div>
+
+            {isBatchEnrolling && (
+              <div className="absolute inset-0 rounded-2xl bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+                <div className="loader" aria-live="polite" aria-busy="true">
+                  <span>LOADING</span>
+                </div>
+                <p className="text-sm font-medium text-slate-600">
+                  กำลังลงทะเบียนวิชา...
                 </p>
               </div>
             )}

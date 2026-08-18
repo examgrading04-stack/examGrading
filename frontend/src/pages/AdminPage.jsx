@@ -1006,6 +1006,17 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                   >
                     <Icon name="fa-trash-can" /> ({selectedLogs.size})
                   </button>
+                  <button
+                    onClick={() => setSelectedLogs(new Set())}
+                    className={`bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
+                      selectedLogs.size > 0
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none absolute -z-10"
+                    }`}
+                    title="ยกเลิกการเลือก"
+                  >
+                    <Icon name="fa-xmark" />
+                  </button>
                   <input
                     type="text"
                     value={searchLogs}

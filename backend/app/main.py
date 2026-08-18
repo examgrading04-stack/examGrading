@@ -43,7 +43,11 @@ from .models.schemas import (
     SheetPdfRequest,
 )
 from .services.diagnostics import diagnose
-from .services.report_generator import generate_excel_report, generate_pdf_report, generate_generic_table_pdf
+from .services.report_generator import (
+    generate_excel_report,
+    generate_pdf_report,
+    generate_generic_table_pdf,
+)
 from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_marks
 from .services.pdf_sheets import generate_pdf_for_students
 from .db_adapter import get_db_adapter
@@ -427,7 +431,7 @@ def download_summary_pdf_report(
     title = payload.get("title", "รายงาน")
     columns = payload.get("columns", [])
     rows = payload.get("rows", [])
-    
+
     if not columns or not rows:
         raise HTTPException(status_code=400, detail="Missing columns or rows")
 
@@ -866,6 +870,7 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
         "role": user_doc.get("role") or "user",
+        "providerData": [{"providerId": "password"}],
     }
 
 
@@ -951,6 +956,7 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
         "role": user_doc.get("role") or "user",
+        "providerData": [{"providerId": "google.com"}],
     }
 
 
@@ -996,6 +1002,7 @@ def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
         "role": user_doc.get("role") or "user",
+        "providerData": [{"providerId": "google.com"}],
     }
 
 

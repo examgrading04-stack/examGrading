@@ -421,13 +421,22 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                 </div>
               </div>
               {selectedSubjects.size > 0 && (
-                <button
-                  onClick={deleteSelectedSubjects}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
-                  title="ลบรายการที่เลือก"
-                >
-                  <Icon name="fa-trash-can" /> ({selectedSubjects.size})
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={deleteSelectedSubjects}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ลบรายการที่เลือก"
+                  >
+                    <Icon name="fa-trash-can" /> ลบ
+                  </button>
+                  <button
+                    onClick={() => setSelectedSubjects(new Set())}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ยกเลิกการเลือก"
+                  >
+                    <Icon name="fa-xmark" />
+                  </button>
+                </div>
               )}
             </div>
             <DataTable
@@ -602,13 +611,22 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
                 </div>
               </div>
               {selectedSections.size > 0 && (
-                <button
-                  onClick={deleteSelectedSections}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap shrink-0"
-                  title="ลบรายการที่เลือก"
-                >
-                  <Icon name="fa-trash-can" /> ({selectedSections.size})
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={deleteSelectedSections}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ลบรายการที่เลือก"
+                  >
+                    <Icon name="fa-trash-can" /> ลบ
+                  </button>
+                  <button
+                    onClick={() => setSelectedSections(new Set())}
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+                    title="ยกเลิกการเลือก"
+                  >
+                    <Icon name="fa-xmark" />
+                  </button>
+                </div>
               )}
             </div>
             <DataTable
