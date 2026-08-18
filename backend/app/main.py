@@ -3,6 +3,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Any
+
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
@@ -10,13 +11,28 @@ load_dotenv()
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 # pyrefly: ignore [missing-import]
-from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, Request, BackgroundTasks
+from fastapi import (
+    Body,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    UploadFile,
+    Request,
+    BackgroundTasks,
+)
+
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.gzip import GZipMiddleware
+
 # pyrefly: ignore [missing-import]
 from fastapi.responses import FileResponse
+
 # pyrefly: ignore [missing-import]
 from fastapi.staticfiles import StaticFiles
 import requests
@@ -32,6 +48,7 @@ from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_
 from .services.pdf_sheets import generate_pdf_for_students
 from .db_adapter import get_db_adapter
 
+
 def upload_to_cloudinary(file_path: str) -> str:
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
     upload_preset = os.getenv("CLOUDINARY_UPLOAD_PRESET")
@@ -40,13 +57,17 @@ def upload_to_cloudinary(file_path: str) -> str:
     url = f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload"
     try:
         with open(file_path, "rb") as f:
-            res = requests.post(url, files={"file": f}, data={"upload_preset": upload_preset}, timeout=15)
+            res = requests.post(
+                url,
+                files={"file": f},
+                data={"upload_preset": upload_preset},
+                timeout=15,
+            )
             if res.status_code == 200:
                 return res.json().get("secure_url", "")
     except Exception as e:
         print(f"Cloudinary upload error: {e}")
     return ""
-
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -66,6 +87,7 @@ import traceback
 
 app = FastAPI(title="Exam Grading OMR API")
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     print("500 ERROR:", exc)
@@ -73,8 +95,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc), "traceback": traceback.format_exc()},
-        headers={"Access-Control-Allow-Origin": "*"}
+        headers={"Access-Control-Allow-Origin": "*"},
     )
+
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -97,7 +120,6 @@ app.add_middleware(
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")
 
 
-
 def get_db():
     return get_db_adapter()
 
@@ -113,7 +135,9 @@ def get_user_email(
         token = authorization.removeprefix("Bearer ").strip()
         if token:
             return token
-    raise HTTPException(status_code=401, detail="Missing user_email or authorization header")
+    raise HTTPException(
+        status_code=401, detail="Missing user_email or authorization header"
+    )
 
 
 async def save_upload(file: UploadFile) -> str:
@@ -155,11 +179,15 @@ def find_exam_for_scan(db, user_email: str, metadata: dict[str, Any]) -> dict[st
     raise HTTPException(status_code=422, detail=detail)
 
 
-def get_students(db, user_email: str, student_ids: list[str] | None = None) -> list[dict[str, Any]]:
+def get_students(
+    db, user_email: str, student_ids: list[str] | None = None
+) -> list[dict[str, Any]]:
     return db.get_students(user_email, student_ids)
 
 
-def normalize_students_snapshot(students_snapshot: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def normalize_students_snapshot(
+    students_snapshot: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     if not students_snapshot:
         return []
     students = []
@@ -194,7 +222,7 @@ def normalize_answer_key(exam: dict[str, Any], answer_set: str = "0") -> dict[in
             if isinstance(answer, dict):
                 normalized[q_no] = {
                     "answer": str(answer.get("answer", "")).upper(),
-                    "score": float(answer.get("score", 1.0))
+                    "score": float(answer.get("score", 1.0)),
                 }
             else:
                 normalized[q_no] = str(answer).upper()
@@ -253,13 +281,17 @@ def create_answer_sheets_pdf(
     authorization: str | None = Header(None),
     db=Depends(get_db),
 ):
-    user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
+    user_email = get_user_email(
+        authorization=authorization, user_email=payload.user_email
+    )
     exam = get_exam(db, user_email, payload.exam_id)
     students = normalize_students_snapshot(payload.students_snapshot)
     if not students:
         students = get_students(db, user_email, payload.student_ids)
     if not students:
-        raise HTTPException(status_code=400, detail="No students found for PDF generation")
+        raise HTTPException(
+            status_code=400, detail="No students found for PDF generation"
+        )
 
     pdf_path = generate_pdf_for_students(exam, students)
     storage_path = None
@@ -280,7 +312,7 @@ def create_answer_sheets_pdf(
                     "studentCount": len(students),
                     "updatedAt": datetime.now().isoformat(),
                 }
-            }
+            },
         )
 
     return {
@@ -331,7 +363,9 @@ def download_answer_sheets_by_subject(
     db=Depends(get_db),
 ):
     """Generate a PDF with answer sheets for all students in a given subject."""
-    user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
+    user_email = get_user_email(
+        authorization=authorization, user_email=payload.user_email
+    )
     exam = get_exam(db, user_email, payload.exam_id)
 
     # Try to fetch students enrolled in the specific subject/section
@@ -363,13 +397,17 @@ def download_answer_sheets_pdf(
     authorization: str | None = Header(None),
     db=Depends(get_db),
 ):
-    user_email = get_user_email(authorization=authorization, user_email=payload.user_email)
+    user_email = get_user_email(
+        authorization=authorization, user_email=payload.user_email
+    )
     exam = get_exam(db, user_email, payload.exam_id)
     students = normalize_students_snapshot(payload.students_snapshot)
     if not students:
         students = get_students(db, user_email, payload.student_ids)
     if not students:
-        raise HTTPException(status_code=400, detail="No students found for PDF generation")
+        raise HTTPException(
+            status_code=400, detail="No students found for PDF generation"
+        )
 
     pdf_path = generate_pdf_for_students(exam, students)
     return FileResponse(
@@ -378,78 +416,88 @@ def download_answer_sheets_pdf(
         filename=f"{payload.exam_id}_answer_sheets.pdf",
     )
 
+
 @app.post("/api/results/report/excel/download")
 def download_excel_report(
     payload: dict = Body(...),
     authorization: str | None = Header(None),
     db=Depends(get_db),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     email = get_user_email(authorization)
     exam_id = payload.get("examId")
     if not exam_id:
         raise HTTPException(status_code=400, detail="Missing examId")
-    
+
     exam = db.get_doc("exams", exam_id, email)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
-        
+
     subject = db.get_doc("subjects", exam.get("subject_id"), email)
     subject_name = subject.get("name") if subject else "Unknown Subject"
-    
+
     result_ids = payload.get("resultIds")
-    results = [r for r in db.get_collection("results", email) if r.get("examId") == exam_id or r.get("exam_id") == exam_id]
+    results = [
+        r
+        for r in db.get_collection("results", email)
+        if r.get("examId") == exam_id or r.get("exam_id") == exam_id
+    ]
     if result_ids:
         results = [r for r in results if r.get("id") in result_ids]
-        
+
     students = db.get_collection("students", email)
     sections = db.get_collection("sections", email)
-    
+
     filepath = generate_excel_report(exam, results, students, subject_name, sections)
     background_tasks.add_task(os.unlink, filepath)
-    
+
     return FileResponse(
         filepath,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=f"Report_{exam_id}.xlsx",
-        background=background_tasks
+        background=background_tasks,
     )
+
 
 @app.post("/api/results/report/pdf/download")
 def download_pdf_report(
     payload: dict = Body(...),
     authorization: str | None = Header(None),
     db=Depends(get_db),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     email = get_user_email(authorization)
     exam_id = payload.get("examId")
     if not exam_id:
         raise HTTPException(status_code=400, detail="Missing examId")
-    
+
     exam = db.get_doc("exams", exam_id, email)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
-        
+
     subject = db.get_doc("subjects", exam.get("subject_id"), email)
     subject_name = subject.get("name") if subject else "Unknown Subject"
-    
+
     result_ids = payload.get("resultIds")
-    results = [r for r in db.get_collection("results", email) if r.get("examId") == exam_id or r.get("exam_id") == exam_id]
+    results = [
+        r
+        for r in db.get_collection("results", email)
+        if r.get("examId") == exam_id or r.get("exam_id") == exam_id
+    ]
     if result_ids:
         results = [r for r in results if r.get("id") in result_ids]
-        
+
     students = db.get_collection("students", email)
     sections = db.get_collection("sections", email)
-    
+
     filepath = generate_pdf_report(exam, results, students, subject_name, sections)
     background_tasks.add_task(os.unlink, filepath)
-    
+
     return FileResponse(
         filepath,
         media_type="application/pdf",
         filename=f"Report_{exam_id}.pdf",
-        background=background_tasks
+        background=background_tasks,
     )
 
 
@@ -494,7 +542,11 @@ async def scan_sheet(
 
     answer_key = normalize_answer_key(exam, answer_set)
     score = calculate_score(result.answers, answer_key)
-    summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
+    summary = (
+        summarize_marks(result.raw_scores, result.metadata.total_questions)
+        if result.raw_scores
+        else {}
+    )
 
     image_url = upload_to_cloudinary(image_path)
     now = datetime.now()
@@ -527,7 +579,9 @@ async def scan_sheet(
             result_id = db.save_result(user_email, payload)
         except ValueError as e:
             if str(e).startswith("duplicate_result:"):
-                raise HTTPException(status_code=409, detail="กระดาษคำตอบของนักเรียนคนนี้ถูกสแกนไปแล้ว")
+                raise HTTPException(
+                    status_code=409, detail="กระดาษคำตอบของนักเรียนคนนี้ถูกสแกนไปแล้ว"
+                )
             raise
 
     response_payload = dict(payload)
@@ -564,13 +618,15 @@ async def diagnose_sheet(
 def download_image(url: str) -> str:
     resp = requests.get(url, stream=True, timeout=15)
     if resp.status_code != 200:
-        raise HTTPException(status_code=400, detail="Cannot download image from Cloudinary")
-    
+        raise HTTPException(
+            status_code=400, detail="Cannot download image from Cloudinary"
+        )
+
     suffix = Path(url).suffix.split("?")[0]
     if not suffix:
         suffix = ".jpg"
     path = TMP_DIR / f"{uuid.uuid4().hex}{suffix}"
-    
+
     with open(path, "wb") as f:
         for chunk in resp.iter_content(1024):
             f.write(chunk)
@@ -627,7 +683,11 @@ async def scan_cloudinary(
 
     answer_key = normalize_answer_key(exam, answer_set)
     score = calculate_score(result.answers, answer_key)
-    summary = summarize_marks(result.raw_scores, result.metadata.total_questions) if result.raw_scores else {}
+    summary = (
+        summarize_marks(result.raw_scores, result.metadata.total_questions)
+        if result.raw_scores
+        else {}
+    )
 
     now = datetime.now()
     payload_to_save = {
@@ -660,7 +720,7 @@ async def scan_cloudinary(
     response_payload["timestamp"] = None
     response_payload["resultId"] = result_id
     response_payload["imagePath"] = local_path
-    
+
     return response_payload
 
 
@@ -709,10 +769,10 @@ def parse_db_path(path: str):
                     result["doc_id"] = None
     return result
 
+
 @app.post("/api/upload-profile-picture")
 async def upload_profile_picture(
-    file: UploadFile = File(...),
-    user_email: str = Form(...)
+    file: UploadFile = File(...), user_email: str = Form(...)
 ):
     suffix = Path(file.filename or "profile.jpg").suffix or ".jpg"
     file_name = f"{user_email}_{uuid.uuid4().hex[:8]}{suffix}"
@@ -720,6 +780,7 @@ async def upload_profile_picture(
     with open(path, "wb") as out:
         out.write(await file.read())
     return {"url": f"{BACKEND_PUBLIC_URL}/static/uploads/{file_name}"}
+
 
 @app.post("/api/auth/register")
 def auth_register(payload: dict = Body(...), db=Depends(get_db)):
@@ -729,19 +790,30 @@ def auth_register(payload: dict = Body(...), db=Depends(get_db)):
     photoURL = payload.get("photoURL", "")
     if not email or not password:
         raise HTTPException(status_code=400, detail="Missing email or password")
-        
+
     existing = db.get_doc("users", email)
     if existing:
         raise HTTPException(status_code=400, detail="อีเมลนี้ถูกใช้งานแล้ว")
-        
-    db.set_doc("users", email, None, {
+
+    db.set_doc(
+        "users",
+        email,
+        None,
+        {
+            "email": email,
+            "password": password,
+            "displayName": displayName,
+            "photoURL": photoURL,
+            "role": "user",
+        },
+    )
+    return {
+        "success": True,
         "email": email,
-        "password": password,
         "displayName": displayName,
         "photoURL": photoURL,
-        "role": "user"
-    })
-    return {"success": True, "email": email, "displayName": displayName, "photoURL": photoURL}
+    }
+
 
 @app.post("/api/auth/login")
 def auth_login(payload: dict = Body(...), db=Depends(get_db)):
@@ -749,21 +821,28 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
     password = payload.get("password")
     if not email or not password:
         raise HTTPException(status_code=400, detail="Missing email or password")
-        
+
     user_doc = db.get_doc("users", email)
     if user_doc and user_doc.get("status") == "suspended":
-        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
-        
+        raise HTTPException(
+            status_code=403,
+            detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+        )
+
     hashed_input = hashlib.sha256(password.encode()).hexdigest()
-    if not user_doc or (user_doc.get("password") != password and user_doc.get("password") != hashed_input):
+    if not user_doc or (
+        user_doc.get("password") != password
+        and user_doc.get("password") != hashed_input
+    ):
         raise HTTPException(status_code=401, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
-        
+
     return {
         "email": user_doc.get("email"),
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
-        "role": user_doc.get("role") or "user"
+        "role": user_doc.get("role") or "user",
     }
+
 
 @app.post("/api/auth/google")
 def auth_google(payload: dict = Body(...), db=Depends(get_db)):
@@ -774,7 +853,9 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
 
     if access_token:
         # Call Google API to verify access token and get profile info
-        google_url = f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
+        google_url = (
+            f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={access_token}"
+        )
         try:
             resp = requests.get(google_url, timeout=10)
             if resp.status_code == 200:
@@ -788,26 +869,48 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
     # Fallback to direct email in payload if access_token missing or Google verification failed
     if not email:
         email = payload.get("email")
-        displayName = payload.get("displayName") or payload.get("name") or (email.split("@")[0] if email else "")
-        photoURL = payload.get("photoURL") or "https://img.icons8.com/color/96/000000/google-logo.png"
+        displayName = (
+            payload.get("displayName")
+            or payload.get("name")
+            or (email.split("@")[0] if email else "")
+        )
+        photoURL = (
+            payload.get("photoURL")
+            or "https://img.icons8.com/color/96/000000/google-logo.png"
+        )
 
     if not email:
-        raise HTTPException(status_code=400, detail="Missing Google access token or email")
-        
+        raise HTTPException(
+            status_code=400, detail="Missing Google access token or email"
+        )
+
     # Get or create user in local SQL
     user_doc = db.get_doc("users", email)
     if user_doc and user_doc.get("status") == "suspended":
-        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
-        
+        raise HTTPException(
+            status_code=403,
+            detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+        )
+
     if not user_doc:
-        db.set_doc("users", email, None, {
+        db.set_doc(
+            "users",
+            email,
+            None,
+            {
+                "email": email,
+                "password": "",
+                "displayName": displayName,
+                "photoURL": photoURL,
+                "role": "user",
+            },
+        )
+        user_doc = {
             "email": email,
-            "password": "",
             "displayName": displayName,
             "photoURL": photoURL,
-            "role": "user"
-        })
-        user_doc = {"email": email, "displayName": displayName, "photoURL": photoURL, "role": "user"}
+            "role": "user",
+        }
     else:
         # Update details if they have changed or are empty
         updated = {}
@@ -817,41 +920,57 @@ def auth_google(payload: dict = Body(...), db=Depends(get_db)):
             updated["photoURL"] = photoURL
         if updated:
             db.update_doc("users", email, None, updated)
-            
+
     return {
         "email": user_doc.get("email"),
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
-        "role": user_doc.get("role") or "user"
+        "role": user_doc.get("role") or "user",
     }
+
 
 @app.post("/api/auth/google-mock")
 def auth_google_mock(payload: dict = Body(...), db=Depends(get_db)):
     email = payload.get("email")
     displayName = payload.get("displayName", "Google Mock User")
-    photoURL = payload.get("photoURL", "https://img.icons8.com/color/96/000000/google-logo.png")
+    photoURL = payload.get(
+        "photoURL", "https://img.icons8.com/color/96/000000/google-logo.png"
+    )
     if not email:
         raise HTTPException(status_code=400, detail="Missing email for mock login")
-        
+
     user_doc = db.get_doc("users", email)
     if user_doc and user_doc.get("status") == "suspended":
-        raise HTTPException(status_code=403, detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
-        
+        raise HTTPException(
+            status_code=403,
+            detail="บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+        )
+
     if not user_doc:
-        db.set_doc("users", email, None, {
+        db.set_doc(
+            "users",
+            email,
+            None,
+            {
+                "email": email,
+                "password": "",
+                "displayName": displayName,
+                "photoURL": photoURL,
+                "role": "user",
+            },
+        )
+        user_doc = {
             "email": email,
-            "password": "",
             "displayName": displayName,
             "photoURL": photoURL,
-            "role": "user"
-        })
-        user_doc = {"email": email, "displayName": displayName, "photoURL": photoURL, "role": "user"}
-        
+            "role": "user",
+        }
+
     return {
         "email": user_doc.get("email"),
         "displayName": user_doc.get("displayName") or "",
         "photoURL": user_doc.get("photoURL") or "",
-        "role": user_doc.get("role") or "user"
+        "role": user_doc.get("role") or "user",
     }
 
 
@@ -862,10 +981,10 @@ def db_get(path: str, request: Request, db=Depends(get_db)):
     doc_id = parsed["doc_id"]
     user_email = parsed["user_email"]
     parent_doc_id = parsed["parent_doc_id"]
-    
+
     if not collection:
         raise HTTPException(status_code=400, detail="Invalid path")
-        
+
     if doc_id:
         doc = db.get_doc(collection, doc_id, user_email)
         if doc is None:
@@ -877,7 +996,7 @@ def db_get(path: str, request: Request, db=Depends(get_db)):
             if k == "limit":
                 continue
             items = [item for item in items if str(item.get(k)) == str(v)]
-            
+
         if "limit" in request.query_params:
             try:
                 limit_val = int(request.query_params["limit"])
@@ -886,6 +1005,7 @@ def db_get(path: str, request: Request, db=Depends(get_db)):
                 pass
         return items
 
+
 @app.post("/api/db/{path:path}")
 def db_post(path: str, payload: dict = Body(...), db=Depends(get_db)):
     parsed = parse_db_path(path)
@@ -893,9 +1013,10 @@ def db_post(path: str, payload: dict = Body(...), db=Depends(get_db)):
     user_email = parsed["user_email"]
     if not collection:
         raise HTTPException(status_code=400, detail="Invalid path")
-        
+
     doc_id = db.add_doc(collection, user_email, payload)
     return {"id": doc_id}
+
 
 @app.put("/api/db/{path:path}")
 def db_put(path: str, payload: dict = Body(...), db=Depends(get_db)):
@@ -905,9 +1026,10 @@ def db_put(path: str, payload: dict = Body(...), db=Depends(get_db)):
     user_email = parsed["user_email"]
     if not collection or not doc_id:
         raise HTTPException(status_code=400, detail="Invalid path")
-        
+
     db.set_doc(collection, doc_id, user_email, payload)
     return {"ok": True}
+
 
 @app.patch("/api/db/{path:path}")
 def db_patch(path: str, payload: dict = Body(...), db=Depends(get_db)):
@@ -917,9 +1039,10 @@ def db_patch(path: str, payload: dict = Body(...), db=Depends(get_db)):
     user_email = parsed["user_email"]
     if not collection or not doc_id:
         raise HTTPException(status_code=400, detail="Invalid path")
-        
+
     db.update_doc(collection, doc_id, user_email, payload)
     return {"ok": True}
+
 
 @app.get("/api/settings/academic_year")
 def get_academic_year(db=Depends(get_db)):
@@ -927,28 +1050,37 @@ def get_academic_year(db=Depends(get_db)):
     doc_term = db.get_doc("settings", "academic_term")
     return {
         "year": doc_year.get("value") if doc_year and doc_year.get("value") else "2567",
-        "term": doc_term.get("value") if doc_term and doc_term.get("value") else "1"
+        "term": doc_term.get("value") if doc_term and doc_term.get("value") else "1",
     }
+
 
 @app.put("/api/settings/academic_year")
 def set_academic_year(
     payload: dict = Body(...),
     authorization: str | None = Header(None),
-    db=Depends(get_db)
+    db=Depends(get_db),
 ):
     user_email = get_user_email(authorization)
     admin_user = db.get_doc("users", user_email)
-    print(f"DEBUG: authorization={authorization}, user_email={user_email}, admin_user={admin_user}")
+    print(
+        f"DEBUG: authorization={authorization}, user_email={user_email}, admin_user={admin_user}"
+    )
     if not admin_user or admin_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-        
-    db.set_doc("settings", "academic_year", None, {
-        "value": str(payload.get("year", "2567")),
-    })
-    db.set_doc("settings", "academic_term", None, {
-        "value": str(payload.get("term", "1"))
-    })
+
+    db.set_doc(
+        "settings",
+        "academic_year",
+        None,
+        {
+            "value": str(payload.get("year", "2567")),
+        },
+    )
+    db.set_doc(
+        "settings", "academic_term", None, {"value": str(payload.get("term", "1"))}
+    )
     return {"ok": True}
+
 
 @app.delete("/api/db/{path:path}")
 def db_delete(path: str, db=Depends(get_db)):
@@ -958,7 +1090,7 @@ def db_delete(path: str, db=Depends(get_db)):
     user_email = parsed["user_email"]
     if not collection or not doc_id:
         raise HTTPException(status_code=400, detail="Invalid path")
-        
+
     db.delete_doc(collection, doc_id, user_email)
     return {"ok": True}
 
@@ -967,30 +1099,47 @@ def db_delete(path: str, db=Depends(get_db)):
 def migrate_db(db=Depends(get_db)):
     # pyrefly: ignore [missing-import]
     from sqlalchemy import text
+
     session = db._get_session()
     logs = []
     try:
         # Drop FKs referencing subjects_sec.section_id
         for table in ["student_enrollments", "exams"]:
-            res = session.execute(text(f"SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = '{table}' AND COLUMN_NAME = 'section_id' AND REFERENCED_TABLE_NAME = 'subjects_sec'")).fetchall()
+            res = session.execute(
+                text(
+                    f"SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_NAME = '{table}' AND COLUMN_NAME = 'section_id' AND REFERENCED_TABLE_NAME = 'subjects_sec'"
+                )
+            ).fetchall()
             for r in res:
                 fk_name = r[0]
                 logs.append(f"Dropping FK: {fk_name} from {table}")
                 session.execute(text(f"ALTER TABLE {table} DROP FOREIGN KEY {fk_name}"))
-            
+
         logs.append("Modifying subjects_sec.section_id to VARCHAR(50)")
-        session.execute(text("ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)"))
-        
+        session.execute(
+            text("ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)")
+        )
+
         logs.append("Modifying student_enrollments.section_id to VARCHAR(50)")
-        session.execute(text("ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)"))
-        
+        session.execute(
+            text("ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)")
+        )
+
         logs.append("Modifying exams.section_id to VARCHAR(50)")
         session.execute(text("ALTER TABLE exams MODIFY COLUMN section_id VARCHAR(50)"))
-        
+
         logs.append("Adding FKs back")
-        session.execute(text("ALTER TABLE student_enrollments ADD CONSTRAINT student_enrollments_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
-        session.execute(text("ALTER TABLE exams ADD CONSTRAINT exams_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"))
-        
+        session.execute(
+            text(
+                "ALTER TABLE student_enrollments ADD CONSTRAINT student_enrollments_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"
+            )
+        )
+        session.execute(
+            text(
+                "ALTER TABLE exams ADD CONSTRAINT exams_fk_sec FOREIGN KEY (section_id, user_id) REFERENCES subjects_sec (section_id, user_id) ON DELETE CASCADE"
+            )
+        )
+
         session.commit()
         logs.append("Migration successful")
     except Exception as e:
@@ -999,7 +1148,7 @@ def migrate_db(db=Depends(get_db)):
         return {"status": "error", "logs": logs}
     finally:
         session.close()
-    
+
     return {"status": "success", "logs": logs}
 
 
@@ -1011,6 +1160,7 @@ def _get_user_id_by_email(email: str, db) -> str:
     if not user:
         raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้งาน email: {email}")
     return user.get("user_id", "")
+
 
 def _short_id() -> str:
     """สร้าง ID สั้น 10 ตัวอักษร"""
@@ -1037,16 +1187,28 @@ def admin_login(payload: dict = Body(...), db=Depends(get_db)):
     if admin_user is None:
         # สร้าง default admin ถ้ายังไม่มีในระบบ
         default_hash = hashlib.sha256("admin1234".encode()).hexdigest()
-        db.set_doc("users", "admin@localhost", None, {
-            "email": "admin@localhost",
-            "username": "admin",
-            "password": default_hash,
-            "role": "admin",
-            "displayName": "System Admin"
-        })
+        db.set_doc(
+            "users",
+            "admin@localhost",
+            None,
+            {
+                "email": "admin@localhost",
+                "username": "admin",
+                "password": default_hash,
+                "role": "admin",
+                "displayName": "System Admin",
+            },
+        )
         admin_user = db.get_admin_by_name(aname)
 
-    if admin_user and admin_user.get("role") == "admin" and admin_user.get("password") == hashed_input:
+    if (
+        admin_user
+        and admin_user.get("role") == "admin"
+        and admin_user.get("password") == hashed_input
+    ):
         return admin_user
 
-    raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์ผู้ดูแลระบบ")
+    raise HTTPException(
+        status_code=401,
+        detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์ผู้ดูแลระบบ",
+    )

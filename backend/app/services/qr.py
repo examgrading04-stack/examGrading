@@ -14,40 +14,41 @@ QR Code Generator สำหรับระบบตรวจข้อสอบ
 
 # pyrefly: ignore [missing-import]
 import cv2
+
 # pyrefly: ignore [missing-import]
 import numpy as np
 import json
 import os
 from datetime import datetime
 
-
 # ─────────────────────────────────────────
 #  QR Payload Schema
 # ─────────────────────────────────────────
 
+
 def build_qr_payload(
-    subject_code:    str,
-    subject_name:    str,
-    student_id:      str,
-    student_name:    str,
-    exam_date:       str,
-    total_questions: int,   # 30 / 50 / 100
-    sheet_id:        str = "",  # optional: unique ID ของกระดาษใบนี้
-    exam_id:         str = "",
+    subject_code: str,
+    subject_name: str,
+    student_id: str,
+    student_name: str,
+    exam_date: str,
+    total_questions: int,  # 30 / 50 / 100
+    sheet_id: str = "",  # optional: unique ID ของกระดาษใบนี้
+    exam_id: str = "",
 ) -> str:
     """
     สร้าง JSON string สำหรับเข้ารหัสใน QR
     ใช้ key สั้นเพื่อลด QR complexity → อ่านง่ายขึ้น
     """
     payload = {
-        "subject_code": subject_code,       # subject code
-        "subject_name": subject_name,       # subject name
-        "student_id": student_id,         # student ID
-        "student_name": student_name,       # student name
-        "exam_date": exam_date,          # exam date
-        "total_questions": total_questions,    # total questions
-        "sheet_id": sheet_id,          # sheet ID (optional)
-        "exam_id": exam_id,           # exam ID
+        "subject_code": subject_code,  # subject code
+        "subject_name": subject_name,  # subject name
+        "student_id": student_id,  # student ID
+        "student_name": student_name,  # student name
+        "exam_date": exam_date,  # exam date
+        "total_questions": total_questions,  # total questions
+        "sheet_id": sheet_id,  # sheet ID (optional)
+        "exam_id": exam_id,  # exam ID
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -61,14 +62,14 @@ def parse_qr_payload(qr_string: str) -> dict:
         data = json.loads(qr_string)
         # normalize key ยาว → สั้น
         key_map = {
-            "subject_code":    "subject_code",
-            "subject_name":    "subject_name",
-            "student_id":      "student_id",
-            "student_name":    "student_name",
-            "exam_date":       "exam_date",
+            "subject_code": "subject_code",
+            "subject_name": "subject_name",
+            "student_id": "student_id",
+            "student_name": "student_name",
+            "exam_date": "exam_date",
             "total_questions": "total_questions",
-            "sheet_id":        "sheet_id",
-            "exam_id":         "exam_id",
+            "sheet_id": "sheet_id",
+            "exam_id": "exam_id",
         }
         for long, short in key_map.items():
             if long in data and short not in data:
@@ -85,6 +86,7 @@ def parse_qr_payload(qr_string: str) -> dict:
 #  สร้าง QR Image ด้วย cv2.QRCodeEncoder
 # ─────────────────────────────────────────
 
+
 def generate_qr_image(payload_str: str, target_px: int = 180) -> np.ndarray:
     """
     สร้าง QR Code image จาก string
@@ -95,31 +97,34 @@ def generate_qr_image(payload_str: str, target_px: int = 180) -> np.ndarray:
     params = cv2.QRCodeEncoder_Params()
     params.correction_level = cv2.QRCodeEncoder_CORRECT_LEVEL_L
     encoder = cv2.QRCodeEncoder.create(params)
-    qr_raw  = encoder.encode(payload_str)
+    qr_raw = encoder.encode(payload_str)
     modules = qr_raw.shape[0]
 
     # integer scale ≥ 4px/module เพื่อให้ decode ได้จากมือถือ
-    scale  = max(4, target_px // modules)
-    size   = modules * scale
+    scale = max(4, target_px // modules)
+    size = modules * scale
     qr_big = cv2.resize(qr_raw, (size, size), interpolation=cv2.INTER_NEAREST)
     return qr_big
 
 
-def generate_qr_with_border(payload_str: str, target_px: int = 180, border: int = 12) -> np.ndarray:
+def generate_qr_with_border(
+    payload_str: str, target_px: int = 180, border: int = 12
+) -> np.ndarray:
     """
     QR พร้อม quiet zone (border สีขาว) ตามมาตรฐาน QR Code
     """
-    qr    = generate_qr_image(payload_str, target_px)
-    size  = qr.shape[0]
+    qr = generate_qr_image(payload_str, target_px)
+    size = qr.shape[0]
     total = size + border * 2
     canvas = np.ones((total, total), dtype=np.uint8) * 255
-    canvas[border:border+size, border:border+size] = qr
+    canvas[border : border + size, border : border + size] = qr
     return canvas
 
 
 # ─────────────────────────────────────────
 #  ทดสอบ decode QR ที่สร้างขึ้น
 # ─────────────────────────────────────────
+
 
 def verify_qr(qr_image: np.ndarray) -> tuple[bool, str]:
     """
@@ -145,6 +150,7 @@ def verify_qr(qr_image: np.ndarray) -> tuple[bool, str]:
 #  (ใช้ตอนพิมพ์กระดาษจริง)
 # ─────────────────────────────────────────
 
+
 def generate_sheet_qr(
     total_questions: int,
     subject_code: str = "",
@@ -153,7 +159,7 @@ def generate_sheet_qr(
     student_name: str = "",
     exam_date: str = "",
     sheet_id: str = "",
-    output_path: str = None
+    output_path: str = None,
 ) -> np.ndarray:
     """
     สร้าง QR สำหรับกระดาษคำตอบหนึ่งใบ
@@ -186,6 +192,7 @@ def generate_sheet_qr(
 #  อัปเดต omr_scanner ให้ใช้ parse_qr_payload
 # ─────────────────────────────────────────
 
+
 def extract_metadata_from_qr(qr_string: str):
     """
     แปลง QR string → SheetMetadata
@@ -193,6 +200,7 @@ def extract_metadata_from_qr(qr_string: str):
     """
     # import ที่นี่เพื่อ avoid circular import
     import sys, os
+
     sys.path.insert(0, os.path.dirname(__file__))
     from .omr_scanner import SheetMetadata
 
@@ -201,12 +209,12 @@ def extract_metadata_from_qr(qr_string: str):
         return meta
 
     data = parse_qr_payload(qr_string)
-    meta.subject_code    = data.get("subject_code", "")
-    meta.subject_name    = data.get("subject_name", "")
-    meta.student_id      = data.get("student_id", "")
-    meta.student_name    = data.get("student_name", "")
-    meta.exam_date       = data.get("exam_date", "")
+    meta.subject_code = data.get("subject_code", "")
+    meta.subject_name = data.get("subject_name", "")
+    meta.student_id = data.get("student_id", "")
+    meta.student_name = data.get("student_name", "")
+    meta.exam_date = data.get("exam_date", "")
     meta.total_questions = int(data.get("total_questions", 0))
-    meta.sheet_id        = data.get("sheet_id", "")
-    meta.exam_id         = data.get("exam_id", "")
+    meta.sheet_id = data.get("sheet_id", "")
+    meta.exam_id = data.get("exam_id", "")
     return meta

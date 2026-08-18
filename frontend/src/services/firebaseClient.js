@@ -379,7 +379,7 @@ class MockCollectionReference {
     }
     const dataList = await res.json();
     const docs = (dataList || []).map((item) => {
-      const docId = item.id || item.code || item.email || item.logid;
+      const docId = item.id || item.user_id || item.template_id || item.code || item.email || item.logid;
       let refPath = [...this.path, docId];
       if (
         item.user_email &&
