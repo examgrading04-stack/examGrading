@@ -555,9 +555,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col z-50 transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
+        className={`fixed inset-y-0 left-0 w-72 bg-slate-900 border-r border-slate-800 flex flex-col z-50 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0 lg:static lg:shadow-none lg:z-20`}
       >
         <button
           onClick={() => setSidebarOpen(false)}
@@ -588,18 +587,16 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 setActivePage(id);
                 setSidebarOpen(false);
               }}
-              className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                activePage === id
-                  ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-900/50"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
-              }`}
+              className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${activePage === id
+                ? "bg-indigo-600 text-white font-bold shadow-md shadow-indigo-900/50"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white font-medium"
+                }`}
             >
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
-                  activePage === id
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-800 text-slate-400 group-hover:text-white"
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${activePage === id
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-800 text-slate-400 group-hover:text-white"
+                  }`}
               >
                 <Icon name={icon} className="text-[13px]" />
               </div>
@@ -814,9 +811,9 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                       className="flex-1 justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
                     >
                       <Icon
-                        name={editingUser ? "fa-floppy-disk" : "fa-user-plus"}
+                        name={editingUser ? "fa-floppy-disk" : "fa-floppy-disk"}
                       />{" "}
-                      {editingUser ? "บันทึก" : "เพิ่ม"}
+                      {editingUser ? "บันทึก" : "บันทึก"}
                     </button>
                     {editingUser && (
                       <button
@@ -894,22 +891,20 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                           </td>
                           <td className="p-4 whitespace-nowrap text-center">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                                user.role === "admin"
-                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                  : "bg-slate-100 text-slate-600 border-slate-200"
-                              }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${user.role === "admin"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
+                                }`}
                             >
                               {user.role === "admin" ? "Admin" : "User"}
                             </span>
                           </td>
                           <td className="p-4 whitespace-nowrap text-center">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                                user.status === "suspended"
-                                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${user.status === "suspended"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                }`}
                             >
                               {user.status === "suspended" ? "ระงับ" : "ปกติ"}
                             </span>
@@ -997,11 +992,10 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                 <div className="flex gap-4 items-center min-h-[36px]">
                   <button
                     onClick={deleteSelectedLogs}
-                    className={`bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                      selectedLogs.size > 0
-                        ? "opacity-100"
-                        : "opacity-0 pointer-events-none absolute -z-10"
-                    }`}
+                    className={`bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${selectedLogs.size > 0
+                      ? "opacity-100"
+                      : "opacity-0 pointer-events-none absolute -z-10"
+                      }`}
                     title="ลบประวัติที่เลือก"
                   >
                     <Icon name="fa-trash-can" /> ({selectedLogs.size})
@@ -1076,16 +1070,16 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                                   const oldStart =
                                     lastShiftLogIndex !== null
                                       ? Math.min(
-                                          lastShiftLogIndex,
-                                          lastSelectedLogIndex,
-                                        )
+                                        lastShiftLogIndex,
+                                        lastSelectedLogIndex,
+                                      )
                                       : lastSelectedLogIndex;
                                   const oldEnd =
                                     lastShiftLogIndex !== null
                                       ? Math.max(
-                                          lastShiftLogIndex,
-                                          lastSelectedLogIndex,
-                                        )
+                                        lastShiftLogIndex,
+                                        lastSelectedLogIndex,
+                                      )
                                       : lastSelectedLogIndex;
 
                                   const newStart = Math.min(

@@ -180,9 +180,10 @@ export function StudentsPage({ data, api, refresh }) {
   }
 
   async function deleteStudent(row) {
+    const subjInfo = row.subjectCode ? ` (วิชา ${row.subjectCode})` : "";
     const result = await Swal().fire({
       title: "ลบผู้เรียน?",
-      text: row.name,
+      text: `${row.name}${subjInfo}`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "ลบ",
@@ -198,7 +199,8 @@ export function StudentsPage({ data, api, refresh }) {
     });
     try {
       if (row.id != null && row.id !== "") {
-        await api.remove("students", row.id);
+        const deleteId = row.subjectCode ? `${row.id}_${row.subjectCode}` : row.id;
+        await api.remove("students", deleteId);
       }
       await refresh("ลบผู้เรียนแล้ว");
     } catch (err) {
@@ -215,7 +217,7 @@ export function StudentsPage({ data, api, refresh }) {
     const count = selectedStudents.size;
     const result = await Swal().fire({
       title: "ลบผู้เรียนที่เลือก?",
-      text: `ต้องการลบข้อมูลผู้เรียนจำนวน ${count} คนหรือไม่`,
+      text: `ต้องการลบข้อมูลผู้เรียนจำนวน ${count} รายการหรือไม่`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "ลบ",
@@ -231,16 +233,7 @@ export function StudentsPage({ data, api, refresh }) {
     });
 
     try {
-      const idsToDelete = new Set();
-      for (const uniqueId of selectedStudents) {
-        const student = data.students.find(
-          (s) => `${s.id}_${s.subjectCode}` === uniqueId || s.id === uniqueId,
-        );
-        if (student) idsToDelete.add(student.id);
-        else idsToDelete.add(uniqueId.split("_")[0]);
-      }
-
-      const validIds = Array.from(idsToDelete).filter(id => id != null && id !== "");
+      const validIds = Array.from(selectedStudents).filter(id => id != null && id !== "");
       await Promise.all(
         validIds.map((id) => api.remove("students", id)),
       );

@@ -55,9 +55,9 @@ class OMRResult:
 
 
 class OMRConfig:
-    NORM_FILL_MIN = 0.08
-    NORM_GAP_MIN = 0.04
-    MULTI_MARK_RATIO = 0.88
+    NORM_FILL_MIN = 0.075
+    NORM_GAP_MIN = 0.035
+    MULTI_MARK_RATIO = 0.55
     ANCHOR_MIN_AREA = 3000
     ANCHOR_MAX_AREA = 9000
     ANCHOR_ASPECT_TOL = 0.15
@@ -640,7 +640,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         return int(y1 + best[1]), int(x1 + best[0])
 
     def _score_with_center(y, x):
-        pad = R + 10
+        pad = R + 8
         y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
         x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
         patch = g[y1:y2, x1:x2]
@@ -657,26 +657,35 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         cached = mask_cache.get(cache_key)
         if cached is None:
             inner = np.zeros((h, w), np.uint8)
-            ring = np.zeros((h, w), np.uint8)
-            inner_r = max(4, R - 2)
-            ring_r1 = R + 3
-            ring_r2 = R + 9
+            corner_bg = np.zeros((h, w), np.uint8)
+            inner_r = max(4, R - 1)
             cv2.circle(inner, (cx, cy), inner_r, 255, -1)
-            cv2.circle(ring, (cx, cy), ring_r2, 255, -1)
-            cv2.circle(ring, (cx, cy), ring_r1, 0, -1)
-            cached = (inner, ring)
-            # กัน cache โตเกินจำเป็นในภาพที่หลากหลายมาก
+            # Use 4 corner areas (safe distance from bubble & overflow) as local paper background
+            corner_bg[0:3, 0:3] = 255
+            corner_bg[0:3, max(0, w - 3) :] = 255
+            corner_bg[max(0, h - 3) :, 0:3] = 255
+            corner_bg[max(0, h - 3) :, max(0, w - 3) :] = 255
+            cached = (inner, corner_bg)
             if len(mask_cache) > 256:
                 mask_cache.clear()
             mask_cache[cache_key] = cached
         else:
-            inner, ring = cached
+            inner, corner_bg = cached
 
         inner_mean = _mean_in_mask(patch, inner)
-        ring_mean = _mean_in_mask(patch, ring)
-        # กัน division-by-zero และความผิดพลาดจาก ring ที่ไปทับเส้นดำหนาๆ
-        denom = max(10.0, ring_mean)
-        score = (ring_mean - inner_mean) / denom
+        bg_mean = _mean_in_mask(patch, corner_bg)
+        denom = max(10.0, bg_mean)
+        contrast = max(0.0, (bg_mean - inner_mean) / denom)
+
+        # Also compute dark pixel percentage inside inner circle
+        dark_thresh = max(0, bg_mean - 22)
+        inner_pixels = patch[inner > 0]
+        dark_fill_ratio = (
+            float(np.mean(inner_pixels < dark_thresh)) if len(inner_pixels) > 0 else 0.0
+        )
+
+        # Combined score: 60% contrast + 40% dark fill ratio
+        score = 0.60 * contrast + 0.40 * dark_fill_ratio
         if score < 0:
             score = 0.0
         if score > 1:
@@ -704,14 +713,11 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         return best
 
     def ratio_at(y, x):
-        # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
         y = int(y)
         x = int(x)
-        # Accuracy path: local refine บนจุดคาด และลอง snap ด้วย Hough เพิ่มอีกทาง
         best = _local_refine_score(y, x)
         if getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True):
             need_snap = best < float(getattr(OMRConfig, "SNAP_FALLBACK_SCORE", 0.24))
-            # แม้คะแนนจะสูงอยู่แล้ว ให้ลอง snap เพิ่มในบางกรณีเพื่อกัน drift
             if need_snap or best < 0.55:
                 sy, sx = _snap_center(y, x)
                 snapped = _local_refine_score(int(sy), int(sx))
@@ -782,8 +788,6 @@ def _compute_decision_stats(raw_scores, n_q=None):
         norms_by_q[q_no] = norm
         max_norms.append(max(norm))
 
-    # ใช้ Otsu แบบง่ายๆ บน max_norm แต่จำกัดเพดานไว้ที่ 0.12
-    # เพื่อไม่ให้ตัดกรณีดินสอสีอ่อนหรือฝนไม่เต็มออก
     dynamic_fill_min = OMRConfig.NORM_FILL_MIN
     if max_norms:
         mx = np.clip(np.array(max_norms, dtype=np.float32), 0.0, 1.0)
@@ -799,7 +803,6 @@ def _compute_decision_stats(raw_scores, n_q=None):
             except Exception:
                 pass
 
-    # จำกัดเพดานสูงสุดไว้ที่ 0.12 เสมอ
     dynamic_fill_min = min(dynamic_fill_min, 0.12)
     return bls, norms_by_q, float(dynamic_fill_min)
 
@@ -820,7 +823,9 @@ def decide_answers(raw_scores, n_q=None):
             norm = [r - bl[i] for i, r in enumerate(ratios)]
         sr = sorted(enumerate(norm), key=lambda x: x[1], reverse=True)
         max_idx, max_n = sr[0]
-        gap = max_n - sr[1][1] if len(sr) > 1 else 1.0
+        second_idx, second_n = sr[1] if len(sr) > 1 else (0, 0.0)
+        gap = max_n - second_n if len(sr) > 1 else 1.0
+
         if max_n < dynamic_fill_min:
             flagged.append(
                 {
@@ -830,17 +835,19 @@ def decide_answers(raw_scores, n_q=None):
                 }
             )
             answers[q_no] = None
-        elif len(sr) > 1 and max_n > 0:
-            second_n = sr[1][1]
-            # กันอ่านผิดกรณีฝนติดกัน 2 ช่อง: ให้เป็น invalid แทนการเดา แต่เก็บตัวเลือกที่ฝนไว้
-            if second_n >= dynamic_fill_min and (second_n / max_n) >= float(
-                getattr(OMRConfig, "MULTI_MARK_RATIO", 0.92)
-            ):
-                multi_choices = [
-                    choices[i] for i, n in enumerate(norm) if n >= dynamic_fill_min
-                ]
-                if not multi_choices:
-                    multi_choices = [choices[max_idx], choices[sr[1][0]]]
+        else:
+            # Check for multiple marks (2 or more choices above threshold or close to max)
+            multi_choices = [
+                choices[i]
+                for i, n in enumerate(norm)
+                if n >= dynamic_fill_min * 0.75
+                and (
+                    (n / max(1e-5, max_n))
+                    >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.55))
+                    or (max_n - n) <= 0.06
+                )
+            ]
+            if len(multi_choices) >= 2:
                 detected_str = ",".join(multi_choices)
                 flagged.append(
                     {
@@ -851,8 +858,7 @@ def decide_answers(raw_scores, n_q=None):
                     }
                 )
                 answers[q_no] = detected_str
-                continue
-            if gap < OMRConfig.NORM_GAP_MIN:
+            elif gap < OMRConfig.NORM_GAP_MIN:
                 flagged.append(
                     {
                         "question": q_no,
@@ -863,17 +869,6 @@ def decide_answers(raw_scores, n_q=None):
                 answers[q_no] = choices[max_idx]
             else:
                 answers[q_no] = choices[max_idx]
-        elif gap < OMRConfig.NORM_GAP_MIN:
-            flagged.append(
-                {
-                    "question": q_no,
-                    "reason": "low_confidence",
-                    "ratios": dict(zip(choices, ratios)),
-                }
-            )
-            answers[q_no] = choices[max_idx]
-        else:
-            answers[q_no] = choices[max_idx]
     return answers, flagged
 
 
@@ -1131,8 +1126,12 @@ def calculate_score(answers, answer_key):
             a = a.strip().upper()
         if isinstance(key, str):
             key = key.strip().upper()
-        if a is None:
+
+        if a is None or a == "" or a == "NONE":
             skipped.append(q_no)
+        elif "," in a or len(a) > 1:
+            # ฝนหลายข้อ หรือเครื่องหมายไม่ถูกต้อง -> ให้ 0 คะแนนและบันทึกใน wrong
+            wrong.append({"question": q_no, "student": a, "correct": key, "reason": "multiple_marks"})
         elif a == key:
             correct.append(q_no)
             earned_score += q_score
@@ -1202,19 +1201,19 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
             q_no = gi * rpg + row + 1
             ans = answers.get(q_no)
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
-            if ans and ans in choices:
-                ch = choices.index(ans)
+            ans_list = [a.strip() for a in str(ans).split(",") if a.strip() in choices] if ans else []
+            for a_item in ans_list:
+                ch = choices.index(a_item)
                 cx = gx + current_xs[ch]
                 cy = gy + y
-                # snap ในพิกัด grid แล้วแปลงกลับเป็น warped
                 sy, sx = _snap(int(y), int(current_xs[ch]))
                 cx = gx + int(sx)
                 cy = gy + int(sy)
-                color = (0, 165, 255) if q_no in flagged_qs else (0, 255, 0)
+                color = (0, 165, 255) if (q_no in flagged_qs or len(ans_list) > 1) else (0, 255, 0)
                 cv2.circle(debug, (cx, cy), dbg_r, color, 2)
                 cv2.putText(
                     debug,
-                    ans,
+                    a_item,
                     (cx - 5, cy + 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.4,

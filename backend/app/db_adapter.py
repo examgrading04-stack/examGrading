@@ -584,7 +584,6 @@ class MySQLAdapter(BaseDBAdapter):
     def get_exams(self, user_email: str) -> List[dict]:
         session = self._get_session()
         try:
-<<<<<<< HEAD
             try:
                 # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
                 rows = session.query(SqlExam).outerjoin(
@@ -602,19 +601,6 @@ class MySQLAdapter(BaseDBAdapter):
                     ).filter(SqlExam.user_email == user_email).all()
                 else:
                     raise
-=======
-            # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
-            rows = (
-                session.query(SqlExam)
-                .outerjoin(
-                    SqlSubject,
-                    (SqlExam.subject_id == SqlSubject.code)
-                    & (SqlExam.user_email == SqlSubject.user_email),
-                )
-                .filter(SqlExam.user_email == user_email)
-                .all()
-            )
->>>>>>> origin/main
 
             # Batch-load subjects เพื่อลด N+1
             subject_ids = list({r.subject_id for r in rows if r.subject_id})
@@ -1129,25 +1115,27 @@ class MySQLAdapter(BaseDBAdapter):
                             mapped_data["template_id"] = "100-A-E"
                         else:
                             mapped_data["template_id"] = str(mapped_data["sheetType"])
-<<<<<<< HEAD
-                        
                 if collection in ("sections", "exams"):
-                    subject_id = mapped_data.get("subject") or mapped_data.get("subject_id")
+                    subject_id = mapped_data.get("subject") or mapped_data.get(
+                        "subject_id"
+                    )
                     if subject_id and user_email:
-                        subj = session.query(SqlSubject).filter(
-                            SqlSubject.code == subject_id,
-                            SqlSubject.user_email == user_email
-                        ).first()
+                        subj = (
+                            session.query(SqlSubject)
+                            .filter(
+                                SqlSubject.code == subject_id,
+                                SqlSubject.user_email == user_email,
+                            )
+                            .first()
+                        )
                         if not subj:
                             new_subj = SqlSubject(
                                 code=subject_id,
                                 name=f"วิชา {subject_id}",
-                                user_email=user_email
+                                user_email=user_email,
                             )
                             session.add(new_subj)
                             session.flush()
-=======
->>>>>>> origin/main
 
                 if collection == "results":
                     student_code = mapped_data.get("studentCode") or mapped_data.get(
@@ -1246,25 +1234,61 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 pass
 
-            if collection == "students" and "section" in mapped_data:
+            if collection == "students":
                 subjectCode = mapped_data.get("subjectCode")
                 section_id = mapped_data.get("section")
-                if section_id:
-<<<<<<< HEAD
-                    sec_row = session.query(SqlSection).filter(
-                        (SqlSection.id == section_id) | ((SqlSection.sec == str(section_id)) & (SqlSection.subject == subjectCode)),
-                        SqlSection.user_email == user_email
-                    ).first()
-=======
+
+                if subjectCode and user_email:
+                    subj = (
+                        session.query(SqlSubject)
+                        .filter(
+                            SqlSubject.code == subjectCode,
+                            SqlSubject.user_email == user_email,
+                        )
+                        .first()
+                    )
+                    if not subj:
+                        new_subj = SqlSubject(
+                            code=subjectCode,
+                            name=f"วิชา {subjectCode}",
+                            user_email=user_email,
+                        )
+                        session.add(new_subj)
+                        session.flush()
+
+                if section_id and user_email:
                     sec_row = (
                         session.query(SqlSection)
                         .filter(
-                            SqlSection.id == section_id,
+                            (SqlSection.id == section_id)
+                            | (
+                                (SqlSection.sec == str(section_id))
+                                & (SqlSection.subject == subjectCode)
+                            ),
                             SqlSection.user_email == user_email,
                         )
                         .first()
                     )
->>>>>>> origin/main
+                    if not sec_row and subjectCode:
+                        sec_id = f"{subjectCode}_{section_id}"
+                        sec_row = (
+                            session.query(SqlSection)
+                            .filter(
+                                SqlSection.id == sec_id,
+                                SqlSection.user_email == user_email,
+                            )
+                            .first()
+                        )
+                        if not sec_row:
+                            sec_row = SqlSection(
+                                id=sec_id,
+                                sec=str(section_id),
+                                subject=subjectCode,
+                                user_email=user_email,
+                            )
+                            session.add(sec_row)
+                            session.flush()
+
                     if sec_row:
                         subj_id = (
                             subjectCode
@@ -1276,6 +1300,7 @@ class MySQLAdapter(BaseDBAdapter):
                             .filter(
                                 SqlStudentEnrollment.student_code == doc_id,
                                 SqlStudentEnrollment.subject_id == subj_id,
+                                SqlStudentEnrollment.user_id == user_email,
                             )
                             .first()
                         )
@@ -1294,14 +1319,14 @@ class MySQLAdapter(BaseDBAdapter):
                 session.commit()
             except Exception as e:
                 session.rollback()
-                if "Duplicate entry" in str(e) or "IntegrityError" in str(type(e)):
-                    # pyrefly: ignore [missing-import]
+                err_str = str(e)
+                if "Duplicate entry" in err_str or "IntegrityError" in str(type(e)):
                     from fastapi import HTTPException
 
                     item_name = "รหัสวิชา" if collection == "subjects" else "รหัส"
                     raise HTTPException(
                         status_code=400,
-                        detail=f"{item_name}นี้มีอยู่ในระบบแล้ว (อาจถูกสร้างโดยผู้ใช้งานอื่น) กรุณาใช้รหัสอื่น",
+                        detail=f"{item_name}นี้มีอยู่ในระบบของคุณแล้ว กรุณาใช้รหัสอื่น",
                     )
                 raise
         finally:
@@ -1459,25 +1484,61 @@ class MySQLAdapter(BaseDBAdapter):
                             except ValueError:
                                 pass
 
-                if collection == "students" and "section" in mapped_data:
+                if collection == "students":
                     subjectCode = mapped_data.get("subjectCode")
                     section_id = mapped_data.get("section")
-                    if section_id:
-<<<<<<< HEAD
-                        sec_row = session.query(SqlSection).filter(
-                            (SqlSection.id == section_id) | ((SqlSection.sec == str(section_id)) & (SqlSection.subject == subjectCode)),
-                            SqlSection.user_email == user_email
-                        ).first()
-=======
+
+                    if subjectCode and user_email:
+                        subj = (
+                            session.query(SqlSubject)
+                            .filter(
+                                SqlSubject.code == subjectCode,
+                                SqlSubject.user_email == user_email,
+                            )
+                            .first()
+                        )
+                        if not subj:
+                            new_subj = SqlSubject(
+                                code=subjectCode,
+                                name=f"วิชา {subjectCode}",
+                                user_email=user_email,
+                            )
+                            session.add(new_subj)
+                            session.flush()
+
+                    if section_id and user_email:
                         sec_row = (
                             session.query(SqlSection)
                             .filter(
-                                SqlSection.id == section_id,
+                                (SqlSection.id == section_id)
+                                | (
+                                    (SqlSection.sec == str(section_id))
+                                    & (SqlSection.subject == subjectCode)
+                                ),
                                 SqlSection.user_email == user_email,
                             )
                             .first()
                         )
->>>>>>> origin/main
+                        if not sec_row and subjectCode:
+                            sec_id = f"{subjectCode}_{section_id}"
+                            sec_row = (
+                                session.query(SqlSection)
+                                .filter(
+                                    SqlSection.id == sec_id,
+                                    SqlSection.user_email == user_email,
+                                )
+                                .first()
+                            )
+                            if not sec_row:
+                                sec_row = SqlSection(
+                                    id=sec_id,
+                                    sec=str(section_id),
+                                    subject=subjectCode,
+                                    user_email=user_email,
+                                )
+                                session.add(sec_row)
+                                session.flush()
+
                         if sec_row:
                             subj_id = (
                                 subjectCode
@@ -1489,6 +1550,7 @@ class MySQLAdapter(BaseDBAdapter):
                                 .filter(
                                     SqlStudentEnrollment.student_code == doc_id,
                                     SqlStudentEnrollment.subject_id == subj_id,
+                                    SqlStudentEnrollment.user_id == user_email,
                                 )
                                 .first()
                             )
@@ -1515,6 +1577,65 @@ class MySQLAdapter(BaseDBAdapter):
             return
         session = self._get_session()
         try:
+            if collection == "students":
+                student_code = doc_id
+                subject_code = None
+
+                if "_" in doc_id:
+                    enrolls = (
+                        session.query(SqlStudentEnrollment)
+                        .filter(SqlStudentEnrollment.user_id == user_email)
+                        .all()
+                    )
+                    matched_enroll = None
+                    for en in enrolls:
+                        if f"{en.student_code}_{en.subject_id}" == doc_id:
+                            matched_enroll = en
+                            break
+                    if matched_enroll:
+                        student_code = matched_enroll.student_code
+                        subject_code = matched_enroll.subject_id
+                    else:
+                        parts = doc_id.split("_", 1)
+                        student_code = parts[0]
+                        subject_code = parts[1]
+
+                if subject_code:
+                    session.query(SqlStudentEnrollment).filter(
+                        SqlStudentEnrollment.student_code == student_code,
+                        SqlStudentEnrollment.subject_id == subject_code,
+                        SqlStudentEnrollment.user_id == user_email,
+                    ).delete()
+                else:
+                    session.query(SqlStudentEnrollment).filter(
+                        SqlStudentEnrollment.student_code == student_code,
+                        SqlStudentEnrollment.user_id == user_email,
+                    ).delete()
+
+                remaining_enrolls = (
+                    session.query(SqlStudentEnrollment)
+                    .filter(
+                        SqlStudentEnrollment.student_code == student_code,
+                        SqlStudentEnrollment.user_id == user_email,
+                    )
+                    .count()
+                )
+
+                if remaining_enrolls == 0:
+                    st_row = (
+                        session.query(SqlStudent)
+                        .filter(
+                            SqlStudent.id == student_code,
+                            SqlStudent.user_email == user_email,
+                        )
+                        .first()
+                    )
+                    if st_row:
+                        session.delete(st_row)
+
+                session.commit()
+                return
+
             query = session.query(model_cls)
             if hasattr(model_cls, "id"):
                 query = query.filter(model_cls.id == doc_id)
@@ -1536,12 +1657,6 @@ class MySQLAdapter(BaseDBAdapter):
             else:
                 row = query.first()
             if row:
-                if collection == "students":
-                    # ลบข้อมูลการลงทะเบียนเรียนที่เกี่ยวข้องก่อน เพื่อไม่ให้ติด Foreign Key
-                    session.query(SqlStudentEnrollment).filter(
-                        SqlStudentEnrollment.student_code == doc_id,
-                        SqlStudentEnrollment.user_id == user_email
-                    ).delete()
                 session.delete(row)
                 session.commit()
         except Exception as e:

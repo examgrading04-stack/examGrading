@@ -43,6 +43,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   const [selectedExams, setSelectedExams] = useState(new Set());
   const [lastSelectedExamIndex, setLastSelectedExamIndex] = useState(null);
   const [lastShiftExamIndex, setLastShiftExamIndex] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const filteredExams = data.exams.filter((exam) => {
     if (
@@ -151,6 +152,56 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     setSheetModal({ exam, subject, students: students.length ? students : [] });
   }
 
+  // Auto-select sheet type based on question count, cap at 100
+  const handleQuestionsChange = (val) => {
+    if (val === "" || val === null || val === undefined) {
+      setForm((prev) => ({ ...prev, questions: "" }));
+      return;
+    }
+
+    let num = parseInt(val, 10);
+    if (isNaN(num)) {
+      setForm((prev) => ({ ...prev, questions: val }));
+      return;
+    }
+
+    if (num > 100) {
+      num = 100;
+    } else if (num < 1) {
+      num = 1;
+    }
+
+    let autoSheetType = "30";
+    if (num <= 30) {
+      autoSheetType = "30";
+    } else if (num <= 50) {
+      autoSheetType = "50";
+    } else if (num <= 100) {
+      autoSheetType = "100";
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      questions: String(num),
+      sheetType: autoSheetType,
+    }));
+  };
+
+  async function deleteExam(id) {
+    const result = await Swal().fire({
+      title: "ลบกระดาษคำตอบ?",
+      text: "ต้องการลบกระดาษคำตอบนี้หรือไม่ (ข้อมูลการตรวจจะหายไปทั้งหมด)",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#e11d48",
+    });
+    if (!result.isConfirmed) return;
+    await api.remove("exams", id);
+    await refresh("ลบกระดาษคำตอบแล้ว");
+  }
+
   async function createExam(event) {
     event.preventDefault();
 
@@ -164,6 +215,22 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       return;
     }
 
+    const questions = Number(form.questions);
+    if (!questions || questions < 1) {
+      Swal().fire("แจ้งเตือน", "กรุณากรอกจำนวนข้อสอบอย่างน้อย 1 ข้อ", "warning");
+      return;
+    }
+
+    if (questions > 100) {
+      Swal().fire("แจ้งเตือน", "จำนวนข้อสอบสูงสุดต้องไม่เกิน 100 ข้อ", "warning");
+      return;
+    }
+
+    let finalSheetType = 30;
+    if (questions <= 30) finalSheetType = 30;
+    else if (questions <= 50) finalSheetType = 50;
+    else if (questions <= 100) finalSheetType = 100;
+
     const isEdit = !!form.id;
     Swal().fire({
       title: isEdit ? "กำลังแก้ไขกระดาษคำตอบ..." : "กำลังสร้างกระดาษคำตอบ...",
@@ -171,14 +238,6 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       didOpen: () => Swal().showLoading(),
     });
     const subject = data.subjects.find((item) => item.id === form.subject);
-    const questions = Number(form.questions);
-    let finalSheetType = Number(form.sheetType || 30);
-
-    if (questions > finalSheetType) {
-      if (questions <= 30) finalSheetType = 30;
-      else if (questions <= 50) finalSheetType = 50;
-      else finalSheetType = 100;
-    }
 
     const payload = {
       name: form.name,
@@ -202,6 +261,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
         examDate: getTodayStr(),
         id: null,
       });
+      setIsEditing(false);
       await refresh("แก้ไขกระดาษคำตอบสำเร็จ");
       return;
     }
@@ -286,6 +346,133 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Create/Edit Exam Form */}
+          <div className="order-2 xl:row-start-1 xl:row-span-2 xl:col-start-2">
+            <form
+              onSubmit={createExam}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4"
+            >
+              <h3 className="font-bold text-slate-800 text-base border-b border-slate-100 pb-3">
+                {form.id ? "แก้ไขกระดาษคำตอบ" : "สร้างกระดาษคำตอบ"}
+              </h3>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  วิชา
+                </label>
+                <Select
+                  value={form.subject}
+                  onChange={(e) =>
+                    setForm({ ...form, subject: e.target.value, section: "" })
+                  }
+                >
+                  <option value="">-- เลือกวิชา --</option>
+                  {data.subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.code} · {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  กลุ่มเรียน (ไม่บังคับ)
+                </label>
+                <Select
+                  value={form.section}
+                  onChange={(e) => setForm({ ...form, section: e.target.value })}
+                  disabled={!form.subject}
+                >
+                  <option value="">All Section</option>
+                  {currentSections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Sec {s.sec}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  ชื่อกระดาษคำตอบ
+                </label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="เช่น Midterm 1/2567"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  จำนวนข้อสอบ (สูงสุด 100 ข้อ)
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={form.questions}
+                  onChange={(e) => handleQuestionsChange(e.target.value)}
+                  placeholder="กรอกจำนวนข้อ"
+                />
+                {form.questions && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    กระดาษที่เลือกอัตโนมัติ:{" "}
+                    <span className="font-semibold text-indigo-600">
+                      แบบ {form.sheetType} ข้อ
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  วันที่สอบ
+                </label>
+                <Input
+                  type="date"
+                  value={form.examDate}
+                  onChange={(e) => setForm({ ...form, examDate: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <PrimaryButton type="submit" className="flex-1">
+                  {form.id ? (
+                    <>
+                      <Icon name="fa-floppy-disk" /> บันทึก
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="fa-plus" /> สร้างกระดาษคำตอบ
+                    </>
+                  )}
+                </PrimaryButton>
+                {form.id && (
+                  <GhostButton
+                    type="button"
+                    onClick={() => {
+                      setForm({
+                        subject: "",
+                        section: "",
+                        name: "",
+                        questions: "",
+                        sheetType: "30",
+                        examDate: getTodayStr(),
+                        id: null,
+                      });
+                      setIsEditing(false);
+                    }}
+                    className="px-3 py-2 rounded-lg"
+                  >
+                    <Icon name="fa-xmark" />
+                  </GhostButton>
+                )}
+              </div>
+            </form>
           </div>
 
           <section className="space-y-3 order-3 xl:row-start-2 xl:col-start-1 min-w-0">
@@ -515,55 +702,42 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                               row.section === "All Section"
                                 ? ""
                                 : data.sections.find(
-                                    (s) => String(s.id) === String(row.section),
+                                    (s) =>
+                                      String(s.id) === String(row.section),
                                   )?.sec || row.section,
                             questions: row.questions || 50,
+                            examDate: row.examDate || "",
                             sheetType: String(
                               row.sheetType || row.template_id || 30,
                             ).replace("-A-E", ""),
-                            examDate: row.examDate || row.date || "",
                           });
+                          setIsEditing(true);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        title="แก้ไขข้อมูลกระดาษคำตอบ"
+                        title="แก้ไข"
                       >
-                        <Icon name="fa-pen" />
+                        <Icon name="fa-pencil" />
                       </GhostButton>
                       <GhostButton
-                        className="p-2 rounded-md !text-amber-600 !border-amber-200 hover:!bg-amber-50"
+                        className="p-2 rounded-md text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                         onClick={() =>
                           navigate("answer-key", { examId: row.id })
                         }
-                        title="แก้ไขเฉลย"
+                        title="กำหนดเฉลย"
                       >
                         <Icon name="fa-key" />
                       </GhostButton>
                       <GhostButton
-                        variant="primary"
-                        className="p-2 rounded-md"
+                        className="p-2 rounded-md text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                         onClick={() => navigate("results", { examId: row.id })}
                         title="ดูผลการสอบ"
                       >
                         <Icon name="fa-chart-column" />
                       </GhostButton>
                       <GhostButton
-                        variant="danger"
-                        className="p-2 rounded-md"
-                        onClick={() => {
-                          Swal()
-                            .fire({
-                              title: "ลบกระดาษคำตอบ?",
-                              text: "ข้อมูลผลการสอบจะถูกลบออกด้วย",
-                              icon: "warning",
-                              showCancelButton: true,
-                              confirmButtonColor: "#e11d48",
-                            })
-                            .then((res) => {
-                              if (res.isConfirmed) {
-                                api.remove("exams", row.id);
-                                refresh("ลบสำเร็จ");
-                              }
-                            });
-                        }}
+                        className="p-2 rounded-md text-red-500 hover:text-red-600"
+                        onClick={() => deleteExam(row.id)}
+                        title="ลบ"
                       >
                         <Icon name="fa-trash-can" />
                       </GhostButton>
@@ -571,208 +745,58 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   ),
                 },
               ]}
-              rows={filteredExams}
-              emptyText="ไม่มีกระดาษคำตอบในคลัง"
+              rows={data.exams.filter((exam) => {
+                if (
+                  searchExam &&
+                  !exam.name.toLowerCase().includes(searchExam.toLowerCase())
+                )
+                  return false;
+                if (filterSubject && exam.subject_id !== filterSubject) return false;
+                return true;
+              })}
             />
           </section>
-
-          <form
-            onSubmit={createExam}
-            className="bg-white/95 rounded-lg border border-zinc-200 border-t-4 border-t-blue-600 p-6 space-y-4 h-fit xl:sticky xl:top-8 order-2 xl:row-start-1 xl:col-start-2 xl:row-span-2"
-          >
-            <h4 className="text-lg font-bold text-slate-800">
-              {form.id ? "แก้ไขข้อมูลกระดาษคำตอบ" : "สร้างกระดาษคำตอบใหม่"}
-            </h4>
-            <Field label="รายวิชาที่สอบ">
-              <Select
-                value={form.subject}
-                onChange={(e) =>
-                  setForm({ ...form, subject: e.target.value, section: "" })
-                }
-                required
-              >
-                <option value="">เลือกรายวิชา</option>
-                {data.subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} - {s.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="กลุ่มเรียน (Section)">
-              <Select
-                value={form.section}
-                onChange={(e) => setForm({ ...form, section: e.target.value })}
-                disabled={!form.subject}
-              >
-                <option value="">กรุณาเลือกกลุ่มเรียน</option>
-                {currentSections.map((s) => (
-                  <option key={s.id} value={s.sec}>
-                    {s.sec}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="ชื่อกระดาษคำตอบ">
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="เช่น สอบกลางภาค"
-                required
-              />
-            </Field>
-            <Field label="วันที่จะสอบ">
-              <div className="relative w-full">
-                <DatePicker
-                  selected={form.examDate ? new Date(form.examDate) : null}
-                  onChange={(date) => {
-                    if (date) {
-                      const yyyy = date.getFullYear();
-                      const mm = String(date.getMonth() + 1).padStart(2, "0");
-                      const dd = String(date.getDate()).padStart(2, "0");
-                      setForm({ ...form, examDate: `${yyyy}-${mm}-${dd}` });
-                    } else {
-                      setForm({ ...form, examDate: "" });
-                    }
-                  }}
-                  dateFormat="dd/MM/yyyy"
-                  minDate={new Date()}
-                  wrapperClassName="w-full"
-                  className="w-full px-4 py-2 pr-10 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  required
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center justify-center">
-                  <Icon name="fa-calendar" />
-                </div>
-              </div>
-            </Field>
-            <Field label="จำนวนข้อที่ต้องการกำหนดเฉลย">
-              <Input
-                type="number"
-                min="1"
-                max={Number(form.sheetType || 100)}
-                value={form.questions}
-                onChange={(e) =>
-                  setForm({ ...form, questions: e.target.value })
-                }
-                placeholder="จำนวนข้อสอบ"
-                required
-              />
-            </Field>
-            <Field label="รูปแบบกระดาษคำตอบ (Templates)">
-              <Select
-                value={form.sheetType}
-                onChange={(e) =>
-                  setForm({ ...form, sheetType: e.target.value })
-                }
-                required
-              >
-                <option value="30">แบบ 30 ข้อ</option>
-                <option value="50">แบบ 50 ข้อ</option>
-                <option value="100">แบบ 100 ข้อ</option>
-              </Select>
-            </Field>
-            {form.sheetType && (
-              <div
-                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType, form.questions).color]}`}
-              >
-                <Icon
-                  name={getTemplateInfo(form.sheetType, form.questions).icon}
-                />
-                <span className="text-xs font-bold">
-                  เลือกกระดาษคำตอบ{" "}
-                  {getTemplateInfo(form.sheetType, form.questions).label}
-                </span>
-              </div>
-            )}
-            <PrimaryButton className="w-full h-12">
-              <Icon name={form.id ? "fa-floppy-disk" : "fa-plus"} />{" "}
-              {form.id ? "บันทึกการแก้ไข" : "บันทึกกระดาษคำตอบ"}
-            </PrimaryButton>
-            {form.id && (
-              <GhostButton
-                type="button"
-                className="w-full h-10"
-                onClick={() =>
-                  setForm({
-                    subject: "",
-                    section: "",
-                    name: "",
-                    questions: "",
-                    sheetType: "30",
-                    examDate: getTodayStr(),
-                    id: null,
-                  })
-                }
-              >
-                ยกเลิกการแก้ไข
-              </GhostButton>
-            )}
-          </form>
         </div>
       </div>
 
+      {/* Sheet Modal */}
       {sheetModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setSheetModal(null)}
-          />
-          <div className="relative bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <Icon name="fa-file-lines" className="text-lg" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-slate-800">
-                    เตรียมพิมพ์กระดาษคำตอบ
-                  </h4>
-                  <div className="flex items-center gap-2 mt-0.5 text-sm">
-                    <span className="font-semibold text-slate-700">
-                      {sheetModal.subject?.code}
-                    </span>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-slate-600">
-                      {sheetModal.exam.section === "All Section" ||
-                      !sheetModal.exam.section
-                        ? "ทุกกลุ่มเรียน"
-                        : `กลุ่มเรียน ${data.sections.find((s) => String(s.id) === String(sheetModal.exam.section))?.sec || sheetModal.exam.section}`}
-                    </span>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-slate-600 truncate max-w-[200px]">
-                      {sheetModal.exam.name}
-                    </span>
-                  </div>
-                </div>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800">
+                  {sheetModal.exam.name}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {sheetModal.subject?.name || sheetModal.exam.subject_id}
+                  {" · "}
+                  {sheetModal.exam.section === "All Section" ||
+                  !sheetModal.exam.section
+                    ? "All Section"
+                    : `Sec ${sheetModal.exam.section}`}
+                </p>
               </div>
               <button
                 onClick={() => setSheetModal(null)}
-                className="w-8 h-8 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors flex items-center justify-center"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <Icon name="fa-xmark" className="text-lg" />
+                <Icon name="fa-xmark" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
-              <div className="grid grid-cols-3 gap-4">
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 gap-3">
                 {(() => {
                   const info = getTemplateInfo(
-                    sheetModal.exam.sheetType || sheetModal.exam.template_id,
+                    sheetModal.exam.sheetType,
                     sheetModal.exam.questions,
                   );
                   return (
                     <>
-                      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
-                        <p className="text-sm font-semibold text-slate-500 mb-1">
-                          จำนวนผู้เข้าสอบ
-                        </p>
-                        <p className="text-2xl font-bold text-slate-800">
-                          {sheetModal.students.length}{" "}
-                          <span className="text-sm font-normal text-slate-500">
-                            คน
-                          </span>
-                        </p>
-                      </div>
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">
                         <p className="text-sm font-semibold text-slate-500 mb-1">
                           จำนวนข้อ
@@ -799,6 +823,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   );
                 })()}
               </div>
+
+              {/* Student List */}
               <div className="space-y-3 bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
                 <h5 className="font-bold text-slate-800 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
                   <Icon name="fa-list-ul" className="text-slate-400" />{" "}
@@ -814,7 +840,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                   <div className="flex flex-col">
                     {sheetModal.students.map((st, i) => (
                       <div
-                        key={st.id}
+                        key={st.id || i}
                         className="py-3 px-2 border-b border-slate-100 last:border-0 flex items-center gap-4 hover:bg-slate-50"
                       >
                         <div className="w-8 text-center text-sm font-semibold text-slate-400">
@@ -834,6 +860,8 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 )}
               </div>
             </div>
+
+            {/* Modal Footer */}
             <div className="px-6 py-4 bg-white border-t border-slate-200">
               <PrimaryButton
                 disabled={pdfLoading || sheetModal.students.length === 0}
