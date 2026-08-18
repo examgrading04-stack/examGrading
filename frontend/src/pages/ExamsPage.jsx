@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, forwardRef, useRef } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   API_BASE_URL,
   apiFetch,
@@ -13,34 +15,30 @@ import {
   formatThaiDate,
 } from "../ui.jsx";
 
-export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
-  const latestExamDate = useMemo(() => {
-    if (Array.isArray(data.exams) && data.exams.length > 0) {
-      const withDate = data.exams.filter((e) => e.examDate || e.date);
-      if (withDate.length > 0) {
-        return withDate[0].examDate || withDate[0].date || "";
-      }
-    }
-    return new Date().toISOString().split("T")[0];
-  }, [data.exams]);
 
+
+const getTodayStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   const [form, setForm] = useState({
     subject: "",
     section: "",
     name: "",
     questions: "",
     sheetType: "30",
-    examDate: "",
+    examDate: getTodayStr(),
   });
 
-  useEffect(() => {
-    if (latestExamDate && !form.id && !form.examDate) {
-      setForm((prev) => ({ ...prev, examDate: latestExamDate }));
-    }
-  }, [latestExamDate, form.id]);
   const [sheetModal, setSheetModal] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [searchExam, setSearchExam] = useState("");
+  const datePickerRef = useRef(null);
   const [filterSubject, setFilterSubject] = useState("");
   const [selectedExams, setSelectedExams] = useState(new Set());
   const [lastSelectedExamIndex, setLastSelectedExamIndex] = useState(null);
@@ -189,7 +187,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       section: form.section || "All Section",
       questions,
       sheetType: finalSheetType,
-      examDate: form.examDate || latestExamDate || "",
+      examDate: form.examDate || "",
       answerKey: {},
     };
 
@@ -201,7 +199,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
         name: "",
         questions: "",
         sheetType: "30",
-        examDate: latestExamDate,
+        examDate: getTodayStr(),
         id: null,
       });
       await refresh("แก้ไขกระดาษคำตอบสำเร็จ");
@@ -225,7 +223,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
       name: "",
       questions: "",
       sheetType: "30",
-      examDate: latestExamDate,
+      examDate: getTodayStr(),
       id: null,
     });
     await refresh("สร้างกระดาษคำตอบสำเร็จ");
@@ -520,10 +518,9 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                                     (s) => String(s.id) === String(row.section),
                                   )?.sec || row.section,
                             questions: row.questions || 50,
-                            sheetType: String(row.sheetType || row.template_id || 30).replace(
-                              "-A-E",
-                              "",
-                            ),
+                            sheetType: String(
+                              row.sheetType || row.template_id || 30,
+                            ).replace("-A-E", ""),
                             examDate: row.examDate || row.date || "",
                           });
                         }}
@@ -625,11 +622,29 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
               />
             </Field>
             <Field label="วันที่จะสอบ">
-              <Input
-                type="date"
-                value={form.examDate}
-                onChange={(e) => setForm({ ...form, examDate: e.target.value })}
-              />
+              <div className="relative w-full">
+                <DatePicker
+                  selected={form.examDate ? new Date(form.examDate) : null}
+                  onChange={(date) => {
+                    if (date) {
+                      const yyyy = date.getFullYear();
+                      const mm = String(date.getMonth() + 1).padStart(2, "0");
+                      const dd = String(date.getDate()).padStart(2, "0");
+                      setForm({ ...form, examDate: `${yyyy}-${mm}-${dd}` });
+                    } else {
+                      setForm({ ...form, examDate: "" });
+                    }
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  minDate={new Date()}
+                  wrapperClassName="w-full"
+                  className="w-full px-4 py-2 pr-10 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  required
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center justify-center">
+                  <Icon name="fa-calendar" />
+                </div>
+              </div>
             </Field>
             <Field label="จำนวนข้อที่ต้องการกำหนดเฉลย">
               <Input
@@ -661,9 +676,12 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
               <div
                 className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType, form.questions).color]}`}
               >
-                <Icon name={getTemplateInfo(form.sheetType, form.questions).icon} />
+                <Icon
+                  name={getTemplateInfo(form.sheetType, form.questions).icon}
+                />
                 <span className="text-xs font-bold">
-                  เลือกกระดาษคำตอบ {getTemplateInfo(form.sheetType, form.questions).label}
+                  เลือกกระดาษคำตอบ{" "}
+                  {getTemplateInfo(form.sheetType, form.questions).label}
                 </span>
               </div>
             )}
@@ -682,7 +700,7 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                     name: "",
                     questions: "",
                     sheetType: "30",
-                    examDate: latestExamDate,
+                    examDate: getTodayStr(),
                     id: null,
                   })
                 }
@@ -738,7 +756,10 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-slate-50">
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
-                  const info = getTemplateInfo(sheetModal.exam.sheetType || sheetModal.exam.template_id, sheetModal.exam.questions);
+                  const info = getTemplateInfo(
+                    sheetModal.exam.sheetType || sheetModal.exam.template_id,
+                    sheetModal.exam.questions,
+                  );
                   return (
                     <>
                       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-center">

@@ -64,12 +64,12 @@ ExamGrading/
 
 ## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
 
-| ส่วนงาน | เทคโนโลยี / ไลบรารี |
-| :--- | :--- |
-| **Backend** | Python 3.10+, FastAPI, Uvicorn, OpenCV, PyZbar, NumPy, Scikit-learn, ReportLab, SQLAlchemy |
-| **Frontend** | React 19, Vite, Styled Components |
-| **Mobile App** | Flutter (Dart SDK 3.8+), Provider, Camera, Google Sign-In, Lottie, QuickAlert |
-| **Infrastructure & Cloud** | Docker, Cloudinary (Image Storage), Render (Cloud Hosting) |
+| ส่วนงาน                    | เทคโนโลยี / ไลบรารี                                                                        |
+| :------------------------- | :----------------------------------------------------------------------------------------- |
+| **Backend**                | Python 3.10+, FastAPI, Uvicorn, OpenCV, PyZbar, NumPy, Scikit-learn, ReportLab, SQLAlchemy |
+| **Frontend**               | React 19, Vite, Styled Components                                                          |
+| **Mobile App**             | Flutter (Dart SDK 3.8+), Provider, Camera, Google Sign-In, Lottie, QuickAlert              |
+| **Infrastructure & Cloud** | Docker, Cloudinary (Image Storage), Render (Cloud Hosting)                                 |
 
 ---
 
@@ -78,16 +78,20 @@ ExamGrading/
 ### 1. ระบบหลังบ้าน (Backend Server)
 
 #### ข้อกำหนดเบื้องต้น:
+
 - Python 3.10 ขึ้นไป
-- *หมายเหตุสำหรับ Windows/Linux:* ไลบรารี `pyzbar` จำเป็นต้องใช้ zbar DLL/library หากพบข้อผิดพลาดเกี่ยวกับ zbar ให้ติดตั้ง zbar เพิ่มเติม
+- _หมายเหตุสำหรับ Windows/Linux:_ ไลบรารี `pyzbar` จำเป็นต้องใช้ zbar DLL/library หากพบข้อผิดพลาดเกี่ยวกับ zbar ให้ติดตั้ง zbar เพิ่มเติม
 
 #### ขั้นตอนการรัน:
+
 1. เข้าไปยังโฟลเดอร์ `backend`:
+
    ```bash
    cd backend
    ```
 
 2. สร้างและเปิดใช้งาน Virtual Environment (แนะนำ):
+
    ```powershell
    # บน Windows
    python -m venv .venv
@@ -99,11 +103,13 @@ ExamGrading/
    ```
 
 3. ติดตั้ง Dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. ตั้งค่าไฟล์ `.env` ในโฟลเดอร์ `backend/.env` (ตัวอย่าง):
+
    ```env
    CLOUDINARY_CLOUD_NAME=your_cloud_name
    CLOUDINARY_UPLOAD_PRESET=your_preset
@@ -125,20 +131,25 @@ ExamGrading/
 ### 2. ระบบหน้าบ้านเว็บ (Web Frontend)
 
 #### ขั้นตอนการรัน:
+
 1. เข้าไปยังโฟลเดอร์ `frontend`:
+
    ```bash
    cd frontend
    ```
 
 2. ติดตั้ง Node Packages:
+
    ```bash
    npm install
    ```
 
 3. รัน Development Server:
+
    ```bash
    npm run dev
    ```
+
    - เข้าใช้งานเว็บได้ที่: `http://localhost:5173`
 
 ---
@@ -146,22 +157,27 @@ ExamGrading/
 ### 3. แอปพลิเคชันมือถือ (Flutter Mobile App)
 
 #### ขั้นตอนการรัน:
+
 1. เข้าไปยังโฟลเดอร์ `mobiles`:
+
    ```bash
    cd mobiles
    ```
 
 2. ติดตั้ง Flutter Packages:
+
    ```bash
    flutter pub get
    ```
 
 3. ตั้งค่า URL ของ Backend Server ในไฟล์ `mobiles/.env`:
+
    ```env
    FASTAPI_URL=http://<IP-เครื่องคอมพิวเตอร์ของคุณ>:8000
    ```
 
 4. รันแอปพลิเคชัน:
+
    ```bash
    # รันทั่วไป
    flutter run

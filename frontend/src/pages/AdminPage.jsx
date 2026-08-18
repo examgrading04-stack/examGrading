@@ -924,7 +924,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                             </button>
                             <button
                               onClick={() => toggleUserStatus(user)}
-                              className={`w-8 h-8 rounded-lg ${user.status === "suspended" ? "text-emerald-500 hover:bg-slate-100 hover:text-emerald-600" : "text-rose-500 hover:bg-slate-100 hover:text-rose-600"} mx-1 transition-colors`}
+                              disabled={user.id === session?.aid}
+                              className={`w-8 h-8 rounded-lg ${user.status === "suspended" ? "text-emerald-500 hover:bg-slate-100 hover:text-emerald-600" : "text-rose-500 hover:bg-slate-100 hover:text-rose-600"} mx-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed`}
                               title={
                                 user.status === "suspended"
                                   ? "ปลดระงับบัญชี"
@@ -941,7 +942,8 @@ export function AdminPage({ firebase, user, signOut, navigate }) {
                             </button>
                             <button
                               onClick={() => removeUser(user)}
-                              className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-rose-500 mx-1 transition-colors"
+                              disabled={user.id === session?.aid}
+                              className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-rose-500 mx-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               title="ลบ"
                             >
                               <Icon name="fa-trash-can" />

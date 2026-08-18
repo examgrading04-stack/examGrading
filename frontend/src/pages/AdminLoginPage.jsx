@@ -44,7 +44,7 @@ export default function AdminLoginPage({
 
       const admin = await res.json();
       const nextSession = {
-        aid: admin.username || admin.email,
+        aid: admin.user_id || admin.username || admin.email,
         aname: admin.displayName || admin.username || "Admin",
       };
 
@@ -158,7 +158,8 @@ export default function AdminLoginPage({
                 onClick={() => navigate("login")}
                 className="text-xs font-bold text-slate-400 hover:text-blue-400 transition-colors inline-flex items-center gap-2"
               >
-                <Icon name="fa-arrow-left" /> กลับสู่หน้าเข้าสู่ระบบสำหรับผู้ใช้ทั่วไป
+                <Icon name="fa-arrow-left" />{" "}
+                กลับสู่หน้าเข้าสู่ระบบสำหรับผู้ใช้ทั่วไป
               </button>
             </div>
           )}

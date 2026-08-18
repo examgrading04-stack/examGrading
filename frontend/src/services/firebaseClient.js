@@ -385,6 +385,7 @@ class MockCollectionReference {
       return new MockQuerySnapshot([]);
     }
     const dataList = await res.json();
+<<<<<<< HEAD
     const docs = (dataList || [])
       .map((item) => {
         const docId =
@@ -410,6 +411,21 @@ class MockCollectionReference {
         return new MockQueryDocumentSnapshot(docId, ref, item);
       })
       .filter(Boolean);
+=======
+    const docs = (dataList || []).map((item) => {
+      const docId = item.id || item.user_id || item.template_id || item.code || item.email || item.logid;
+      let refPath = [...this.path, docId];
+      if (
+        item.user_email &&
+        this.path.length === 1 &&
+        ["exams", "students", "results", "subjects"].includes(this.path[0])
+      ) {
+        refPath = ["users", item.user_email, this.path[0], docId];
+      }
+      const ref = new MockDocReference(refPath, this.firestore);
+      return new MockQueryDocumentSnapshot(docId, ref, item);
+    });
+>>>>>>> origin/main
     return new MockQuerySnapshot(docs);
   }
 }

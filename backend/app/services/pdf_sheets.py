@@ -6,11 +6,11 @@ from pathlib import Path
 
 # pyrefly: ignore [missing-import]
 import numpy as np
+
 # pyrefly: ignore [missing-import]
 from PIL import Image, ImageDraw, ImageFont
 
 from .qr import build_qr_payload, generate_qr_with_border
-
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 TEMPLATE_MAP = {
@@ -56,12 +56,16 @@ def _default_font_path() -> str:
     return ""
 
 
-def _load_font(size: int, font_path: str | None = None) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def _load_font(
+    size: int, font_path: str | None = None
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return _load_font_cached(size, font_path or _default_font_path())
 
 
 @lru_cache(maxsize=64)
-def _load_font_cached(size: int, font_path: str) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def _load_font_cached(
+    size: int, font_path: str
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     try:
         return ImageFont.truetype(font_path, size)
     except OSError:
@@ -101,18 +105,50 @@ def _draw_fitted_text(
 
 def build_sheet_payload(exam: dict, student: dict) -> dict:
     """Normalize Firestore exam/student docs into the QR/text payload used by the OMR scanner."""
-    subject_code = exam.get("subject") or exam.get("subjectCode") or exam.get("code") or exam.get("subject_id") or ""
+    subject_code = (
+        exam.get("subject")
+        or exam.get("subjectCode")
+        or exam.get("code")
+        or exam.get("subject_id")
+        or ""
+    )
     student_doc_id = student.get("id") or student.get("docId") or ""
-    student_code = student.get("code") or student.get("studentCode") or student.get("student_id") or student_doc_id
+    student_code = (
+        student.get("code")
+        or student.get("studentCode")
+        or student.get("student_id")
+        or student_doc_id
+    )
     exam_id = exam.get("id") or exam.get("examId") or ""
+
+    subj_name = (
+        exam.get("subjectName")
+        or exam.get("subject_name")
+        or exam.get("subject_title")
+        or ""
+    )
+    section = exam.get("section")
+    if (
+        section
+        and str(section).strip()
+        and str(section).strip().lower() != "all section"
+    ):
+        subj_name = f"{subj_name} (กลุ่ม {str(section).strip()})"
 
     return {
         "subject_code": subject_code,
-        "subject_name": exam.get("subjectName") or exam.get("subject_name") or exam.get("subject_title") or "",
+        "subject_name": subj_name,
         "student_id": student_code,
-        "student_name": student.get("name") or student.get("studentName") or student.get("student_name") or "",
-        "exam_date": exam.get("examDate") or exam.get("date") or datetime.now().strftime("%Y-%m-%d"),
-        "total_questions": int(exam.get("questions") or exam.get("total_questions") or 50),
+        "student_name": student.get("name")
+        or student.get("studentName")
+        or student.get("student_name")
+        or "",
+        "exam_date": exam.get("examDate")
+        or exam.get("date")
+        or datetime.now().strftime("%Y-%m-%d"),
+        "total_questions": int(
+            exam.get("questions") or exam.get("total_questions") or 50
+        ),
         "sheet_type": exam.get("template_id") or exam.get("sheetType"),
         "sheet_id": f"{exam_id}:{student_doc_id or student_code}",
         "exam_id": exam_id,
@@ -131,18 +167,26 @@ def create_single_sheet_image(
     """Create one answer-sheet image from normalized sheet payload."""
     total_questions = int(sheet_payload.get("total_questions") or 50)
     sheet_type = sheet_payload.get("sheet_type")
-    
+
     if sheet_type:
         try:
-            template_key = int(str(sheet_type).replace("-A-E", "").replace("แบบ ", "").replace(" ข้อ", "").strip())
+            template_key = int(
+                str(sheet_type)
+                .replace("-A-E", "")
+                .replace("แบบ ", "")
+                .replace(" ข้อ", "")
+                .strip()
+            )
             if template_key not in TEMPLATE_MAP:
                 template_key = _nearest_supported_question_count(template_key)
         except ValueError:
             template_key = _nearest_supported_question_count(total_questions)
     else:
         template_key = _nearest_supported_question_count(total_questions)
-        
-    resolved_template = Path(template_path) if template_path else TEMPLATE_MAP[template_key]
+
+    resolved_template = (
+        Path(template_path) if template_path else TEMPLATE_MAP[template_key]
+    )
 
     if not resolved_template.exists():
         raise FileNotFoundError(f"Template not found: {resolved_template}")

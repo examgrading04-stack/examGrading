@@ -3,6 +3,7 @@ OMR Answer Sheet Scanner  v3.0
 ================================
 รองรับกระดาษคำตอบ 30, 50, 100 ข้อ  (5 ตัวเลือก A-E)
 """
+
 # pyrefly: ignore [missing-import]
 import cv2, numpy as np, json, os, sys
 from dataclasses import dataclass, field
@@ -18,48 +19,67 @@ except Exception:
     pass
 try:
     from sklearn.cluster import KMeans
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
 try:
     # pyrefly: ignore [missing-import]
     from pyzbar import pyzbar as _pyzbar
+
     PYZBAR_AVAILABLE = True
 except ImportError:
     PYZBAR_AVAILABLE = False
 
+
 @dataclass
 class SheetMetadata:
-    subject_code: str=""; subject_name: str=""
-    student_id: str=""; student_name: str=""
-    exam_date: str=""; total_questions: int=0
-    sheet_id: str=""; exam_id: str=""
+    subject_code: str = ""
+    subject_name: str = ""
+    student_id: str = ""
+    student_name: str = ""
+    exam_date: str = ""
+    total_questions: int = 0
+    sheet_id: str = ""
+    exam_id: str = ""
+
 
 @dataclass
 class OMRResult:
-    metadata: SheetMetadata=None
-    answers: dict=field(default_factory=dict)
-    flagged: list=field(default_factory=list)
-    raw_scores: dict=field(default_factory=dict)
-    success: bool=False; error_msg: str=""
+    metadata: SheetMetadata = None
+    answers: dict = field(default_factory=dict)
+    flagged: list = field(default_factory=list)
+    raw_scores: dict = field(default_factory=dict)
+    success: bool = False
+    error_msg: str = ""
+
 
 class OMRConfig:
-    NORM_FILL_MIN=0.08
-    NORM_GAP_MIN=0.04
-    MULTI_MARK_RATIO=0.88
-    ANCHOR_MIN_AREA=3000; ANCHOR_MAX_AREA=9000; ANCHOR_ASPECT_TOL=0.15
-    WARP_W=900; WARP_H=1200
-    BUBBLE_RADIUS=12; HOUGH_MIN_R=9; HOUGH_MAX_R=15; HOUGH_MIN_DIST=20
-    DEBUG_CIRCLE_RADIUS_OFFSET=-3
-    SNAP_TO_DETECTED_CIRCLE=True
-    SNAP_SEARCH_PAD=18           # ลดลงเพื่อไม่ให้ไปจับวงกลมข้างๆ
-    SNAP_PARAM2=14               # ต่ำลงเพื่อเจอ bubble ที่ฝนแล้ว (มืดกว่า) ได้ง่ายขึ้น
-    SNAP_FALLBACK_SCORE=0.15     # snap ทุกครั้งที่คะแนน < 0.15
-    LOCAL_REFINE_ENABLE=True
-    LOCAL_REFINE_RADIUS=12       # ลดลงเพื่อไม่ให้ overlap กับวงกลมข้างเคียง (ระยะห่างวงกลม ~45px)
-    LOCAL_REFINE_STEP=2          # กว้าง radius ทดแทนด้วย step ใหญ่ขึ้นเพื่อความเร็ว
-    LOCAL_REFINE_EARLY_STOP=0.70
-    CHOICES=["A","B","C","D","E"]
+    NORM_FILL_MIN = 0.08
+    NORM_GAP_MIN = 0.04
+    MULTI_MARK_RATIO = 0.88
+    ANCHOR_MIN_AREA = 3000
+    ANCHOR_MAX_AREA = 9000
+    ANCHOR_ASPECT_TOL = 0.15
+    WARP_W = 900
+    WARP_H = 1200
+    BUBBLE_RADIUS = 12
+    HOUGH_MIN_R = 9
+    HOUGH_MAX_R = 15
+    HOUGH_MIN_DIST = 20
+    DEBUG_CIRCLE_RADIUS_OFFSET = -3
+    SNAP_TO_DETECTED_CIRCLE = True
+    SNAP_SEARCH_PAD = 18  # ลดลงเพื่อไม่ให้ไปจับวงกลมข้างๆ
+    SNAP_PARAM2 = 14  # ต่ำลงเพื่อเจอ bubble ที่ฝนแล้ว (มืดกว่า) ได้ง่ายขึ้น
+    SNAP_FALLBACK_SCORE = 0.15  # snap ทุกครั้งที่คะแนน < 0.15
+    LOCAL_REFINE_ENABLE = True
+    LOCAL_REFINE_RADIUS = (
+        12  # ลดลงเพื่อไม่ให้ overlap กับวงกลมข้างเคียง (ระยะห่างวงกลม ~45px)
+    )
+    LOCAL_REFINE_STEP = 2  # กว้าง radius ทดแทนด้วย step ใหญ่ขึ้นเพื่อความเร็ว
+    LOCAL_REFINE_EARLY_STOP = 0.70
+    CHOICES = ["A", "B", "C", "D", "E"]
+
 
 def _layout_question_count(total_q: int) -> int:
     """
@@ -72,31 +92,36 @@ def _layout_question_count(total_q: int) -> int:
         return 50
     return 100
 
+
 def load_and_preprocess(path_or_img):
     if isinstance(path_or_img, str):
-        img=cv2.imread(path_or_img)
-        if img is None: raise FileNotFoundError(f"ไม่พบ: {path_or_img}")
+        img = cv2.imread(path_or_img)
+        if img is None:
+            raise FileNotFoundError(f"ไม่พบ: {path_or_img}")
     else:
         img = path_or_img.copy()
-    gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # เพิ่มความทนต่อแสง/เงา: CLAHE + adaptive threshold แบบ Gaussian
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray_eq = clahe.apply(gray)
-    blur=cv2.GaussianBlur(gray_eq,(5,5),0)
-    thresh=cv2.adaptiveThreshold(
-        blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY_INV,31,8
+    blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(
+        blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 8
     )
     # ลด noise จุดเล็กๆ เพื่อให้หา anchor เสถียรขึ้น
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k, iterations=1)
-    return img,gray,thresh
+    return img, gray, thresh
+
 
 def find_anchor_points(thresh_img):
-    H,W=thresh_img.shape[:2]
-    contours,_=cv2.findContours(thresh_img,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-    cands=[]
+    H, W = thresh_img.shape[:2]
+    contours, _ = cv2.findContours(
+        thresh_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    cands = []
     for cnt in contours:
-        area=cv2.contourArea(cnt)
+        area = cv2.contourArea(cnt)
         if area <= 0:
             continue
 
@@ -105,14 +130,14 @@ def find_anchor_points(thresh_img):
         if not (0.00002 < area_frac < 0.03):
             continue
 
-        x,y,w,h=cv2.boundingRect(cnt)
+        x, y, w, h = cv2.boundingRect(cnt)
         if w <= 0 or h <= 0:
             continue
         if w < max(8, W * 0.004) or h < max(8, H * 0.004):
             continue
 
         # anchor เป็นสี่เหลี่ยมเกือบจัตุรัส และค่อนข้างทึบ
-        asp=w/h
+        asp = w / h
         if not (0.62 < asp < 1.55):
             continue
         rect_area = float(w * h)
@@ -127,82 +152,98 @@ def find_anchor_points(thresh_img):
 
         # score: ให้ความสำคัญกับพื้นที่ + ความทึบ
         score = area * (0.5 + fill)
-        cands.append((x + w//2, y + h//2, score, w, h))
-    zones={"TL":(0,W*.45,0,H*.45),"TR":(W*.55,W,0,H*.45),"BL":(0,W*.45,H*.55,H),"BR":(W*.55,W,H*.55,H)}
-    found={}
-    for lbl,(x1,x2,y1,y2) in zones.items():
-        pts=[p for p in cands if x1<p[0]<x2 and y1<p[1]<y2]
-        if pts: found[lbl]=max(pts,key=lambda p:p[2])[:2]
-    if len(found)==4:
-        return [found["TL"],found["TR"],found["BL"],found["BR"]]
+        cands.append((x + w // 2, y + h // 2, score, w, h))
+    zones = {
+        "TL": (0, W * 0.45, 0, H * 0.45),
+        "TR": (W * 0.55, W, 0, H * 0.45),
+        "BL": (0, W * 0.45, H * 0.55, H),
+        "BR": (W * 0.55, W, H * 0.55, H),
+    }
+    found = {}
+    for lbl, (x1, x2, y1, y2) in zones.items():
+        pts = [p for p in cands if x1 < p[0] < x2 and y1 < p[1] < y2]
+        if pts:
+            found[lbl] = max(pts, key=lambda p: p[2])[:2]
+    if len(found) == 4:
+        return [found["TL"], found["TR"], found["BL"], found["BR"]]
     return _select_anchor_points_from_candidates(cands, W, H)
+
 
 def _select_anchor_points_from_candidates(cands, W, H):
     if len(cands) < 4:
         return None
 
     def distinct(points):
-        keys={(int(x), int(y)) for x,y in points}
-        return len(keys)==4
+        keys = {(int(x), int(y)) for x, y in points}
+        return len(keys) == 4
 
     def geometry_ok(points):
-        tl,tr,bl,br=points
-        top_w=abs(tr[0]-tl[0]); bottom_w=abs(br[0]-bl[0])
-        left_h=abs(bl[1]-tl[1]); right_h=abs(br[1]-tr[1])
-        if min(top_w,bottom_w) < W*0.25 or min(left_h,right_h) < H*0.25:
+        tl, tr, bl, br = points
+        top_w = abs(tr[0] - tl[0])
+        bottom_w = abs(br[0] - bl[0])
+        left_h = abs(bl[1] - tl[1])
+        right_h = abs(br[1] - tr[1])
+        if min(top_w, bottom_w) < W * 0.25 or min(left_h, right_h) < H * 0.25:
             return False
-        if max(top_w,bottom_w)/max(1,min(top_w,bottom_w)) > 2.8:
+        if max(top_w, bottom_w) / max(1, min(top_w, bottom_w)) > 2.8:
             return False
-        if max(left_h,right_h)/max(1,min(left_h,right_h)) > 2.8:
+        if max(left_h, right_h) / max(1, min(left_h, right_h)) > 2.8:
             return False
         return True
 
-    candidates=sorted(cands,key=lambda p:p[2],reverse=True)[:80]
-    tl=min(candidates,key=lambda p:p[0]/W+p[1]/H)
-    tr=max(candidates,key=lambda p:p[0]/W-p[1]/H)
-    bl=max(candidates,key=lambda p:p[1]/H-p[0]/W)
-    br=max(candidates,key=lambda p:p[0]/W+p[1]/H)
-    points=[tl[:2],tr[:2],bl[:2],br[:2]]
+    candidates = sorted(cands, key=lambda p: p[2], reverse=True)[:80]
+    tl = min(candidates, key=lambda p: p[0] / W + p[1] / H)
+    tr = max(candidates, key=lambda p: p[0] / W - p[1] / H)
+    bl = max(candidates, key=lambda p: p[1] / H - p[0] / W)
+    br = max(candidates, key=lambda p: p[0] / W + p[1] / H)
+    points = [tl[:2], tr[:2], bl[:2], br[:2]]
     if distinct(points) and geometry_ok(points):
         return points
 
-    best=None; best_score=-1
+    best = None
+    best_score = -1
     for tl in candidates:
         for tr in candidates:
-            if tr[0] <= tl[0] or abs(tr[1]-tl[1]) > H*0.30:
+            if tr[0] <= tl[0] or abs(tr[1] - tl[1]) > H * 0.30:
                 continue
             for bl in candidates:
-                if bl[1] <= tl[1] or abs(bl[0]-tl[0]) > W*0.30:
+                if bl[1] <= tl[1] or abs(bl[0] - tl[0]) > W * 0.30:
                     continue
                 for br in candidates:
-                    points=[tl[:2],tr[:2],bl[:2],br[:2]]
+                    points = [tl[:2], tr[:2], bl[:2], br[:2]]
                     if br[0] <= bl[0] or br[1] <= tr[1]:
                         continue
                     if not distinct(points) or not geometry_ok(points):
                         continue
-                    area=cv2.contourArea(np.float32(points))
-                    if area <= W*H*0.15:
+                    area = cv2.contourArea(np.float32(points))
+                    if area <= W * H * 0.15:
                         continue
-                    score=area+sum(p[2] for p in [tl,tr,bl,br])
+                    score = area + sum(p[2] for p in [tl, tr, bl, br])
                     if score > best_score:
-                        best_score=score; best=points
+                        best_score = score
+                        best = points
     return best
 
-def warp_perspective(img,anchors):
-    W,H=OMRConfig.WARP_W,OMRConfig.WARP_H
-    src=np.float32(anchors); dst=np.float32([[0,0],[W,0],[0,H],[W,H]])
-    return cv2.warpPerspective(img,cv2.getPerspectiveTransform(src,dst),(W,H))
+
+def warp_perspective(img, anchors):
+    W, H = OMRConfig.WARP_W, OMRConfig.WARP_H
+    src = np.float32(anchors)
+    dst = np.float32([[0, 0], [W, 0], [0, H], [W, H]])
+    return cv2.warpPerspective(img, cv2.getPerspectiveTransform(src, dst), (W, H))
+
 
 def _parse_qr_data(data, meta):
     """แปลง QR string → SheetMetadata"""
     try:
         d = json.loads(data)
-        meta.subject_code  = d.get("subject_code", d.get("subject_code", ""))
-        meta.subject_name  = d.get("subject_name", d.get("subject_name", ""))
-        meta.student_id    = d.get("student_id", d.get("student_id", ""))
-        meta.student_name  = d.get("student_name", d.get("student_name", ""))
-        meta.exam_date     = d.get("exam_date", d.get("exam_date", ""))
-        meta.total_questions = int(d.get("total_questions", d.get("total_questions", 0)))
+        meta.subject_code = d.get("subject_code", d.get("subject_code", ""))
+        meta.subject_name = d.get("subject_name", d.get("subject_name", ""))
+        meta.student_id = d.get("student_id", d.get("student_id", ""))
+        meta.student_name = d.get("student_name", d.get("student_name", ""))
+        meta.exam_date = d.get("exam_date", d.get("exam_date", ""))
+        meta.total_questions = int(
+            d.get("total_questions", d.get("total_questions", 0))
+        )
         meta.sheet_id = d.get("sheet_id", d.get("sheet_id", ""))
         meta.exam_id = d.get("exam_id", d.get("exam_id", ""))
         if not meta.exam_id and ":" in meta.sheet_id:
@@ -210,6 +251,7 @@ def _parse_qr_data(data, meta):
     except:
         meta.subject_code = data.strip()
     return meta
+
 
 def _merge_metadata(primary, fallback):
     for attr in [
@@ -227,6 +269,7 @@ def _merge_metadata(primary, fallback):
         primary.total_questions = fallback.total_questions
     return primary
 
+
 def decode_qr(img):
     """Multi-strategy QR decode: ลอง 6 วิธี + pyzbar fallback"""
     meta = SheetMetadata()
@@ -237,11 +280,11 @@ def decode_qr(img):
     # QR อยู่ที่ top-right ประมาณ 45-100% x, 0-35% y
     crops = [
         gray,
-        gray[:int(H*0.45), int(W*0.35):],
-        gray[:int(H*0.50), int(W*0.25):],
-        gray[:int(H*0.55), int(W*0.15):],
-        gray[:int(H*0.45), :],
-        gray[:int(H*0.65), :],
+        gray[: int(H * 0.45), int(W * 0.35) :],
+        gray[: int(H * 0.50), int(W * 0.25) :],
+        gray[: int(H * 0.55), int(W * 0.15) :],
+        gray[: int(H * 0.45), :],
+        gray[: int(H * 0.65), :],
     ]
     candidates = []
     for crop in crops:
@@ -263,7 +306,9 @@ def decode_qr(img):
             candidates.append(variant)
             h, w = variant.shape[:2]
             if min(h, w) < 900:
-                candidates.append(cv2.resize(variant, (w*2, h*2), interpolation=cv2.INTER_CUBIC))
+                candidates.append(
+                    cv2.resize(variant, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                )
     for cand in candidates:
         try:
             data, _, _ = detector.detectAndDecode(cand)
@@ -276,30 +321,42 @@ def decode_qr(img):
         for cand in candidates:
             try:
                 for r in _pyzbar.decode(cand):
-                    data = r.data.decode('utf-8')
+                    data = r.data.decode("utf-8")
                     if data:
                         return _parse_qr_data(data, meta)
             except:
                 pass
     return meta
 
+
 def auto_detect_questions(warped_gray, grid_rect):
     """ประมาณจำนวนข้อจาก Hough circles เมื่อ QR decode ไม่ได้"""
     gx, gy, gw, gh = grid_rect
-    roi = warped_gray[gy:gy+gh, gx:gx+gw]
+    roi = warped_gray[gy : gy + gh, gx : gx + gw]
     blur = cv2.GaussianBlur(roi, (5, 5), 0)
     # ใช้ MIN_DIST เล็กลงเพื่อให้นับได้มากขึ้น ไม่ต้องแม่นยำ
     for p2 in [12, 10, 8, 6]:
-        c = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, dp=1,
-            minDist=10, param1=50, param2=p2,
-            minRadius=OMRConfig.HOUGH_MIN_R, maxRadius=OMRConfig.HOUGH_MAX_R)
+        c = cv2.HoughCircles(
+            blur,
+            cv2.HOUGH_GRADIENT,
+            dp=1,
+            minDist=10,
+            param1=50,
+            param2=p2,
+            minRadius=OMRConfig.HOUGH_MIN_R,
+            maxRadius=OMRConfig.HOUGH_MAX_R,
+        )
         if c is not None and len(c[0]) > 50:
             n = len(c[0])
             # 30q=150, 50q=250, 100q=500 bubbles
-            if n < 210:   return 30
-            elif n < 380: return 50
-            else:         return 100
+            if n < 210:
+                return 30
+            elif n < 380:
+                return 50
+            else:
+                return 100
     return 30  # default
+
 
 def detect_grid_region(warped_gray, total_questions):
     """
@@ -328,8 +385,10 @@ def detect_grid_region(warped_gray, total_questions):
         # กรองออก contour ที่กว้างหรือสูงผิดปกติ (เส้น header, etc.)
         if w > W * 0.98 or h > H * 0.85:
             continue
-        xs1.append(x); ys1.append(y)
-        xs2.append(x + w); ys2.append(y + h)
+        xs1.append(x)
+        ys1.append(y)
+        xs2.append(x + w)
+        ys2.append(y + h)
 
     if xs1:
         gx = max(0, min(xs1) - 5)
@@ -345,19 +404,25 @@ def detect_grid_region(warped_gray, total_questions):
     iw, ih = W, H
     return (int(iw * 0.02), int(ih * 0.30), int(iw * 0.96), int(ih * 0.62))
 
+
 def robust_grid_1d(data_1d, k, expected_spacing=30):
     # pyrefly: ignore [missing-import]
     import numpy as np
-    if not data_1d: return []
+
+    if not data_1d:
+        return []
     pts = np.sort(data_1d)
-    if len(pts) == 1: return [int(pts[0] + i * expected_spacing) for i in range(k)]
+    if len(pts) == 1:
+        return [int(pts[0] + i * expected_spacing) for i in range(k)]
     diffs = np.diff(pts)
     diffs = diffs[diffs > 10]
-    if len(diffs) == 0: return [int(pts[0] + i * expected_spacing) for i in range(k)]
+    if len(diffs) == 0:
+        return [int(pts[0] + i * expected_spacing) for i in range(k)]
     min_d = np.min(diffs)
     valid = diffs[diffs < 1.5 * min_d]
     step = np.median(valid) if len(valid) > 0 else min_d
     return [int(pts[0] + i * step) for i in range(k)]
+
 
 def _kmeans_uniform_init(data_1d, k):
     """K-means ด้วย uniform init เพื่อให้ edge cluster ไม่หาย"""
@@ -368,13 +433,14 @@ def _kmeans_uniform_init(data_1d, k):
     km.fit(arr)
     return sorted([int(c[0]) for c in km.cluster_centers_])
 
+
 def _adaptive_bubble_positions(warped, grid_rect, n_q):
     """
     ตรวจหาตำแหน่ง bubble จาก HoughCircles จริงในภาพ
     ใช้ Canny edge detection เพื่อให้จับได้ทั้ง bubble ที่ว่างเปล่า (2 ขอบ) และที่ฝนแล้ว (1 ขอบ)
     """
     gx, gy, gw, gh = grid_rect
-    grid_img = warped[gy:gy+gh, gx:gx+gw]
+    grid_img = warped[gy : gy + gh, gx : gx + gw]
     gray_grid = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray_grid)
@@ -385,14 +451,20 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
     rpg = n_q // n_groups
 
     circles = cv2.HoughCircles(
-        edges, cv2.HOUGH_GRADIENT, dp=1, minDist=18,
-        param1=50, param2=12, minRadius=9, maxRadius=16
+        edges,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=18,
+        param1=50,
+        param2=12,
+        minRadius=9,
+        maxRadius=16,
     )
     if circles is None:
         return None
 
     pts = np.round(circles[0, :, :2]).astype(int)
-    
+
     # ยอมให้เจอแค่ครึ่งนึงของที่ควรจะเป็นก็พอ เพราะเราใช้ KMeans หาจุดศูนย์กลาง
     if len(pts) < n_q * 1.5:
         return None
@@ -410,7 +482,8 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
         y_arr = [int(v) for v in np.sort(grp[:, 1])]
 
         def cluster_1d(arr, max_gap):
-            if not arr: return []
+            if not arr:
+                return []
             clusters = []
             curr = [arr[0]]
             for v in arr[1:]:
@@ -453,7 +526,7 @@ def get_bubble_positions(warped, grid_rect, n_q):
     if adapt:
         print("[DEBUG] Using adaptive bubble positions")
         return adapt
-    
+
     print("[DEBUG] Adaptive failed, using fallback positions")
     return _fallback_positions(grid_rect, n_q)
 
@@ -468,7 +541,7 @@ def _fallback_positions(grid_rect, n_q):
     # Top and bottom X anchors for interpolation
     top_x0 = [98, 144, 189, 235, 281]
     bot_x0 = [5, 65, 130, 188, 248]
-    
+
     top_x1 = [532, 576, 620, 664, 708]
     bot_x1 = [570, 630, 700, 740, 820]
 
@@ -494,15 +567,24 @@ def _fallback_positions(grid_rect, n_q):
         xs1_100 = [[289 + int(i * 45) for i in range(5)]] * 25
         xs2_100 = [[501 + int(i * 45) for i in range(5)]] * 25
         xs3_100 = [[711 + int(i * 45) for i in range(5)]] * 25
-        positions_abs = [(xs0_100, ys_abs), (xs1_100, ys_abs), (xs2_100, ys_abs), (xs3_100, ys_abs)]
+        positions_abs = [
+            (xs0_100, ys_abs),
+            (xs1_100, ys_abs),
+            (xs2_100, ys_abs),
+            (xs3_100, ys_abs),
+        ]
 
-    return [([[x - gx for x in row_xs] for row_xs in xs], [y - gy for y in ys]) for xs, ys in positions_abs]
+    return [
+        ([[x - gx for x in row_xs] for row_xs in xs], [y - gy for y in ys])
+        for xs, ys in positions_abs
+    ]
 
-def measure_bubble_ratios(warped,grid_rect,positions):
-    gx,gy,gw,gh=grid_rect
-    grid_img=warped[gy:gy+gh,gx:gx+gw]
-    grid_gray=cv2.cvtColor(grid_img,cv2.COLOR_BGR2GRAY)
-    R=OMRConfig.BUBBLE_RADIUS
+
+def measure_bubble_ratios(warped, grid_rect, positions):
+    gx, gy, gw, gh = grid_rect
+    grid_img = warped[gy : gy + gh, gx : gx + gw]
+    grid_gray = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
+    R = OMRConfig.BUBBLE_RADIUS
 
     # ใช้ความมืด (gray) แทนจำนวนพิกเซลจาก threshold เพื่อทนแสง/เงา/คุณภาพกล้อง
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -531,10 +613,14 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         maxR = int(OMRConfig.BUBBLE_RADIUS) + 6
         try:
             circles = cv2.HoughCircles(
-                patch, cv2.HOUGH_GRADIENT,
-                dp=1.2, minDist=int(OMRConfig.BUBBLE_RADIUS),
-                param1=80, param2=int(getattr(OMRConfig, "SNAP_PARAM2", 18)),
-                minRadius=minR, maxRadius=maxR
+                patch,
+                cv2.HOUGH_GRADIENT,
+                dp=1.2,
+                minDist=int(OMRConfig.BUBBLE_RADIUS),
+                param1=80,
+                param2=int(getattr(OMRConfig, "SNAP_PARAM2", 18)),
+                minRadius=minR,
+                maxRadius=maxR,
             )
         except Exception:
             circles = None
@@ -544,7 +630,7 @@ def measure_bubble_ratios(warped,grid_rect,positions):
         cx0, cy0 = (x - x1), (y - y1)
         best = None
         best_d2 = 1e18
-        for (cx, cy, rr) in cs:
+        for cx, cy, rr in cs:
             d2 = (cx - cx0) ** 2 + (cy - cy0) ** 2
             if d2 < best_d2:
                 best_d2 = d2
@@ -555,28 +641,29 @@ def measure_bubble_ratios(warped,grid_rect,positions):
 
     def _score_with_center(y, x):
         pad = R + 10
-        y1,y2=max(0,y-pad),min(g.shape[0],y+pad)
-        x1,x2=max(0,x-pad),min(g.shape[1],x+pad)
-        patch=g[y1:y2,x1:x2]
-        if patch.size==0: return 0.0
+        y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
+        x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
+        patch = g[y1:y2, x1:x2]
+        if patch.size == 0:
+            return 0.0
 
         cy = y - y1
         cx = x - x1
-        h,w = patch.shape[:2]
+        h, w = patch.shape[:2]
         if not (0 <= cx < w and 0 <= cy < h):
             return 0.0
 
         cache_key = (h, w, cx, cy)
         cached = mask_cache.get(cache_key)
         if cached is None:
-            inner = np.zeros((h,w), np.uint8)
-            ring  = np.zeros((h,w), np.uint8)
+            inner = np.zeros((h, w), np.uint8)
+            ring = np.zeros((h, w), np.uint8)
             inner_r = max(4, R - 2)
             ring_r1 = R + 3
             ring_r2 = R + 9
-            cv2.circle(inner, (cx,cy), inner_r, 255, -1)
-            cv2.circle(ring,  (cx,cy), ring_r2, 255, -1)
-            cv2.circle(ring,  (cx,cy), ring_r1, 0,   -1)
+            cv2.circle(inner, (cx, cy), inner_r, 255, -1)
+            cv2.circle(ring, (cx, cy), ring_r2, 255, -1)
+            cv2.circle(ring, (cx, cy), ring_r1, 0, -1)
             cached = (inner, ring)
             # กัน cache โตเกินจำเป็นในภาพที่หลากหลายมาก
             if len(mask_cache) > 256:
@@ -586,12 +673,14 @@ def measure_bubble_ratios(warped,grid_rect,positions):
             inner, ring = cached
 
         inner_mean = _mean_in_mask(patch, inner)
-        ring_mean  = _mean_in_mask(patch, ring)
+        ring_mean = _mean_in_mask(patch, ring)
         # กัน division-by-zero และความผิดพลาดจาก ring ที่ไปทับเส้นดำหนาๆ
         denom = max(10.0, ring_mean)
         score = (ring_mean - inner_mean) / denom
-        if score < 0: score = 0.0
-        if score > 1: score = 1.0
+        if score < 0:
+            score = 0.0
+        if score > 1:
+            score = 1.0
         return score
 
     def _local_refine_score(y, x):
@@ -614,7 +703,7 @@ def measure_bubble_ratios(warped,grid_rect,positions):
                         return best
         return best
 
-    def ratio_at(y,x):
+    def ratio_at(y, x):
         # score ~ 0..1  (ยิ่งมาก = ยิ่งมืด = น่าจะฝน)
         y = int(y)
         x = int(x)
@@ -629,15 +718,19 @@ def measure_bubble_ratios(warped,grid_rect,positions):
                 if snapped > best:
                     best = snapped
         return best
-    results={}
-    for gi,group in enumerate(positions):
-        if group is None: continue
-        xs,ys=group; rpg=len(ys)
-        for row,y in enumerate(ys):
-            q_no=gi*rpg+row+1
+
+    results = {}
+    for gi, group in enumerate(positions):
+        if group is None:
+            continue
+        xs, ys = group
+        rpg = len(ys)
+        for row, y in enumerate(ys):
+            q_no = gi * rpg + row + 1
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
-            results[q_no]=[round(ratio_at(y,x),4) for x in current_xs]
+            results[q_no] = [round(ratio_at(y, x), 4) for x in current_xs]
     return results
+
 
 def _compute_baselines(raw_scores, n_q):
     """column baseline per group = 20th percentile ratio ของแต่ละ choice"""
@@ -645,16 +738,22 @@ def _compute_baselines(raw_scores, n_q):
     rpg = n_q // n_groups
     baselines = {}
     for gi in range(n_groups):
-        qs = {q: raw_scores[q] for q in raw_scores if gi*rpg+1<=q<=(gi+1)*rpg}
+        qs = {
+            q: raw_scores[q] for q in raw_scores if gi * rpg + 1 <= q <= (gi + 1) * rpg
+        }
         if not qs:
-            for q in range(gi*rpg+1,(gi+1)*rpg+1): baselines[q]=[0.0]*5
+            for q in range(gi * rpg + 1, (gi + 1) * rpg + 1):
+                baselines[q] = [0.0] * 5
             continue
-        cv = {i:[] for i in range(5)}
+        cv = {i: [] for i in range(5)}
         for r in qs.values():
-            for i,v in enumerate(r): cv[i].append(v)
-        bl = [float(np.percentile(cv[i],20)) if cv[i] else 0 for i in range(5)]
-        for q in qs: baselines[q] = bl
+            for i, v in enumerate(r):
+                cv[i].append(v)
+        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0 for i in range(5)]
+        for q in qs:
+            baselines[q] = bl
     return baselines
+
 
 def _compute_decision_stats(raw_scores, n_q=None):
     """
@@ -692,7 +791,9 @@ def _compute_decision_stats(raw_scores, n_q=None):
         if p90 >= 0.20:
             mx_u8 = (mx * 255.0).astype(np.uint8).reshape(-1, 1)
             try:
-                thr_u8, _ = cv2.threshold(mx_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                thr_u8, _ = cv2.threshold(
+                    mx_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+                )
                 otsu_thr = float(thr_u8) / 255.0
                 dynamic_fill_min = max(dynamic_fill_min, otsu_thr)
             except Exception:
@@ -702,43 +803,79 @@ def _compute_decision_stats(raw_scores, n_q=None):
     dynamic_fill_min = min(dynamic_fill_min, 0.12)
     return bls, norms_by_q, float(dynamic_fill_min)
 
+
 def decide_answers(raw_scores, n_q=None):
     """ตัดสินด้วย normalized score (ratio - baseline) แก้ปัญหาตัวอักษรใน bubble"""
-    choices=OMRConfig.CHOICES; answers={}; flagged=[]
+    choices = OMRConfig.CHOICES
+    answers = {}
+    flagged = []
     bls, norms_by_q, dynamic_fill_min = _compute_decision_stats(raw_scores, n_q=n_q)
-    for q_no,ratios in sorted(raw_scores.items()):
-        if not ratios: answers[q_no]=None; continue
+    for q_no, ratios in sorted(raw_scores.items()):
+        if not ratios:
+            answers[q_no] = None
+            continue
         norm = norms_by_q.get(q_no)
         if norm is None:
-            bl=bls.get(q_no,[0]*5)
-            norm=[r-bl[i] for i,r in enumerate(ratios)]
-        sr=sorted(enumerate(norm),key=lambda x:x[1],reverse=True)
-        max_idx,max_n=sr[0]; gap=max_n-sr[1][1] if len(sr)>1 else 1.0
-        if max_n<dynamic_fill_min:
-            flagged.append({"question":q_no,"reason":"not_filled","ratios":dict(zip(choices,ratios))})
-            answers[q_no]=None
+            bl = bls.get(q_no, [0] * 5)
+            norm = [r - bl[i] for i, r in enumerate(ratios)]
+        sr = sorted(enumerate(norm), key=lambda x: x[1], reverse=True)
+        max_idx, max_n = sr[0]
+        gap = max_n - sr[1][1] if len(sr) > 1 else 1.0
+        if max_n < dynamic_fill_min:
+            flagged.append(
+                {
+                    "question": q_no,
+                    "reason": "not_filled",
+                    "ratios": dict(zip(choices, ratios)),
+                }
+            )
+            answers[q_no] = None
         elif len(sr) > 1 and max_n > 0:
             second_n = sr[1][1]
             # กันอ่านผิดกรณีฝนติดกัน 2 ช่อง: ให้เป็น invalid แทนการเดา แต่เก็บตัวเลือกที่ฝนไว้
-            if second_n >= dynamic_fill_min and (second_n / max_n) >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.92)):
-                multi_choices = [choices[i] for i, n in enumerate(norm) if n >= dynamic_fill_min]
+            if second_n >= dynamic_fill_min and (second_n / max_n) >= float(
+                getattr(OMRConfig, "MULTI_MARK_RATIO", 0.92)
+            ):
+                multi_choices = [
+                    choices[i] for i, n in enumerate(norm) if n >= dynamic_fill_min
+                ]
                 if not multi_choices:
                     multi_choices = [choices[max_idx], choices[sr[1][0]]]
                 detected_str = ",".join(multi_choices)
-                flagged.append({"question": q_no, "reason": "multiple_mark", "detected": detected_str, "ratios": dict(zip(choices, ratios))})
+                flagged.append(
+                    {
+                        "question": q_no,
+                        "reason": "multiple_mark",
+                        "detected": detected_str,
+                        "ratios": dict(zip(choices, ratios)),
+                    }
+                )
                 answers[q_no] = detected_str
                 continue
-            if gap<OMRConfig.NORM_GAP_MIN:
-                flagged.append({"question":q_no,"reason":"low_confidence","ratios":dict(zip(choices,ratios))})
-                answers[q_no]=choices[max_idx]
+            if gap < OMRConfig.NORM_GAP_MIN:
+                flagged.append(
+                    {
+                        "question": q_no,
+                        "reason": "low_confidence",
+                        "ratios": dict(zip(choices, ratios)),
+                    }
+                )
+                answers[q_no] = choices[max_idx]
             else:
-                answers[q_no]=choices[max_idx]
-        elif gap<OMRConfig.NORM_GAP_MIN:
-            flagged.append({"question":q_no,"reason":"low_confidence","ratios":dict(zip(choices,ratios))})
-            answers[q_no]=choices[max_idx]
+                answers[q_no] = choices[max_idx]
+        elif gap < OMRConfig.NORM_GAP_MIN:
+            flagged.append(
+                {
+                    "question": q_no,
+                    "reason": "low_confidence",
+                    "ratios": dict(zip(choices, ratios)),
+                }
+            )
+            answers[q_no] = choices[max_idx]
         else:
-            answers[q_no]=choices[max_idx]
-    return answers,flagged
+            answers[q_no] = choices[max_idx]
+    return answers, flagged
+
 
 def summarize_marks(raw_scores, n_q):
     """
@@ -762,8 +899,8 @@ def summarize_marks(raw_scores, n_q):
             continue
 
         sr = sorted(enumerate(norm), key=lambda x: x[1], reverse=True)
-        (i1, s1) = sr[0]
-        (i2, s2) = sr[1] if len(sr) > 1 else (None, 0.0)
+        i1, s1 = sr[0]
+        i2, s2 = sr[1] if len(sr) > 1 else (None, 0.0)
         gap = float(s1 - s2) if i2 is not None else 1.0
 
         if s1 < fill_min:
@@ -774,31 +911,37 @@ def summarize_marks(raw_scores, n_q):
 
         # suspicious rules
         if gap < OMRConfig.NORM_GAP_MIN:
-            suspicious.append({
-                "question": q_no,
-                "reason": "low_confidence",
-                "top": choices[i1],
-                "gap": round(gap, 4),
-                "score": round(float(s1), 4),
-            })
+            suspicious.append(
+                {
+                    "question": q_no,
+                    "reason": "low_confidence",
+                    "top": choices[i1],
+                    "gap": round(gap, 4),
+                    "score": round(float(s1), 4),
+                }
+            )
             continue
         if s1 < fill_min + 0.03:
-            suspicious.append({
-                "question": q_no,
-                "reason": "weak_fill",
-                "top": choices[i1],
-                "score": round(float(s1), 4),
-            })
+            suspicious.append(
+                {
+                    "question": q_no,
+                    "reason": "weak_fill",
+                    "top": choices[i1],
+                    "score": round(float(s1), 4),
+                }
+            )
             continue
         if s2 >= fill_min * 0.85:
-            suspicious.append({
-                "question": q_no,
-                "reason": "possible_multi",
-                "top": choices[i1],
-                "second": choices[i2] if i2 is not None else None,
-                "gap": round(gap, 4),
-                "score": round(float(s1), 4),
-            })
+            suspicious.append(
+                {
+                    "question": q_no,
+                    "reason": "possible_multi",
+                    "top": choices[i1],
+                    "second": choices[i2] if i2 is not None else None,
+                    "gap": round(gap, 4),
+                    "score": round(float(s1), 4),
+                }
+            )
             continue
 
     return {
@@ -808,6 +951,7 @@ def summarize_marks(raw_scores, n_q):
         "suspicious": suspicious,
     }
 
+
 def analyze_bubble_drift(warped, grid_rect, positions):
     """
     วิเคราะห์ drift ของตำแหน่ง bubble ที่ใช้วัด เทียบกับ "ศูนย์กลาง bubble จริง" ที่ตรวจเจอ
@@ -815,7 +959,7 @@ def analyze_bubble_drift(warped, grid_rect, positions):
     คืนค่าเป็น list ต่อแถว (ในแต่ละ group): mean_dist_px / max_dist_px / found_count
     """
     gx, gy, gw, gh = grid_rect
-    grid_img = warped[gy:gy+gh, gx:gx+gw]
+    grid_img = warped[gy : gy + gh, gx : gx + gw]
     grid_gray = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
     g = cv2.GaussianBlur(grid_gray, (5, 5), 0)
 
@@ -833,7 +977,9 @@ def analyze_bubble_drift(warped, grid_rect, positions):
         for row_idx, y in enumerate(ys):
             dists = []
             found = 0
-            current_xs = xs[row_idx] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            current_xs = (
+                xs[row_idx] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            )
             for x in current_xs:
                 y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
                 x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
@@ -843,10 +989,14 @@ def analyze_bubble_drift(warped, grid_rect, positions):
 
                 # หา circle ใน patch รอบๆ center; ตั้ง param2 ต่ำเพื่อให้ detect ได้ง่าย
                 circles = cv2.HoughCircles(
-                    patch, cv2.HOUGH_GRADIENT,
-                    dp=1.2, minDist=R,
-                    param1=80, param2=18,
-                    minRadius=minR, maxRadius=maxR
+                    patch,
+                    cv2.HOUGH_GRADIENT,
+                    dp=1.2,
+                    minDist=R,
+                    param1=80,
+                    param2=18,
+                    minRadius=minR,
+                    maxRadius=maxR,
                 )
                 if circles is None:
                     continue
@@ -855,7 +1005,7 @@ def analyze_bubble_drift(warped, grid_rect, positions):
                 # เลือกวงที่ใกล้จุดคาดที่สุด
                 best = None
                 best_d2 = 1e18
-                for (cx, cy, rr) in cs:
+                for cx, cy, rr in cs:
                     d2 = (cx - cx0) ** 2 + (cy - cy0) ** 2
                     if d2 < best_d2:
                         best_d2 = d2
@@ -869,79 +1019,93 @@ def analyze_bubble_drift(warped, grid_rect, positions):
                 found += 1
 
             if dists:
-                rows_report.append({
-                    "group": int(gi),
-                    "row": int(row_idx + 1),
-                    "mean_dist_px": float(np.mean(dists)),
-                    "max_dist_px": float(np.max(dists)),
-                    "found": int(found),
-                    "expected": int(len(xs)),
-                })
+                rows_report.append(
+                    {
+                        "group": int(gi),
+                        "row": int(row_idx + 1),
+                        "mean_dist_px": float(np.mean(dists)),
+                        "max_dist_px": float(np.max(dists)),
+                        "found": int(found),
+                        "expected": int(len(xs)),
+                    }
+                )
             else:
-                rows_report.append({
-                    "group": int(gi),
-                    "row": int(row_idx + 1),
-                    "mean_dist_px": None,
-                    "max_dist_px": None,
-                    "found": 0,
-                    "expected": int(len(xs)),
-                })
+                rows_report.append(
+                    {
+                        "group": int(gi),
+                        "row": int(row_idx + 1),
+                        "mean_dist_px": None,
+                        "max_dist_px": None,
+                        "found": 0,
+                        "expected": int(len(xs)),
+                    }
+                )
     return rows_report
 
-def scan_answer_sheet(image_input,force_questions=0,debug=False):
-    result=OMRResult()
+
+def scan_answer_sheet(image_input, force_questions=0, debug=False):
+    result = OMRResult()
     try:
-        img,gray,thresh=load_and_preprocess(image_input)
+        img, gray, thresh = load_and_preprocess(image_input)
         print(f"[1] Image: {img.shape[1]}x{img.shape[0]}")
-        anchors=find_anchor_points(thresh)
-        if anchors is None: result.error_msg="ไม่พบ anchor 4 มุม"; return result
+        anchors = find_anchor_points(thresh)
+        if anchors is None:
+            result.error_msg = "ไม่พบ anchor 4 มุม"
+            return result
         print("[2] Anchors: OK")
-        warped=warp_perspective(img,anchors)
-        warped_gray=cv2.cvtColor(warped,cv2.COLOR_BGR2GRAY)
+        warped = warp_perspective(img, anchors)
+        warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         print(f"[3] Warp: {warped.shape[1]}x{warped.shape[0]}")
-        meta=decode_qr(warped)
+        meta = decode_qr(warped)
         if not meta.exam_id and not meta.sheet_id:
-            meta=_merge_metadata(meta, decode_qr(img))
-        total_q=meta.total_questions if meta.total_questions>0 else force_questions
-        if total_q==0:
+            meta = _merge_metadata(meta, decode_qr(img))
+        total_q = meta.total_questions if meta.total_questions > 0 else force_questions
+        if total_q == 0:
             # QR ไม่ได้ → detect จาก bubble grid
-            grid_rect_tmp=detect_grid_region(warped_gray,0)
-            total_q=auto_detect_questions(warped_gray,grid_rect_tmp)
+            grid_rect_tmp = detect_grid_region(warped_gray, 0)
+            total_q = auto_detect_questions(warped_gray, grid_rect_tmp)
             print(f"[4] QR decode ไม่ได้ → auto-detect: {total_q} ข้อ")
         else:
             print(f"[4] QR: subject='{meta.subject_code}' tq={total_q}")
-        meta.total_questions=total_q; result.metadata=meta
+        meta.total_questions = total_q
+        result.metadata = meta
         layout_q = _layout_question_count(total_q)
         if layout_q != total_q:
             print(f"[4.1] Layout normalize: exam={total_q} -> sheet_layout={layout_q}")
-        grid_rect=detect_grid_region(warped_gray,layout_q)
+        grid_rect = detect_grid_region(warped_gray, layout_q)
         print(f"[5] Grid: {grid_rect}")
-        positions=get_bubble_positions(warped,grid_rect,layout_q)
+        positions = get_bubble_positions(warped, grid_rect, layout_q)
         print(f"[6] Positions: {sum(1 for p in positions if p)} groups OK")
-        raw_scores=measure_bubble_ratios(warped,grid_rect,positions)
+        raw_scores = measure_bubble_ratios(warped, grid_rect, positions)
         # ถ้าข้อสอบจริงน้อยกว่า layout ของกระดาษ ให้ตัดเฉพาะข้อที่ใช้จริง
         if total_q and total_q < layout_q:
             raw_scores = {q: v for q, v in raw_scores.items() if q <= total_q}
-        result.raw_scores=raw_scores
+        result.raw_scores = raw_scores
         print(f"[7] Measured: {len(raw_scores)} questions (layout={layout_q})")
-        answers,flagged=decide_answers(raw_scores, n_q=layout_q)
+        answers, flagged = decide_answers(raw_scores, n_q=layout_q)
         if total_q and total_q < layout_q:
             answers = {q: a for q, a in answers.items() if q <= total_q}
             flagged = [f for f in flagged if int(f.get("question", 0)) <= total_q]
-        result.answers=answers; result.flagged=flagged
+        result.answers = answers
+        result.flagged = flagged
         print(f"[8] Answers: {len(answers)} ข้อ, flagged: {len(flagged)}")
-        if debug: _save_debug(warped,grid_rect,positions,answers,flagged,image_input)
-        result.success=True
+        if debug:
+            _save_debug(warped, grid_rect, positions, answers, flagged, image_input)
+        result.success = True
     except Exception as e:
-        result.error_msg=str(e); import traceback; traceback.print_exc()
+        result.error_msg = str(e)
+        import traceback
+
+        traceback.print_exc()
     return result
 
-def calculate_score(answers,answer_key):
-    correct,wrong,skipped=[],[],[]
+
+def calculate_score(answers, answer_key):
+    correct, wrong, skipped = [], [], []
     total_score = 0.0
     earned_score = 0.0
 
-    for q_no,key_data in answer_key.items():
+    for q_no, key_data in answer_key.items():
         q_score = 1.0
         if isinstance(key_data, dict):
             key = key_data.get("answer", "")
@@ -952,7 +1116,7 @@ def calculate_score(answers,answer_key):
         total_score += q_score
 
         # รองรับทั้ง key แบบ int และ str จากหลายแหล่งข้อมูล
-        a=answers.get(q_no)
+        a = answers.get(q_no)
         if a is None:
             try:
                 a = answers.get(int(q_no))
@@ -967,25 +1131,39 @@ def calculate_score(answers,answer_key):
             a = a.strip().upper()
         if isinstance(key, str):
             key = key.strip().upper()
-        if a is None: skipped.append(q_no)
-        elif a==key: 
+        if a is None:
+            skipped.append(q_no)
+        elif a == key:
             correct.append(q_no)
             earned_score += q_score
-        else: wrong.append({"question":q_no,"student":a,"correct":key})
-    
-    return {"score":earned_score,"total":total_score,"percent":round(earned_score/total_score*100,1) if total_score else 0,
-            "correct":correct,"wrong":wrong,"skipped":skipped}
+        else:
+            wrong.append({"question": q_no, "student": a, "correct": key})
 
-def _save_debug(warped,grid_rect,positions,answers,flagged,orig_path):
-    debug=warped.copy(); gx,gy,gw,gh=grid_rect
-    cv2.rectangle(debug,(gx,gy),(gx+gw,gy+gh),(0,255,0),2)
-    flagged_qs={f["question"] for f in flagged}; choices=OMRConfig.CHOICES; R=OMRConfig.BUBBLE_RADIUS
+    return {
+        "score": earned_score,
+        "total": total_score,
+        "percent": round(earned_score / total_score * 100, 1) if total_score else 0,
+        "correct": correct,
+        "wrong": wrong,
+        "skipped": skipped,
+    }
+
+
+def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
+    debug = warped.copy()
+    gx, gy, gw, gh = grid_rect
+    cv2.rectangle(debug, (gx, gy), (gx + gw, gy + gh), (0, 255, 0), 2)
+    flagged_qs = {f["question"] for f in flagged}
+    choices = OMRConfig.CHOICES
+    R = OMRConfig.BUBBLE_RADIUS
     dbg_r = max(3, R + int(getattr(OMRConfig, "DEBUG_CIRCLE_RADIUS_OFFSET", -3)))
     # เพื่อให้วง debug ตรง bubble จริง: ใช้ same snapping logic กับ measure_bubble_ratios
     gx0, gy0, gw0, gh0 = grid_rect
-    grid_img = warped[gy0:gy0+gh0, gx0:gx0+gw0]
+    grid_img = warped[gy0 : gy0 + gh0, gx0 : gx0 + gw0]
     grid_gray = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
-    g = cv2.GaussianBlur(cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(grid_gray), (3, 3), 0)
+    g = cv2.GaussianBlur(
+        cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(grid_gray), (3, 3), 0
+    )
 
     def _snap(y, x):
         if not getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True):
@@ -999,102 +1177,143 @@ def _save_debug(warped,grid_rect,positions,answers,flagged,orig_path):
         minR = max(6, int(OMRConfig.BUBBLE_RADIUS) - 6)
         maxR = int(OMRConfig.BUBBLE_RADIUS) + 6
         circles = cv2.HoughCircles(
-            patch, cv2.HOUGH_GRADIENT,
-            dp=1.2, minDist=int(OMRConfig.BUBBLE_RADIUS),
-            param1=80, param2=int(getattr(OMRConfig, "SNAP_PARAM2", 18)),
-            minRadius=minR, maxRadius=maxR
+            patch,
+            cv2.HOUGH_GRADIENT,
+            dp=1.2,
+            minDist=int(OMRConfig.BUBBLE_RADIUS),
+            param1=80,
+            param2=int(getattr(OMRConfig, "SNAP_PARAM2", 18)),
+            minRadius=minR,
+            maxRadius=maxR,
         )
         if circles is None:
             return y, x
         cs = np.round(circles[0]).astype(int)
         cx0, cy0 = (x - x1), (y - y1)
-        best = min(cs, key=lambda c: (c[0]-cx0)**2 + (c[1]-cy0)**2)
+        best = min(cs, key=lambda c: (c[0] - cx0) ** 2 + (c[1] - cy0) ** 2)
         return int(y1 + best[1]), int(x1 + best[0])
-    for gi,group in enumerate(positions):
-        if not group: continue
-        xs,ys=group; rpg=len(ys)
-        for row,y in enumerate(ys):
-            q_no=gi*rpg+row+1; ans=answers.get(q_no)
+
+    for gi, group in enumerate(positions):
+        if not group:
+            continue
+        xs, ys = group
+        rpg = len(ys)
+        for row, y in enumerate(ys):
+            q_no = gi * rpg + row + 1
+            ans = answers.get(q_no)
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
             if ans and ans in choices:
-                ch=choices.index(ans); cx=gx+current_xs[ch]; cy=gy+y
+                ch = choices.index(ans)
+                cx = gx + current_xs[ch]
+                cy = gy + y
                 # snap ในพิกัด grid แล้วแปลงกลับเป็น warped
                 sy, sx = _snap(int(y), int(current_xs[ch]))
                 cx = gx + int(sx)
                 cy = gy + int(sy)
-                color=(0,165,255) if q_no in flagged_qs else (0,255,0)
-                cv2.circle(debug,(cx,cy),dbg_r,color,2)
-                cv2.putText(debug,ans,(cx-5,cy+5),cv2.FONT_HERSHEY_SIMPLEX,.4,color,1)
+                color = (0, 165, 255) if q_no in flagged_qs else (0, 255, 0)
+                cv2.circle(debug, (cx, cy), dbg_r, color, 2)
+                cv2.putText(
+                    debug,
+                    ans,
+                    (cx - 5, cy + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.4,
+                    color,
+                    1,
+                )
     if isinstance(orig_path, str):
-        out=os.path.splitext(orig_path)[0]+"_debug.jpg"
+        out = os.path.splitext(orig_path)[0] + "_debug.jpg"
     else:
-        out="api_debug.jpg"
-    cv2.imwrite(out,debug); print(f"[DEBUG] {out}")
+        out = "api_debug.jpg"
+    cv2.imwrite(out, debug)
+    print(f"[DEBUG] {out}")
 
-if __name__=="__main__":
-    paths=sys.argv[1:] if len(sys.argv)>1 else []
-    if not paths: 
-        print(json.dumps({"error": "Usage: python3 omr_scanner.py <image> [--json] [--force-q 50]"}, ensure_ascii=False))
+
+if __name__ == "__main__":
+    paths = sys.argv[1:] if len(sys.argv) > 1 else []
+    if not paths:
+        print(
+            json.dumps(
+                {
+                    "error": "Usage: python3 omr_scanner.py <image> [--json] [--force-q 50]"
+                },
+                ensure_ascii=False,
+            )
+        )
         sys.exit(0)
-        
-    force_q=0; clean=[]; output_json = False; analyze_drift = False
-    i=0
-    while i<len(paths):
-        if paths[i]=="--force-q" and i+1<len(paths): force_q=int(paths[i+1]); i+=2
-        elif paths[i]=="--json": output_json=True; i+=1
-        elif paths[i]=="--analyze-drift": analyze_drift=True; i+=1
-        else: clean.append(paths[i]); i+=1
-        
+
+    force_q = 0
+    clean = []
+    output_json = False
+    analyze_drift = False
+    i = 0
+    while i < len(paths):
+        if paths[i] == "--force-q" and i + 1 < len(paths):
+            force_q = int(paths[i + 1])
+            i += 2
+        elif paths[i] == "--json":
+            output_json = True
+            i += 1
+        elif paths[i] == "--analyze-drift":
+            analyze_drift = True
+            i += 1
+        else:
+            clean.append(paths[i])
+            i += 1
+
     # ปิด print ชั่วคราวถ้าต้องการ output เป็น json (ใช้ stdout redirect)
     import sys, io
+
     original_stdout = sys.stdout
     if output_json:
         sys.stdout = io.StringIO()
-        
+
     results_list = []
-        
+
     for path in clean:
         if not output_json:
             print(f"\n{'='*55}\nสแกน: {path}\n{'='*55}")
-            
-        r=scan_answer_sheet(path,force_questions=force_q,debug=not output_json)
-        
+
+        r = scan_answer_sheet(path, force_questions=force_q, debug=not output_json)
+
         # จัดรูปแบบข้อมูลเป็น JSON / Dict
         sheet_result = {
             "file_path": path,
             "success": r.success,
-            "error_msg": r.error_msg
+            "error_msg": r.error_msg,
         }
-        
+
         if r.success:
-            m=r.metadata
+            m = r.metadata
             sheet_result["student"] = {
                 "subject_code": m.subject_code,
                 "subject_name": m.subject_name,
                 "student_id": m.student_id,
                 "student_name": m.student_name,
                 "total_questions": m.total_questions,
-                "exam_date": m.exam_date
-                ,"sheet_id": m.sheet_id
+                "exam_date": m.exam_date,
+                "sheet_id": m.sheet_id,
             }
             sheet_result["answers"] = r.answers
             sheet_result["flagged"] = r.flagged
-            
+
             if m.total_questions and r.raw_scores:
                 sm = summarize_marks(r.raw_scores, m.total_questions)
                 sheet_result["summary"] = sm
-                
+
             if not output_json:
-                print(f"\nวิชา: {m.subject_code} {m.subject_name}\nนักเรียน: {m.student_id} {m.student_name}\nจำนวนข้อ: {m.total_questions}")
+                print(
+                    f"\nวิชา: {m.subject_code} {m.subject_name}\nนักเรียน: {m.student_id} {m.student_name}\nจำนวนข้อ: {m.total_questions}"
+                )
                 print("\nคำตอบ:")
-                for q in sorted(r.answers): 
-                    ans=r.answers[q] or "?"
-                    flag=" ⚠" if any(f["question"]==q for f in r.flagged) else ""
+                for q in sorted(r.answers):
+                    ans = r.answers[q] or "?"
+                    flag = " ⚠" if any(f["question"] == q for f in r.flagged) else ""
                     print(f"  Q{q:3d}: {ans}{flag}")
         else:
             if not output_json:
                 print(f"ERROR: {r.error_msg}")
-                
+
         results_list.append(sheet_result)
 
     # คืนค่า stdout กลับมาและ Print JSON

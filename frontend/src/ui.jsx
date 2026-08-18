@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  forwardRef,
 } from "react";
 import { createPortal } from "react-dom";
 import logoImage from "../images/logo.jpg";
@@ -112,15 +113,16 @@ export function Field({ label, children }) {
   );
 }
 
-export function Input(props) {
+export const Input = forwardRef((props, ref) => {
   return (
     <input
       {...props}
+      ref={ref}
       placeholder={props.placeholder || `กรอก${props.label || ""}`}
       className={`w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${props.className || ""}`}
     />
   );
-}
+});
 
 export function Select(props) {
   const {
