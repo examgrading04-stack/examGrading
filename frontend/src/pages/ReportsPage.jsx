@@ -7,6 +7,8 @@ import {
   Select,
   Swal,
   StatCard,
+  Modal,
+  API_BASE_URL,
 } from "../ui.jsx";
 
 function getCorrectAnswer(exam, question) {
@@ -193,8 +195,10 @@ function getExamTotalScore(exam) {
   return totalScore;
 }
 
-export function ReportsPage({ data }) {
+export function ReportsPage({ data, userEmail }) {
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const rows = data.exams.map((exam) => {
     const subject = data.subjects?.find(
@@ -207,8 +211,9 @@ export function ReportsPage({ data }) {
         s.code === exam.subject,
     );
     const subjectName = subject
-      ? `${subject.code} ${subject.name}`
+      ? subject.name || "ไม่ระบุวิชา"
       : exam.subject || "ไม่ระบุวิชา";
+    const subjectCode = subject?.code || exam.subjectCode || exam.code || "-";
     const results = data.results.filter((result) => result.examId === exam.id);
     const scores = results
       .map((row) => {
@@ -291,6 +296,7 @@ export function ReportsPage({ data }) {
       ...exam,
       subjectKey: subject?.id || subject?.code || exam.subject || "",
       subjectName,
+      subjectCode,
       sectionName,
       participantCount: results.length,
       average,
@@ -338,8 +344,9 @@ export function ReportsPage({ data }) {
     const exportRows = reportRows.map((row, index) => ({
       ลำดับ: index + 1,
       ข้อสอบ: row.name,
+      รหัสวิชา: row.subjectCode,
       รายวิชา: row.subjectName,
-      กลุ่มเรียน: row.sectionName,
+      กลุ่มที่: row.sectionName,
       จำนวนผู้สอบ: row.participantCount,
       คะแนนเต็ม: row.totalMaxScore,
       คะแนนเฉลี่ย: row.average.toFixed(2),
@@ -355,7 +362,80 @@ export function ReportsPage({ data }) {
       wb,
       `Exam_Report${subjectSuffix}_${new Date().toISOString().split("T")[0]}.${format === "csv" ? "csv" : "xlsx"}`,
     );
+    setExportModalOpen(false);
   }
+
+  const exportReportPdf = async () => {
+    if (!reportRows.length) {
+      return Swal().fire(
+        "ไม่มีข้อมูล",
+        selectedSubject
+          ? "ยังไม่มีข้อมูลข้อสอบของรายวิชาที่เลือก"
+          : "ยังไม่มีข้อมูลข้อสอบในระบบ",
+        "warning",
+      );
+    }
+    setDownloadingPdf(true);
+    try {
+      const columns = [
+        "ลำดับ",
+        "ข้อสอบ",
+        "รหัสวิชา",
+        "รายวิชา",
+        "กลุ่มที่",
+        "จำนวนผู้สอบ",
+        "คะแนนเต็ม",
+        "คะแนนเฉลี่ย",
+        "มัธยฐาน",
+        "ฐานนิยม",
+        "สูงสุด/ต่ำสุด",
+      ];
+      const rowsToExport = reportRows.map((row, index) => [
+        index + 1,
+        row.name,
+        row.subjectCode,
+        row.subjectName,
+        row.sectionName,
+        row.participantCount,
+        row.totalMaxScore,
+        row.average.toFixed(2),
+        row.median.toFixed(2),
+        row.mode,
+        `${row.maxScore}/${row.minScore}`,
+      ]);
+
+      const res = await fetch(`${API_BASE_URL}/api/reports/summary/pdf/download`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userEmail || ""}`,
+        },
+        body: JSON.stringify({
+          title: "รายงานผลการตรวจทั้งหมด",
+          columns,
+          rows: rowsToExport,
+        }),
+      });
+      
+      if (!res.ok) throw new Error("Failed to download PDF report");
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Exam_Report_${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setExportModalOpen(false);
+    } catch (error) {
+      console.error(error);
+      Swal().fire("Error", "ไม่สามารถดาวน์โหลด PDF ได้", "error");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   return (
     <div className="page-enter mx-auto max-w-[1600px] space-y-6 px-4 pb-20">
@@ -386,22 +466,46 @@ export function ReportsPage({ data }) {
               ))}
             </Select>
           </div>
-          <GhostButton
-            variant="success"
-            onClick={() => exportReport("xlsx")}
-            className="print:hidden"
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-[42px] print:hidden"
+            title="ส่งออกรายงาน"
           >
-            <Icon name="fa-file-excel" /> ส่งออก Excel
-          </GhostButton>
-          <GhostButton
-            variant="primary"
-            onClick={() => exportReport("csv")}
-            className="print:hidden"
-          >
-            <Icon name="fa-file-csv" /> ส่งออก CSV
-          </GhostButton>
+            <Icon name="fa-download" /> ส่งออกรายงาน
+          </button>
         </div>
       </div>
+
+      <Modal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="เลือกรูปแบบไฟล์ที่ต้องการส่งออก"
+      >
+        <div className="flex flex-col gap-3 py-2">
+          <PrimaryButton 
+            onClick={() => exportReport("xlsx")}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Icon name="fa-file-excel text-lg" />
+            ส่งออกเป็น Excel (.xlsx)
+          </PrimaryButton>
+          <PrimaryButton 
+            onClick={() => exportReport("csv")}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
+          >
+            <Icon name="fa-file-csv text-lg" />
+            ส่งออกเป็น CSV (.csv)
+          </PrimaryButton>
+          <PrimaryButton 
+            onClick={exportReportPdf}
+            disabled={downloadingPdf}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-red-600 hover:bg-red-700"
+          >
+            <Icon name={downloadingPdf ? "fa-spinner fa-spin text-lg" : "fa-file-pdf text-lg"} />
+            ส่งออกเป็น PDF (.pdf)
+          </PrimaryButton>
+        </div>
+      </Modal>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
@@ -445,6 +549,20 @@ export function ReportsPage({ data }) {
               ),
             },
             {
+              key: "subjectCode",
+              label: "รหัสวิชา",
+              className: "w-[80px] sm:w-[100px] md:w-[120px] text-left",
+              truncate: false,
+              render: (row) => (
+                <div
+                  className="text-sm font-bold text-slate-500 w-full truncate text-left"
+                  title={row.subjectCode}
+                >
+                  {row.subjectCode}
+                </div>
+              ),
+            },
+            {
               key: "subject",
               label: "ชื่อวิชา",
               className: "w-[100px] sm:w-[130px] md:w-[160px] text-left",
@@ -460,7 +578,7 @@ export function ReportsPage({ data }) {
             },
             {
               key: "section",
-              label: "กลุ่มเรียน",
+              label: "กลุ่มที่",
               className: "text-center",
               render: (row) => (
                 <span className="font-medium text-slate-600">

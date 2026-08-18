@@ -134,6 +134,31 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
   const [selectedResults, setSelectedResults] = useState(new Set());
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+
+  const downloadReportCsv = () => {
+    if (filteredResults.length === 0) return;
+    const header = ["รหัสผู้เรียน", "ชื่อ-สกุล", "คะแนนที่ได้", "คะแนนเต็ม", "เปอร์เซ็นต์", "สถานะ"];
+    const rows = filteredResults.map(r => [
+      r.studentCode || "-",
+      r.studentName || "-",
+      r.score || 0,
+      r.totalQuestions || 0,
+      (r.percentage || 0).toFixed(2),
+      r.flagged ? "รอตรวจสอบ" : "ปกติ"
+    ]);
+    const csvContent = [header, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Report_${selectedExamId || "all"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    setExportModalOpen(false);
+  };
 
   const downloadReportPdf = async () => {
     if (!selectedExamId) return;
@@ -160,6 +185,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      setExportModalOpen(false);
     } catch (e) {
       Swal().fire("Error", "ไม่สามารถดาวน์โหลด PDF ได้", "error");
     } finally {
@@ -192,6 +218,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      setExportModalOpen(false);
     } catch (e) {
       Swal().fire("Error", "ไม่สามารถดาวน์โหลด Excel ได้", "error");
     } finally {
@@ -439,20 +466,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           {selectedExamId && (
             <div className="flex gap-2 w-full sm:w-auto">
               <button
-                onClick={downloadReportExcel}
-                disabled={downloadingExcel || filteredResults.length === 0}
-                className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-10"
-                title="ดาวน์โหลด Excel"
+                onClick={() => setExportModalOpen(true)}
+                disabled={filteredResults.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-10"
+                title="ส่งออกรายงาน"
               >
-                <Icon name={downloadingExcel ? "fa-spinner fa-spin" : "fa-file-excel"} /> Excel
-              </button>
-              <button
-                onClick={downloadReportPdf}
-                disabled={downloadingPdf || filteredResults.length === 0}
-                className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap h-10"
-                title="ดาวน์โหลด PDF"
-              >
-                <Icon name={downloadingPdf ? "fa-spinner fa-spin" : "fa-file-pdf"} /> PDF
+                <Icon name="fa-download" /> ส่งออกรายงาน
               </button>
             </div>
           )}
@@ -467,6 +486,38 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           </button>
         )}
       </div>
+
+      <Modal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="เลือกรูปแบบไฟล์ที่ต้องการส่งออก"
+      >
+        <div className="flex flex-col gap-3 py-2">
+          <PrimaryButton 
+            onClick={downloadReportExcel}
+            disabled={downloadingExcel}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Icon name={downloadingExcel ? "fa-spinner fa-spin" : "fa-file-excel text-lg"} />
+            ส่งออกเป็น Excel (.xlsx)
+          </PrimaryButton>
+          <PrimaryButton 
+            onClick={downloadReportCsv}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
+          >
+            <Icon name="fa-file-csv text-lg" />
+            ส่งออกเป็น CSV (.csv)
+          </PrimaryButton>
+          <PrimaryButton 
+            onClick={downloadReportPdf}
+            disabled={downloadingPdf}
+            className="w-full flex justify-center items-center gap-2 h-12 bg-red-600 hover:bg-red-700"
+          >
+            <Icon name={downloadingPdf ? "fa-spinner fa-spin" : "fa-file-pdf text-lg"} />
+            ส่งออกเป็น PDF (.pdf)
+          </PrimaryButton>
+        </div>
+      </Modal>
 
       {/* Main Table Section */}
       <section className="space-y-4 print:hidden">

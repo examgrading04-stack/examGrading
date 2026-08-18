@@ -1,7 +1,7 @@
 import os
 import tempfile
 import pandas as pd
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -176,6 +176,64 @@ def generate_pdf_report(
                 ("FONTNAME", (0, 1), (-1, -1), FONT_NAME),
                 ("FONTSIZE", (0, 1), (-1, -1), 10),
                 ("ALIGN", (1, 1), (1, -1), "LEFT"),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
+            ]
+        )
+    )
+
+    elements.append(table)
+    doc.build(elements)
+
+    return temp_path
+
+def generate_generic_table_pdf(title: str, columns: list, rows: list) -> str:
+    fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
+
+    doc = SimpleDocTemplate(
+        temp_path,
+        pagesize=landscape(A4),
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=30,
+        bottomMargin=30,
+    )
+    elements = []
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "TitleStyle",
+        parent=styles["Heading1"],
+        fontName=FONT_BOLD,
+        fontSize=18,
+        alignment=1,  # Center
+        spaceAfter=15,
+    )
+
+    elements.append(Paragraph(title, title_style))
+
+    # Convert everything to string for ReportLab Paragraph compatibility
+    safe_rows = [[str(cell) for cell in row] for row in rows]
+    table_data = [columns] + safe_rows
+    
+    # Optional: Calculate column widths dynamically or let reportlab handle it.
+    # reportlab will auto-size if colWidths is omitted.
+    table = Table(table_data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4f46e5")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+                ("FONTSIZE", (0, 0), (-1, 0), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
+                ("FONTNAME", (0, 1), (-1, -1), FONT_NAME),
+                ("FONTSIZE", (0, 1), (-1, -1), 9),
+                ("ALIGN", (1, 1), (3, -1), "LEFT"), # left align text columns
                 ("GRID", (0, 0), (-1, -1), 1, colors.black),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
             ]

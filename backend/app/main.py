@@ -43,7 +43,7 @@ from .models.schemas import (
     SheetPdfRequest,
 )
 from .services.diagnostics import diagnose
-from .services.report_generator import generate_excel_report, generate_pdf_report
+from .services.report_generator import generate_excel_report, generate_pdf_report, generate_generic_table_pdf
 from .services.omr_scanner import calculate_score, scan_answer_sheet, summarize_marks
 from .services.pdf_sheets import generate_pdf_for_students
 from .db_adapter import get_db_adapter
@@ -414,6 +414,31 @@ def download_answer_sheets_pdf(
         pdf_path,
         media_type="application/pdf",
         filename=f"{payload.exam_id}_answer_sheets.pdf",
+    )
+
+
+@app.post("/api/reports/summary/pdf/download")
+def download_summary_pdf_report(
+    payload: dict = Body(...),
+    authorization: str | None = Header(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    get_user_email(authorization)
+    title = payload.get("title", "รายงาน")
+    columns = payload.get("columns", [])
+    rows = payload.get("rows", [])
+    
+    if not columns or not rows:
+        raise HTTPException(status_code=400, detail="Missing columns or rows")
+
+    filepath = generate_generic_table_pdf(title, columns, rows)
+    background_tasks.add_task(os.unlink, filepath)
+
+    return FileResponse(
+        filepath,
+        media_type="application/pdf",
+        filename="Summary_Report.pdf",
+        background=background_tasks,
     )
 
 
