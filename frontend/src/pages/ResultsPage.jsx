@@ -526,6 +526,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         title="เลือกรูปแบบไฟล์ที่ต้องการส่งออก"
+        maxWidth="max-w-sm"
       >
         <div className="flex flex-col gap-3 py-2">
           <PrimaryButton
