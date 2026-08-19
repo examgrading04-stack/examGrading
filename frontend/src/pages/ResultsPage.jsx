@@ -138,17 +138,26 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
 
   const downloadReportCsv = () => {
     if (filteredResults.length === 0) return;
-    const header = ["รหัสผู้เรียน", "ชื่อ-สกุล", "คะแนนที่ได้", "คะแนนเต็ม", "เปอร์เซ็นต์", "สถานะ"];
-    const rows = filteredResults.map(r => [
+    const header = [
+      "รหัสผู้เรียน",
+      "ชื่อ-สกุล",
+      "คะแนนที่ได้",
+      "คะแนนเต็ม",
+      "เปอร์เซ็นต์",
+      "สถานะ",
+    ];
+    const rows = filteredResults.map((r) => [
       r.studentCode || "-",
       r.studentName || "-",
       r.score || 0,
       r.totalQuestions || 0,
       (r.percentage || 0).toFixed(2),
-      r.flagged ? "รอตรวจสอบ" : "ปกติ"
+      r.flagged ? "รอตรวจสอบ" : "ปกติ",
     ]);
-    const csvContent = [header, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const csvContent = [header, ...rows].map((e) => e.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -164,17 +173,21 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     if (!selectedExamId) return;
     setDownloadingPdf(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/results/report/pdf/download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userEmail || ""}`,
+      const res = await fetch(
+        `${API_BASE_URL}/api/results/report/pdf/download`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userEmail || ""}`,
+          },
+          body: JSON.stringify({
+            examId: selectedExamId,
+            resultIds:
+              selectedResults.size > 0 ? Array.from(selectedResults) : null,
+          }),
         },
-        body: JSON.stringify({ 
-          examId: selectedExamId,
-          resultIds: selectedResults.size > 0 ? Array.from(selectedResults) : null 
-        }),
-      });
+      );
       if (!res.ok) throw new Error("Failed to download PDF report");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -197,17 +210,21 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     if (!selectedExamId) return;
     setDownloadingExcel(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/results/report/excel/download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userEmail || ""}`,
+      const res = await fetch(
+        `${API_BASE_URL}/api/results/report/excel/download`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userEmail || ""}`,
+          },
+          body: JSON.stringify({
+            examId: selectedExamId,
+            resultIds:
+              selectedResults.size > 0 ? Array.from(selectedResults) : null,
+          }),
         },
-        body: JSON.stringify({ 
-          examId: selectedExamId,
-          resultIds: selectedResults.size > 0 ? Array.from(selectedResults) : null 
-        }),
-      });
+      );
       if (!res.ok) throw new Error("Failed to download Excel report");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -402,6 +419,24 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
               : "เลือกข้อสอบเพื่อดูรายละเอียดผลคะแนนแยกตามกลุ่มเรียน"}
           </p>
         </div>
+        {selectedResults.size > 0 && (
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={deleteSelectedResults}
+              className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+              title="ลบรายการที่เลือก"
+            >
+              <Icon name="fa-trash-can" /> ลบ
+            </button>
+            <button
+              onClick={() => setSelectedResults(new Set())}
+              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+              title="ยกเลิกการเลือก"
+            >
+              <Icon name="fa-xmark" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Stats Dashboard */}
@@ -491,29 +526,40 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         title="เลือกรูปแบบไฟล์ที่ต้องการส่งออก"
+        maxWidth="max-w-sm"
       >
         <div className="flex flex-col gap-3 py-2">
-          <PrimaryButton 
+          <PrimaryButton
             onClick={downloadReportExcel}
             disabled={downloadingExcel}
             className="w-full flex justify-center items-center gap-2 h-12 bg-emerald-600 hover:bg-emerald-700"
           >
-            <Icon name={downloadingExcel ? "fa-spinner fa-spin" : "fa-file-excel text-lg"} />
+            <Icon
+              name={
+                downloadingExcel
+                  ? "fa-spinner fa-spin"
+                  : "fa-file-excel text-lg"
+              }
+            />
             ส่งออกเป็น Excel (.xlsx)
           </PrimaryButton>
-          <PrimaryButton 
+          <PrimaryButton
             onClick={downloadReportCsv}
             className="w-full flex justify-center items-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
           >
             <Icon name="fa-file-csv text-lg" />
             ส่งออกเป็น CSV (.csv)
           </PrimaryButton>
-          <PrimaryButton 
+          <PrimaryButton
             onClick={downloadReportPdf}
             disabled={downloadingPdf}
             className="w-full flex justify-center items-center gap-2 h-12 bg-red-600 hover:bg-red-700"
           >
-            <Icon name={downloadingPdf ? "fa-spinner fa-spin" : "fa-file-pdf text-lg"} />
+            <Icon
+              name={
+                downloadingPdf ? "fa-spinner fa-spin" : "fa-file-pdf text-lg"
+              }
+            />
             ส่งออกเป็น PDF (.pdf)
           </PrimaryButton>
         </div>
@@ -580,8 +626,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                       {(() => {
                         const secId = row.studentSec || row.examSection;
                         if (!secId || secId === "All Section") return "";
-                        const sec = data.sections?.find((s) => String(s.id) === String(secId));
-                        const secName = sec ? (sec.name || sec.sec || sec.section_name) : secId;
+                        const sec = data.sections?.find(
+                          (s) => String(s.id) === String(secId),
+                        );
+                        const secName = sec
+                          ? sec.name || sec.sec || sec.section_name
+                          : secId;
                         return `(${secName})`;
                       })()}
                     </span>
@@ -725,8 +775,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                   {(() => {
                     const secId = r.studentSec || r.examSection;
                     if (!secId || secId === "All Section") return "All Section";
-                    const sec = data.sections?.find((s) => String(s.id) === String(secId));
-                    return sec ? (sec.name || sec.sec || sec.section_name) : secId;
+                    const sec = data.sections?.find(
+                      (s) => String(s.id) === String(secId),
+                    );
+                    return sec
+                      ? sec.name || sec.sec || sec.section_name
+                      : secId;
                   })()}
                 </td>
                 <td className="py-2 pr-4 text-center">
@@ -910,7 +964,9 @@ function StudentAnswersView({ result, exam, api, refresh }) {
       const multiQs = rows.filter((r) => r.isMultiMark).map((r) => r.question);
 
       if (skippedQs.length > 0) {
-        flaggedReasons.push(`พบข้อที่ไม่ได้ฝนคำตอบ: ข้อ ${skippedQs.join(", ")}`);
+        flaggedReasons.push(
+          `พบข้อที่ไม่ได้ฝนคำตอบ: ข้อ ${skippedQs.join(", ")}`,
+        );
       }
       if (multiQs.length > 0) {
         flaggedReasons.push(

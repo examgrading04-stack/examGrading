@@ -256,7 +256,7 @@ export function Select(props) {
                 const isSelected = item.value === String(value ?? "");
                 return (
                   <button
-                    key={`${index}_${item.value}`}
+                    key={item.value ?? index}
                     type="button"
                     disabled={item.disabled}
                     onClick={() => selectValue(item.value)}

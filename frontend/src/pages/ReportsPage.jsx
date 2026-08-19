@@ -404,21 +404,24 @@ export function ReportsPage({ data, userEmail }) {
         `${row.maxScore}/${row.minScore}`,
       ]);
 
-      const res = await fetch(`${API_BASE_URL}/api/reports/summary/pdf/download`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userEmail || ""}`,
+      const res = await fetch(
+        `${API_BASE_URL}/api/reports/summary/pdf/download`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userEmail || ""}`,
+          },
+          body: JSON.stringify({
+            title: "รายงานผลการตรวจทั้งหมด",
+            columns,
+            rows: rowsToExport,
+          }),
         },
-        body: JSON.stringify({
-          title: "รายงานผลการตรวจทั้งหมด",
-          columns,
-          rows: rowsToExport,
-        }),
-      });
-      
+      );
+
       if (!res.ok) throw new Error("Failed to download PDF report");
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -480,28 +483,35 @@ export function ReportsPage({ data, userEmail }) {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         title="เลือกรูปแบบไฟล์ที่ต้องการส่งออก"
+        maxWidth="max-w-sm"
       >
         <div className="flex flex-col gap-3 py-2">
-          <PrimaryButton 
+          <PrimaryButton
             onClick={() => exportReport("xlsx")}
             className="w-full flex justify-center items-center gap-2 h-12 bg-emerald-600 hover:bg-emerald-700"
           >
             <Icon name="fa-file-excel text-lg" />
             ส่งออกเป็น Excel (.xlsx)
           </PrimaryButton>
-          <PrimaryButton 
+          <PrimaryButton
             onClick={() => exportReport("csv")}
             className="w-full flex justify-center items-center gap-2 h-12 bg-blue-600 hover:bg-blue-700"
           >
             <Icon name="fa-file-csv text-lg" />
             ส่งออกเป็น CSV (.csv)
           </PrimaryButton>
-          <PrimaryButton 
+          <PrimaryButton
             onClick={exportReportPdf}
             disabled={downloadingPdf}
             className="w-full flex justify-center items-center gap-2 h-12 bg-red-600 hover:bg-red-700"
           >
-            <Icon name={downloadingPdf ? "fa-spinner fa-spin text-lg" : "fa-file-pdf text-lg"} />
+            <Icon
+              name={
+                downloadingPdf
+                  ? "fa-spinner fa-spin text-lg"
+                  : "fa-file-pdf text-lg"
+              }
+            />
             ส่งออกเป็น PDF (.pdf)
           </PrimaryButton>
         </div>
