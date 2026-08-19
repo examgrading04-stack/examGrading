@@ -584,146 +584,10 @@ def measure_bubble_ratios(warped, grid_rect, positions):
     gx, gy, gw, gh = grid_rect
     grid_img = warped[gy : gy + gh, gx : gx + gw]
     grid_gray = cv2.cvtColor(grid_img, cv2.COLOR_BGR2GRAY)
-    R = OMRConfig.BUBBLE_RADIUS
-
-    # ใช้ความมืด (gray) แทนจำนวนพิกเซลจาก threshold เพื่อทนแสง/เงา/คุณภาพกล้อง
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    g = clahe.apply(grid_gray)
-    g = cv2.GaussianBlur(g, (3, 3), 0)
-    mask_cache = {}
-
-    def _mean_in_mask(patch, mask):
-        # mask เป็น 0/255
-        m = mask > 0
-        if not np.any(m):
-            return 255.0
-        return float(np.mean(patch[m]))
-
-    def _snap_center(y, x):
-        """หา center bubble จริงใกล้ (x,y) ด้วย Hough ใน patch เล็กๆ"""
-        if not getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True):
-            return y, x
-        pad = int(getattr(OMRConfig, "SNAP_SEARCH_PAD", 26))
-        y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
-        x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
-        patch = g[y1:y2, x1:x2]
-        if patch.size == 0:
-            return y, x
-        minR = max(6, int(OMRConfig.BUBBLE_RADIUS) - 6)
-        maxR = int(OMRConfig.BUBBLE_RADIUS) + 6
-        try:
-            circles = cv2.HoughCircles(
-                patch,
-                cv2.HOUGH_GRADIENT,
-                dp=1.2,
-                minDist=int(OMRConfig.BUBBLE_RADIUS),
-                param1=80,
-                param2=int(getattr(OMRConfig, "SNAP_PARAM2", 18)),
-                minRadius=minR,
-                maxRadius=maxR,
-            )
-        except Exception:
-            circles = None
-        if circles is None:
-            return y, x
-        cs = np.round(circles[0]).astype(int)
-        cx0, cy0 = (x - x1), (y - y1)
-        best = None
-        best_d2 = 1e18
-        for cx, cy, rr in cs:
-            d2 = (cx - cx0) ** 2 + (cy - cy0) ** 2
-            if d2 < best_d2:
-                best_d2 = d2
-                best = (cx, cy)
-        if best is None:
-            return y, x
-        return int(y1 + best[1]), int(x1 + best[0])
-
-    def _score_with_center(y, x):
-        pad = R + 8
-        y1, y2 = max(0, y - pad), min(g.shape[0], y + pad)
-        x1, x2 = max(0, x - pad), min(g.shape[1], x + pad)
-        patch = g[y1:y2, x1:x2]
-        if patch.size == 0:
-            return 0.0
-
-        cy = y - y1
-        cx = x - x1
-        h, w = patch.shape[:2]
-        if not (0 <= cx < w and 0 <= cy < h):
-            return 0.0
-
-        cache_key = (h, w, cx, cy)
-        cached = mask_cache.get(cache_key)
-        if cached is None:
-            inner = np.zeros((h, w), np.uint8)
-            corner_bg = np.zeros((h, w), np.uint8)
-            inner_r = max(4, R - 1)
-            cv2.circle(inner, (cx, cy), inner_r, 255, -1)
-            # Use 4 corner areas (safe distance from bubble & overflow) as local paper background
-            corner_bg[0:3, 0:3] = 255
-            corner_bg[0:3, max(0, w - 3) :] = 255
-            corner_bg[max(0, h - 3) :, 0:3] = 255
-            corner_bg[max(0, h - 3) :, max(0, w - 3) :] = 255
-            cached = (inner, corner_bg)
-            if len(mask_cache) > 256:
-                mask_cache.clear()
-            mask_cache[cache_key] = cached
-        else:
-            inner, corner_bg = cached
-
-        inner_mean = _mean_in_mask(patch, inner)
-        bg_mean = _mean_in_mask(patch, corner_bg)
-        denom = max(10.0, bg_mean)
-        contrast = max(0.0, (bg_mean - inner_mean) / denom)
-
-        # Also compute dark pixel percentage inside inner circle
-        dark_thresh = max(0, bg_mean - 22)
-        inner_pixels = patch[inner > 0]
-        dark_fill_ratio = (
-            float(np.mean(inner_pixels < dark_thresh)) if len(inner_pixels) > 0 else 0.0
-        )
-
-        # Combined score: 60% contrast + 40% dark fill ratio
-        score = 0.60 * contrast + 0.40 * dark_fill_ratio
-        if score < 0:
-            score = 0.0
-        if score > 1:
-            score = 1.0
-        return score
-
-    def _local_refine_score(y, x):
-        best = _score_with_center(y, x)
-        if not getattr(OMRConfig, "LOCAL_REFINE_ENABLE", True):
-            return best
-        rr = int(getattr(OMRConfig, "LOCAL_REFINE_RADIUS", 5))
-        step = int(getattr(OMRConfig, "LOCAL_REFINE_STEP", 1))
-        early_stop = float(getattr(OMRConfig, "LOCAL_REFINE_EARLY_STOP", 0.42))
-        if rr <= 0 or step <= 0:
-            return best
-        for dy in range(-rr, rr + 1, step):
-            for dx in range(-rr, rr + 1, step):
-                if dx == 0 and dy == 0:
-                    continue
-                s = _score_with_center(y + dy, x + dx)
-                if s > best:
-                    best = s
-                    if best >= early_stop:
-                        return best
-        return best
-
-    def ratio_at(y, x):
-        y = int(y)
-        x = int(x)
-        best = _local_refine_score(y, x)
-        if getattr(OMRConfig, "SNAP_TO_DETECTED_CIRCLE", True):
-            need_snap = best < float(getattr(OMRConfig, "SNAP_FALLBACK_SCORE", 0.24))
-            if need_snap or best < 0.55:
-                sy, sx = _snap_center(y, x)
-                snapped = _local_refine_score(int(sy), int(sx))
-                if snapped > best:
-                    best = snapped
-        return best
+    g = cv2.GaussianBlur(clahe.apply(grid_gray), (3, 3), 0)
+    R = OMRConfig.BUBBLE_RADIUS
+    r_inner = max(4, int(R) - 1)
 
     results = {}
     for gi, group in enumerate(positions):
@@ -734,7 +598,58 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         for row, y in enumerate(ys):
             q_no = gi * rpg + row + 1
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
-            results[q_no] = [round(ratio_at(y, x), 4) for x in current_xs]
+            cy = int(y)
+
+            # Local row paper background from safe margins outside column A and column E
+            row_bg_left = g[
+                max(0, cy - 4) : min(g.shape[0], cy + 5),
+                max(0, int(current_xs[0]) - 32) : max(0, int(current_xs[0]) - 14),
+            ]
+            row_bg_right = g[
+                max(0, cy - 4) : min(g.shape[0], cy + 5),
+                min(g.shape[1], int(current_xs[-1]) + 14) : min(
+                    g.shape[1], int(current_xs[-1]) + 32
+                ),
+            ]
+            bg_vals = []
+            if row_bg_left.size > 0:
+                bg_vals.extend(row_bg_left.flatten())
+            if row_bg_right.size > 0:
+                bg_vals.extend(row_bg_right.flatten())
+            row_paper_bg = float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
+
+            q_scores = []
+            for x in current_xs:
+                cx = int(x)
+                y1 = max(0, cy - r_inner)
+                y2 = min(g.shape[0], cy + r_inner + 1)
+                x1 = max(0, cx - r_inner)
+                x2 = min(g.shape[1], cx + r_inner + 1)
+
+                inner_mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
+                cv2.circle(inner_mask, (cx - x1, cy - y1), r_inner, 255, -1)
+                patch_inner = g[y1:y2, x1:x2]
+                inner_vals = patch_inner[inner_mask > 0]
+                inner_mean = (
+                    float(np.mean(inner_vals)) if len(inner_vals) > 0 else 255.0
+                )
+
+                contrast = max(
+                    0.0, (row_paper_bg - inner_mean) / max(10.0, row_paper_bg)
+                )
+                dark_thresh = max(0, row_paper_bg - 25)
+                dark_ratio = (
+                    float(np.mean(inner_vals < dark_thresh))
+                    if len(inner_vals) > 0
+                    else 0.0
+                )
+                score = 0.50 * contrast + 0.50 * dark_ratio
+                if score < 0:
+                    score = 0.0
+                if score > 1:
+                    score = 1.0
+                q_scores.append(round(score, 4))
+            results[q_no] = q_scores
     return results
 
 
@@ -803,7 +718,7 @@ def _compute_decision_stats(raw_scores, n_q=None):
             except Exception:
                 pass
 
-    dynamic_fill_min = min(dynamic_fill_min, 0.12)
+    dynamic_fill_min = min(max(dynamic_fill_min, 0.060), 0.085)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 
@@ -858,6 +773,18 @@ def decide_answers(raw_scores, n_q=None):
                     }
                 )
                 answers[q_no] = detected_str
+            elif second_n >= dynamic_fill_min * 0.95 or second_n >= 0.075:
+                # มีรอยฝนเกินช่องหรือเปื้อนในช่องอื่นอย่างเห็นได้ชัด -> แจ้งเตือนให้ครูตรวจสอบ
+                flagged.append(
+                    {
+                        "question": q_no,
+                        "reason": "overflow_smudge",
+                        "detected": choices[max_idx],
+                        "smudge_choice": choices[second_idx],
+                        "ratios": dict(zip(choices, ratios)),
+                    }
+                )
+                answers[q_no] = choices[max_idx]
             elif gap < OMRConfig.NORM_GAP_MIN:
                 flagged.append(
                     {
@@ -1201,14 +1128,13 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
             q_no = gi * rpg + row + 1
             ans = answers.get(q_no)
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
-            ans_list = [a.strip() for a in str(ans).split(",") if a.strip() in choices] if ans else []
+            if not ans or str(ans) == "None":
+                continue
+            ans_list = [a.strip() for a in str(ans).split(",") if a.strip() in choices]
             for a_item in ans_list:
                 ch = choices.index(a_item)
-                cx = gx + current_xs[ch]
-                cy = gy + y
-                sy, sx = _snap(int(y), int(current_xs[ch]))
-                cx = gx + int(sx)
-                cy = gy + int(sy)
+                cx = gx + int(current_xs[ch])
+                cy = gy + int(y)
                 color = (0, 165, 255) if (q_no in flagged_qs or len(ans_list) > 1) else (0, 255, 0)
                 cv2.circle(debug, (cx, cy), dbg_r, color, 2)
                 cv2.putText(
@@ -1220,6 +1146,23 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
                     color,
                     1,
                 )
+            # If flagged for overflow/smudge, also highlight smudge choice
+            smudge_items = [f.get("smudge_choice") for f in flagged if f.get("question") == q_no and f.get("smudge_choice")]
+            for s_item in smudge_items:
+                if s_item in choices and s_item not in ans_list:
+                    ch = choices.index(s_item)
+                    cx = gx + int(current_xs[ch])
+                    cy = gy + int(y)
+                    cv2.circle(debug, (cx, cy), dbg_r, (0, 140, 255), 2)
+                    cv2.putText(
+                        debug,
+                        f"{s_item}?",
+                        (cx - 8, cy + 5),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.35,
+                        (0, 140, 255),
+                        1,
+                    )
     if isinstance(orig_path, str):
         out = os.path.splitext(orig_path)[0] + "_debug.jpg"
     else:
