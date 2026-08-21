@@ -125,9 +125,9 @@ class _StudentsScreenState extends State<StudentsScreen> {
     String? selectedSubjectId;
     if (selectedSectionId != null) {
       final sectionOpt = _sections.cast<SectionOption?>().firstWhere(
-            (s) => s?.id == selectedSectionId,
-            orElse: () => null,
-          );
+        (s) => s?.id == selectedSectionId,
+        orElse: () => null,
+      );
       selectedSubjectId = sectionOpt?.subjectId;
     }
     final isEdit = student != null;
@@ -391,7 +391,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: subjects.map((s) {
-        return DropdownMenuEntry<String>(value: s.code, label: '${s.code} - ${s.name}');
+        return DropdownMenuEntry<String>(
+          value: s.code,
+          label: '${s.code} - ${s.name}',
+        );
       }).toList(),
     );
   }
@@ -403,11 +406,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
     List<SectionOption> sections,
     ValueChanged<String?> onChanged,
   ) {
-    final filteredSections = sections.where((s) => s.subjectId == subjectId).toList();
+    final filteredSections = sections
+        .where((s) => s.subjectId == subjectId)
+        .toList();
     return DropdownMenu<String>(
       menuHeight: 300,
       enabled: subjectId != null,
-      initialSelection: filteredSections.any((s) => s.id == value) ? value : null,
+      initialSelection: filteredSections.any((s) => s.id == value)
+          ? value
+          : null,
       expandedInsets: EdgeInsets.zero,
       label: Text(label),
       enableFilter: true,
@@ -586,7 +593,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     minHeight: 0,
                                   ),
                                 ),
-                                initialValue: _filterSubjectId,
+                                value: _filterSubjectId,
                                 items: [
                                   DropdownMenuItem(
                                     value: null,
@@ -680,7 +687,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       minHeight: 0,
                                     ),
                                   ),
-                                  initialValue: _filterSectionId,
+                                  value: _filterSectionId,
                                   items: [
                                     DropdownMenuItem(
                                       value: null,
