@@ -23,6 +23,13 @@ const getTodayStr = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const calculateSheetType = (q) => {
+  const num = Number(q);
+  if (!num || num <= 30) return "30";
+  if (num <= 50) return "50";
+  return "100";
+};
+
 export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
   const [form, setForm] = useState({
     subject: "",
@@ -170,13 +177,19 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
     });
     const subject = data.subjects.find((item) => item.id === form.subject);
     const questions = Number(form.questions);
-    let finalSheetType = Number(form.sheetType || 30);
-
-    if (questions > finalSheetType) {
-      if (questions <= 30) finalSheetType = 30;
-      else if (questions <= 50) finalSheetType = 50;
-      else finalSheetType = 100;
+    if (!questions || questions < 1 || questions > 100) {
+      Swal().fire(
+        "แจ้งเตือน",
+        "กรุณากรอกจำนวนข้อให้ถูกต้อง (ตั้งแต่ 1 ถึง 100 ข้อ)",
+        "warning",
+      );
+      return;
     }
+
+    let finalSheetType = 30;
+    if (questions <= 30) finalSheetType = 30;
+    else if (questions <= 50) finalSheetType = 50;
+    else finalSheetType = 100;
 
     const payload = {
       name: form.name,
@@ -653,46 +666,72 @@ export function ExamsPage({ data, api, refresh, navigate, userEmail }) {
                 </div>
               </div>
             </Field>
-            <Field label="จำนวนข้อที่ต้องการกำหนดเฉลย">
+            <Field label="จำนวนข้อ">
               <Input
                 type="number"
                 min="1"
-                max={Number(form.sheetType || 100)}
+                max="100"
                 value={form.questions}
-                onChange={(e) =>
-                  setForm({ ...form, questions: e.target.value })
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm({
+                    ...form,
+                    questions: val,
+                    sheetType: calculateSheetType(val),
+                  });
+                }}
+                placeholder="ระบุจำนวนข้อ (1-100)"
+                className={
+                  form.questions !== "" &&
+                  (Number(form.questions) < 1 || Number(form.questions) > 100)
+                    ? "!border-rose-400 !focus:border-rose-500 !focus:ring-rose-100"
+                    : ""
                 }
-                placeholder="จำนวนข้อสอบ"
                 required
               />
+              {form.questions !== "" &&
+                (Number(form.questions) < 1 ||
+                  Number(form.questions) > 100) && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                    <Icon name="fa-circle-exclamation" />
+                    {Number(form.questions) < 1
+                      ? "จำนวนข้อต้องไม่น้อยกว่า 1 ข้อ"
+                      : "จำนวนข้อต้องไม่เกิน 100 ข้อ (รองรับสูงสุด 100 ข้อ)"}
+                  </p>
+                )}
             </Field>
-            <Field label="รูปแบบกระดาษคำตอบ (Templates)">
-              <Select
-                value={form.sheetType}
-                onChange={(e) =>
-                  setForm({ ...form, sheetType: e.target.value })
-                }
-                required
-              >
-                <option value="30">แบบ 30 ข้อ</option>
-                <option value="50">แบบ 50 ข้อ</option>
-                <option value="100">แบบ 100 ข้อ</option>
-              </Select>
-            </Field>
-            {form.sheetType && (
-              <div
-                className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType, form.questions).color]}`}
-              >
-                <Icon
-                  name={getTemplateInfo(form.sheetType, form.questions).icon}
-                />
-                <span className="text-xs font-bold">
-                  เลือกกระดาษคำตอบ{" "}
-                  {getTemplateInfo(form.sheetType, form.questions).label}
-                </span>
-              </div>
-            )}
-            <PrimaryButton className="w-full h-12">
+            {form.questions &&
+              Number(form.questions) >= 1 &&
+              Number(form.questions) <= 100 && (
+                <div
+                  className={`p-3 rounded-md border flex items-center gap-3 ${badgeStyles[getTemplateInfo(form.sheetType || calculateSheetType(form.questions), form.questions).color]}`}
+                >
+                  <Icon
+                    name={
+                      getTemplateInfo(
+                        form.sheetType || calculateSheetType(form.questions),
+                        form.questions,
+                      ).icon
+                    }
+                  />
+                  <span className="text-xs font-bold">
+                    รูปแบบกระดาษคำตอบ:{" "}
+                    {
+                      getTemplateInfo(
+                        form.sheetType || calculateSheetType(form.questions),
+                        form.questions,
+                      ).label
+                    }
+                  </span>
+                </div>
+              )}
+            <PrimaryButton
+              className="w-full h-12"
+              disabled={
+                form.questions !== "" &&
+                (Number(form.questions) < 1 || Number(form.questions) > 100)
+              }
+            >
               <Icon name={form.id ? "fa-floppy-disk" : "fa-plus"} />{" "}
               {form.id ? "บันทึกการแก้ไข" : "บันทึกกระดาษคำตอบ"}
             </PrimaryButton>

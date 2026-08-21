@@ -193,6 +193,30 @@ export function SubjectsPage({ data, api, refresh, userEmail, userName }) {
     try {
       if (sectionForm.id) {
         // แก้ไขกลุ่มเรียนเดิม
+        const newSecTrimmed = String(sectionForm.sec || "").trim();
+        if (!newSecTrimmed) {
+          return Swal().fire(
+            "กรุณากรอกกลุ่มเรียน",
+            "ชื่อกลุ่มเรียนต้องไม่เป็นค่าว่าง",
+            "warning",
+          );
+        }
+
+        const isDuplicate = data.sections.some(
+          (s) =>
+            s.subject === subjectId &&
+            s.id !== sectionForm.id &&
+            String(s.sec).trim().toLowerCase() === newSecTrimmed.toLowerCase(),
+        );
+
+        if (isDuplicate) {
+          return Swal().fire(
+            "กลุ่มเรียนนี้มีอยู่แล้ว",
+            `กลุ่มเรียน "${newSecTrimmed}" มีอยู่ในวิชานี้เรียบร้อยแล้ว`,
+            "warning",
+          );
+        }
+
         Swal().fire({
           title: "กำลังบันทึกกลุ่มเรียน...",
           allowOutsideClick: false,

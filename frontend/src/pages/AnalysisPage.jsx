@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { DataTable, Select, StatCard, useChart, Modal } from "../ui.jsx";
 
 function itemLabel(value, type) {
@@ -22,6 +22,70 @@ function itemTone(value, type) {
   if (value >= 0.4) return "text-emerald-700 bg-emerald-50 border-emerald-100";
   if (value >= 0.2) return "text-amber-700 bg-amber-50 border-amber-100";
   return "text-rose-700 bg-rose-50 border-rose-100";
+}
+
+function isPendingReview(result, exam) {
+  if (!result) return true;
+
+  // 1. Check flagged property
+  const flagged = result.flagged;
+  if (flagged === true || flagged === "true") return true;
+  if (Array.isArray(flagged) && flagged.length > 0) return true;
+  if (typeof flagged === "string" && flagged.trim()) {
+    const norm = flagged.trim().toLowerCase();
+    if (
+      ["true", "pending", "flagged", "needs_review", "review"].includes(norm)
+    ) {
+      return true;
+    }
+    try {
+      const parsed = JSON.parse(flagged);
+      if (Array.isArray(parsed) && parsed.length > 0) return true;
+      if (parsed === true) return true;
+    } catch {}
+  }
+
+  // 2. Check status property
+  if (
+    result.status &&
+    [
+      "needs_review",
+      "pending",
+      "flagged",
+      "error",
+      "waiting",
+      "review",
+    ].includes(String(result.status).toLowerCase())
+  ) {
+    return true;
+  }
+
+  // 3. Must have answers or itemResults
+  if (!result.answers && !result.itemResults) return true;
+
+  // 4. Check questions and answers completeness
+  const totalQ = Number(
+    exam?.questions || result.totalQuestions || result.total || 0,
+  );
+  if (result.answers && totalQ > 0) {
+    for (let i = 1; i <= totalQ; i++) {
+      const answer = result.answers[String(i)];
+      if (answer === undefined || answer === null) return true;
+
+      const answerText = String(answer).trim();
+      if (
+        answerText === "" ||
+        answerText === "-" ||
+        answerText === "ฝนมากกว่า 1 ตัวเลือก" ||
+        answerText.includes(",") ||
+        answerText.length > 1
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 function getCorrectAnswer(exam, question) {
@@ -139,8 +203,9 @@ function getQuestionScore(exam, question) {
 }
 
 function calculateItemAnalysis(results, exam) {
-  if (!exam || !results.length) return [];
-  const sorted = [...results].sort(
+  const validResults = (results || []).filter((r) => !isPendingReview(r, exam));
+  if (!exam || !validResults.length) return [];
+  const sorted = [...validResults].sort(
     (a, b) => Number(b.score || 0) - Number(a.score || 0),
   );
   const groupSize = Math.max(1, Math.ceil(sorted.length * 0.27));
@@ -150,12 +215,15 @@ function calculateItemAnalysis(results, exam) {
   return Array.from({ length: Number(exam.questions || 0) }, (_, index) => {
     const question = String(index + 1);
     const isCorrect = (result) => result.itemResults?.[question] === true;
-    const correctCount = results.filter(isCorrect).length;
+    const correctCount = validResults.filter(isCorrect).length;
+    const upperCorrectCount = upperGroup.filter(isCorrect).length;
+    const lowerCorrectCount = lowerGroup.filter(isCorrect).length;
     const upperCorrect =
-      upperGroup.filter(isCorrect).length / upperGroup.length;
+      upperGroup.length > 0 ? upperCorrectCount / upperGroup.length : 0;
     const lowerCorrect =
-      lowerGroup.filter(isCorrect).length / lowerGroup.length;
-    const difficulty = correctCount / results.length;
+      lowerGroup.length > 0 ? lowerCorrectCount / lowerGroup.length : 0;
+    const difficulty =
+      validResults.length > 0 ? correctCount / validResults.length : 0;
     const discrimination = upperCorrect - lowerCorrect;
 
     const answer = getCorrectAnswer(exam, question);
@@ -167,60 +235,499 @@ function calculateItemAnalysis(results, exam) {
       correctCount,
       difficulty,
       discrimination,
+      upperCorrect,
+      lowerCorrect,
+      upperCorrectCount,
+      upperGroupLength: upperGroup.length,
+      lowerCorrectCount,
+      lowerGroupLength: lowerGroup.length,
       difficultyLabel: itemLabel(difficulty, "difficulty"),
       discriminationLabel: itemLabel(discrimination, "discrimination"),
     };
   });
 }
 
+function QuestionDetailModal({
+  isOpen,
+  onClose,
+  detail,
+  results,
+  students,
+  exam,
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const validResults = useMemo(() => {
+    return (results || []).filter((r) => !isPendingReview(r, exam));
+  }, [results, exam]);
+
+  const studentResponses = useMemo(() => {
+    if (!detail || !validResults.length) return [];
+
+    const sorted = [...validResults].sort(
+      (a, b) => Number(b.score || 0) - Number(a.score || 0),
+    );
+    const groupSize = Math.max(1, Math.ceil(sorted.length * 0.27));
+    const upperThreshold = sorted[groupSize - 1]?.score || 0;
+    const lowerThreshold = sorted[sorted.length - groupSize]?.score || 0;
+
+    return validResults
+      .map((result) => {
+        const hasId = result.studentId != null && result.studentId !== "";
+        const hasCode = result.studentCode != null && result.studentCode !== "";
+        const student =
+          students.find(
+            (s) =>
+              (hasId && String(s.id) === String(result.studentId)) ||
+              (hasCode && String(s.code) === String(result.studentCode)),
+          ) || {};
+        const answer = result.answers ? result.answers[detail.question] : "-";
+        const isCorrect = result.itemResults
+          ? result.itemResults[detail.question] === true
+          : false;
+
+        let group = "กลุ่มกลาง";
+        let groupColor = "text-slate-500 bg-slate-50 border-slate-200";
+        if (Number(result.score || 0) >= upperThreshold && groupSize > 0) {
+          group = "กลุ่มเก่ง";
+          groupColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+        } else if (
+          Number(result.score || 0) <= lowerThreshold &&
+          groupSize > 0
+        ) {
+          group = "กลุ่มอ่อน";
+          groupColor = "text-rose-700 bg-rose-50 border-rose-200";
+        }
+
+        return {
+          studentId: result.studentId || result.studentCode || "-",
+          name:
+            `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
+            student.name ||
+            result.studentName ||
+            "ไม่ระบุชื่อ",
+          answer: answer || "-",
+          isCorrect,
+          group,
+          groupColor,
+          score: result.score,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+  }, [detail, validResults, students]);
+
+  const totalValid = validResults.length;
+
+  const filteredResponses = useMemo(() => {
+    if (!searchTerm) return studentResponses;
+    return studentResponses.filter(
+      (s) =>
+        s.studentId.includes(searchTerm) ||
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.group.includes(searchTerm),
+    );
+  }, [studentResponses, searchTerm]);
+
+  const totalPages = Math.ceil(filteredResponses.length / itemsPerPage);
+  const currentResponses = filteredResponses.slice(
+    (currentPage - 1) * itemsPerPage,
+    (currentPage - 1) * itemsPerPage + itemsPerPage,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  if (!detail) return null;
+
+  const getRecommendation = (p, D) => {
+    if (D < 0)
+      return {
+        text: "ข้อสอบมีความผิดปกติ (D ติดลบ) เด็กอ่อนตอบถูกมากกว่าเด็กเก่ง อาจเกิดจากการเฉลยผิด หรือโจทย์กำกวมจนทำให้เด็กเก่งสับสน ควรตรวจสอบโจทย์และตัวเลือกใหม่โดยด่วน",
+        type: "danger",
+      };
+    if (D < 0.2) {
+      if (p > 0.8)
+        return {
+          text: "ข้อสอบง่ายเกินไปและไม่สามารถจำแนกเด็กได้ ควรปรับตัวเลือกหลอกให้ท้าทายขึ้น หรือปรับคำถามให้ต้องใช้การวิเคราะห์มากขึ้น",
+          type: "warning",
+        };
+      if (p < 0.4)
+        return {
+          text: "ข้อสอบยากเกินไปและจำแนกเด็กไม่ได้ อาจเกิดจากเนื้อหาที่ยังไม่ได้สอน หรือคำถามซับซ้อนเกินไป ควรปรับปรุง",
+          type: "warning",
+        };
+      return {
+        text: "ข้อสอบมีระดับความยากปานกลาง แต่จำแนกเด็กได้ไม่ดีนัก ควรพิจารณาปรับปรุงตัวเลือกหลอกให้ดึงดูดเด็กอ่อนมากขึ้น",
+        type: "warning",
+      };
+    }
+    if (p > 0.8)
+      return {
+        text: "ข้อสอบง่าย แต่ยังพอจำแนกเด็กได้บ้าง สามารถเก็บไว้ใช้เป็นข้อสอบพื้นฐานแจกคะแนนได้",
+        type: "success",
+      };
+    if (p < 0.4)
+      return {
+        text: "ข้อสอบยากแต่แยกเด็กเก่งกับเด็กอ่อนได้ดีเยี่ยม เหมาะสำหรับใช้เป็นข้อสอบคัดเลือกเพื่อตัดเกรด",
+        type: "success",
+      };
+    return {
+      text: "ข้อสอบยอดเยี่ยม! มีความยากง่ายเหมาะสมและจำแนกเด็กได้ดีมาก ควรเก็บไว้ในคลังข้อสอบ",
+      type: "success",
+    };
+  };
+
+  const rec = getRecommendation(detail.difficulty, detail.discrimination);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`รายละเอียดการวิเคราะห์ข้อ ${detail.question} (เฉลย: ${detail.answer})`}
+      maxWidth="max-w-4xl"
+    >
+      <div className="space-y-6">
+        <div
+          className={`p-4 rounded-xl border flex items-start gap-3 ${
+            rec.type === "danger"
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : rec.type === "warning"
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          <div
+            className={`mt-0.5 flex shrink-0 items-center justify-center w-6 h-6 rounded-full ${
+              rec.type === "danger"
+                ? "bg-rose-100 text-rose-600"
+                : rec.type === "warning"
+                  ? "bg-amber-100 text-amber-600"
+                  : "bg-emerald-100 text-emerald-600"
+            }`}
+          >
+            <i
+              className={`fa-solid ${
+                rec.type === "danger"
+                  ? "fa-triangle-exclamation"
+                  : rec.type === "warning"
+                    ? "fa-circle-exclamation"
+                    : "fa-lightbulb"
+              }`}
+            />
+          </div>
+          <div>
+            <h4 className="font-bold mb-1">คำแนะนำสำหรับอาจารย์:</h4>
+            <p className="text-sm leading-relaxed">{rec.text}</p>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-slate-800 mb-3 text-sm uppercase tracking-wider">
+            วิธีการคำนวณ
+          </h4>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {/* p value */}
+            <div className="lg:col-span-2 p-5 rounded-xl border border-slate-200 bg-white flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">
+                  p
+                </div>
+                <h4 className="font-bold text-slate-700 text-sm">
+                  ค่าความยากง่าย (Difficulty)
+                </h4>
+              </div>
+
+              <div className="flex items-center justify-start mt-3 gap-3 sm:gap-4">
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] sm:text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-100 text-center whitespace-nowrap">
+                    นักเรียนที่ตอบถูก {detail.correctCount} คน
+                  </span>
+                  <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
+                    นักเรียนทั้งหมด {totalValid} คน
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-300 font-black text-2xl">=</span>
+                  <span className="font-black text-blue-600 text-4xl tracking-tighter">
+                    {detail.difficulty.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* D value */}
+            <div className="lg:col-span-3 p-5 rounded-xl border border-slate-200 bg-white flex flex-col justify-center overflow-x-auto custom-scrollbar">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm border border-emerald-100">
+                  d
+                </div>
+                <h4 className="font-bold text-slate-700 text-sm">
+                  ค่าอำนาจจำแนก (Discrimination)
+                </h4>
+              </div>
+
+              <div className="flex items-center justify-start mt-3 gap-2 sm:gap-3 min-w-max">
+                {/* Upper Group */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded-md border border-emerald-200 text-center whitespace-nowrap">
+                    กลุ่มเก่งที่ตอบถูก {detail.upperCorrectCount} คน
+                  </span>
+                  <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
+                    กลุ่มเก่งทั้งหมด {detail.upperGroupLength} คน
+                  </span>
+                </div>
+
+                <span className="text-slate-300 font-black text-xl sm:text-2xl">
+                  -
+                </span>
+
+                {/* Lower Group */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-1.5 rounded-md border border-rose-200 text-center whitespace-nowrap">
+                    กลุ่มอ่อนที่ตอบถูก {detail.lowerCorrectCount} คน
+                  </span>
+                  <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
+                    กลุ่มอ่อนทั้งหมด {detail.lowerGroupLength} คน
+                  </span>
+                </div>
+
+                {/* Result */}
+                <div className="flex items-center gap-2 ml-1 sm:ml-2">
+                  <span className="text-slate-300 font-black text-xl sm:text-2xl">
+                    =
+                  </span>
+                  <span className="font-black text-emerald-600 text-3xl sm:text-4xl tracking-tighter">
+                    {detail.discrimination.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">
+              ข้อมูลการตอบของนักเรียน ({studentResponses.length} คน)
+            </h4>
+            <div className="relative">
+              <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+              <input
+                type="text"
+                placeholder="ค้นหารหัสนักศึกษา, ชื่อ, กลุ่ม..."
+                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm w-full sm:w-64 focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all outline-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">รหัสนักศึกษา</th>
+                    <th className="px-4 py-3">ชื่อ-นามสกุล</th>
+                    <th className="px-4 py-3 text-center">กลุ่ม</th>
+                    <th className="px-4 py-3 text-center">คำตอบที่เลือก</th>
+                    <th className="px-4 py-3 text-center">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {currentResponses.length > 0 ? (
+                    currentResponses.map((student, i) => (
+                      <tr
+                        key={i}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-slate-700">
+                          {student.studentId}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {student.name}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${student.groupColor}`}
+                          >
+                            {student.group}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-slate-700">
+                          {student.answer}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {student.isCorrect ? (
+                            <div className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                              <i className="fa-solid fa-check text-xs"></i>
+                            </div>
+                          ) : (
+                            <div className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                              <i className="fa-solid fa-xmark text-xs"></i>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="px-4 py-8 text-center text-slate-400"
+                      >
+                        ไม่พบข้อมูลที่ค้นหา
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                <span className="text-xs text-slate-500 font-medium">
+                  แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง{" "}
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    filteredResponses.length,
+                  )}{" "}
+                  จาก {filteredResponses.length} คน
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50 transition-colors"
+                  >
+                    <i className="fa-solid fa-chevron-left text-xs"></i>
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (p) =>
+                        p === 1 ||
+                        p === totalPages ||
+                        Math.abs(p - currentPage) <= 1,
+                    )
+                    .map((p, i, arr) => {
+                      const isGap = i > 0 && arr[i - 1] !== p - 1;
+                      return (
+                        <div key={p} className="flex">
+                          {isGap && (
+                            <span className="px-2 py-1 text-slate-400 text-xs">
+                              ...
+                            </span>
+                          )}
+                          <button
+                            onClick={() => setCurrentPage(p)}
+                            className={`min-w-[28px] h-[28px] rounded text-xs font-bold transition-colors ${currentPage === p ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-200"}`}
+                          >
+                            {p}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50 transition-colors"
+                  >
+                    <i className="fa-solid fa-chevron-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export function AnalysisPage({ data }) {
   const [examId, setExamId] = useState(data.exams[0]?.id || "");
-  const [infoModal, setInfoModal] = useState({ isOpen: false, type: "" });
+  const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const canvasRef = useRef(null);
   const canvasRefPie = useRef(null);
   const exam = data.exams.find((item) => item.id === examId);
 
-  const results = !examId
-    ? []
-    : data.results
-        .filter((result) => result.examId === examId)
-        .map((row) => {
-          let dynamicScore = row.score || 0;
-          const questionsCount = Number(
-            exam?.questions || row.totalQuestions || 0,
-          );
-          let calculatedItemResults = row.itemResults || {};
+  const results = useMemo(() => {
+    if (!examId || !exam) return [];
 
-          if (exam && (row.answers || row.itemResults)) {
-            let calculatedScore = 0;
-            let newItemResults = {};
-            for (let i = 1; i <= questionsCount; i++) {
-              const qStr = String(i);
-              const correctAns = getCorrectAnswer(exam, qStr);
+    // Map and calculate dynamic scores first, excluding problematic / pending review records
+    const mappedResults = (data.results || [])
+      .filter(
+        (result) => result.examId === examId && !isPendingReview(result, exam),
+      )
+      .map((row) => {
+        let dynamicScore = row.score || 0;
+        const questionsCount = Number(
+          exam?.questions || row.totalQuestions || 0,
+        );
+        let calculatedItemResults = row.itemResults || {};
 
-              let isCorrect = false;
-              if (row.answers) {
-                isCorrect =
-                  row.answers[qStr] === correctAns && correctAns !== "-";
-              } else if (row.itemResults) {
-                isCorrect = row.itemResults[qStr] === true;
-              }
+        if (exam && (row.answers || row.itemResults)) {
+          let calculatedScore = 0;
+          let newItemResults = {};
+          for (let i = 1; i <= questionsCount; i++) {
+            const qStr = String(i);
+            const correctAns = getCorrectAnswer(exam, qStr);
 
-              if (isCorrect) {
-                calculatedScore += getQuestionScore(exam, qStr);
-              }
-              newItemResults[qStr] = isCorrect;
+            let isCorrect = false;
+            if (row.answers) {
+              isCorrect =
+                row.answers[qStr] === correctAns && correctAns !== "-";
+            } else if (row.itemResults) {
+              isCorrect = row.itemResults[qStr] === true;
             }
-            dynamicScore = calculatedScore;
-            calculatedItemResults = newItemResults;
-          }
 
-          return {
-            ...row,
-            score: dynamicScore,
-            itemResults: calculatedItemResults,
-          };
-        });
+            if (isCorrect) {
+              calculatedScore += getQuestionScore(exam, qStr);
+            }
+            newItemResults[qStr] = isCorrect;
+          }
+          dynamicScore = calculatedScore;
+          calculatedItemResults = newItemResults;
+        }
+
+        return {
+          ...row,
+          score: dynamicScore,
+          itemResults: calculatedItemResults,
+        };
+      });
+
+    // Deduplicate by studentCode or studentId, keeping the highest score
+    const deduplicatedMap = new Map();
+    mappedResults.forEach((row) => {
+      const studentIdentifier = row.studentCode || row.studentId;
+      if (!studentIdentifier) {
+        // If no student ID is found, just keep it (e.g. unknown student)
+        deduplicatedMap.set(`unknown_${row.id}`, row);
+        return;
+      }
+
+      if (!deduplicatedMap.has(studentIdentifier)) {
+        deduplicatedMap.set(studentIdentifier, row);
+      } else {
+        const existingRow = deduplicatedMap.get(studentIdentifier);
+        if ((row.score || 0) > (existingRow.score || 0)) {
+          deduplicatedMap.set(studentIdentifier, row);
+        }
+      }
+    });
+
+    return Array.from(deduplicatedMap.values());
+  }, [examId, exam, data.results]);
   const scores = results
     .map((result) => Number(result.score || 0))
     .sort((a, b) => a - b);
@@ -262,7 +769,10 @@ export function AnalysisPage({ data }) {
     : (() => {
         if (!exam) return 0;
         const subjectStudents = data.students.filter(
-          (s) => s.subjectCode === exam.subject_id || s.subjectCode === exam.subjectCode || s.subjectCode === exam.subject
+          (s) =>
+            s.subjectCode === exam.subject_id ||
+            s.subjectCode === exam.subjectCode ||
+            s.subjectCode === exam.subject,
         );
         if (exam.section === "All Section" || !exam.section)
           return subjectStudents.length;
@@ -559,82 +1069,99 @@ export function AnalysisPage({ data }) {
         </div>
       </section>
 
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4 font-bold text-slate-800">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-            <i className="fa-solid fa-circle-info" />
+      <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 shadow-sm border border-blue-200">
+            <i className="fa-solid fa-book-open-reader text-lg" />
           </div>
-          <span>เกณฑ์คุณภาพข้อสอบ</span>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+              ทำความเข้าใจเกณฑ์คุณภาพข้อสอบ
+            </h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              คำอธิบายความหมายและเกณฑ์พิจารณา
+              เพื่อนำไปปรับปรุงข้อสอบให้ดียิ่งขึ้น
+            </p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* p Box */}
-          <div className="rounded-md border border-blue-100 bg-blue-50/30 overflow-hidden">
-            <div className="bg-blue-100/50 px-4 py-2 flex items-center gap-2 border-b border-blue-100">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-blue-700 shadow-sm border border-blue-200 text-xs">
+          <div className="rounded-xl border border-blue-100 bg-gradient-to-b from-blue-50/50 to-white overflow-hidden shadow-sm flex flex-col">
+            <div className="px-5 py-4 border-b border-blue-100 flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 font-black text-white shadow-sm shadow-blue-200">
                 p
               </span>
-              <span className="font-bold text-sm text-blue-900 flex items-center gap-1.5">
-                ค่าความยากง่าย (Difficulty)
-                <i
-                  className="fa-solid fa-circle-question text-blue-400 hover:text-blue-500 cursor-pointer transition-colors"
-                  onClick={() => setInfoModal({ isOpen: true, type: "p" })}
-                />
-              </span>
+              <div>
+                <span className="font-bold text-base text-blue-900 block">
+                  ค่าความยากง่าย (Difficulty)
+                </span>
+                <span className="text-xs text-blue-700/80 mt-1 block leading-relaxed">
+                  สัดส่วนเปอร์เซ็นต์ของผู้ที่ตอบถูก ยิ่งค่าเข้าใกล้ 1 แปลว่าง่าย
+                  เข้าใกล้ 0 แปลว่ายาก
+                </span>
+              </div>
             </div>
-            <div className="p-4 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">0.80 - 1.00</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700">
-                  ง่ายเกินไป (ควรปรับปรุง)
+            <div className="p-5 flex-1 space-y-3 text-sm">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50/50 border border-rose-100/50 hover:bg-rose-50 transition-colors">
+                <span className="text-slate-700 font-medium">0.80 - 1.00</span>
+                <span className="flex items-center gap-2 text-rose-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-xmark"></i> ง่ายเกินไป
+                  (ควรปรับปรุง)
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-bold">0.40 - 0.79</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700">
-                  เหมาะสม (คัดเลือกไว้ใช้)
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 border border-emerald-200 shadow-[0_1px_2px_rgba(16,185,129,0.1)]">
+                <span className="text-emerald-900 font-bold">0.40 - 0.79</span>
+                <span className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-check"></i> เหมาะสม
+                  (คัดเลือกไว้ใช้)
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">0.00 - 0.39</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700">
-                  ยากเกินไป (ควรปรับปรุง)
+              <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50/50 border border-rose-100/50 hover:bg-rose-50 transition-colors">
+                <span className="text-slate-700 font-medium">0.00 - 0.39</span>
+                <span className="flex items-center gap-2 text-rose-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-xmark"></i> ยากเกินไป
+                  (ควรปรับปรุง)
                 </span>
               </div>
             </div>
           </div>
 
           {/* D Box */}
-          <div className="rounded-md border border-emerald-100 bg-emerald-50/30 overflow-hidden">
-            <div className="bg-emerald-100/50 px-4 py-2 flex items-center gap-2 border-b border-emerald-100">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white font-black text-emerald-700 shadow-sm border border-emerald-200 text-xs">
-                D
+          <div className="rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white overflow-hidden shadow-sm flex flex-col">
+            <div className="px-5 py-4 border-b border-emerald-100 flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 font-black text-white shadow-sm shadow-emerald-200">
+                d
               </span>
-              <span className="font-bold text-sm text-emerald-900 flex items-center gap-1.5">
-                ค่าอำนาจจำแนก (Discrimination)
-                <i
-                  className="fa-solid fa-circle-question text-emerald-400 hover:text-emerald-500 cursor-pointer transition-colors"
-                  onClick={() => setInfoModal({ isOpen: true, type: "D" })}
-                />
-              </span>
+              <div>
+                <span className="font-bold text-base text-emerald-950 block">
+                  ค่าอำนาจจำแนก (Discrimination)
+                </span>
+                <span className="text-xs text-emerald-800/80 mt-1 block leading-relaxed">
+                  ความสามารถในการแยกแยะเด็กเก่ง-อ่อน (สัดส่วนคนเก่งตอบถูก -
+                  สัดส่วนคนอ่อนตอบถูก)
+                </span>
+              </div>
             </div>
-            <div className="p-4 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-bold">0.40 ขึ้นไป</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700">
-                  ดีมาก (คัดเลือกไว้ใช้)
+            <div className="p-5 flex-1 space-y-3 text-sm">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 border border-emerald-200 shadow-[0_1px_2px_rgba(16,185,129,0.1)]">
+                <span className="text-emerald-900 font-bold">0.40 ขึ้นไป</span>
+                <span className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-check"></i> ดีมาก
+                  (คัดเลือกไว้ใช้)
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">0.20 - 0.39</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-700">
-                  พอใช้ (ควรพิจารณาปรับ)
+              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50/50 border border-amber-100/50 hover:bg-amber-50 transition-colors">
+                <span className="text-slate-700 font-medium">0.20 - 0.39</span>
+                <span className="flex items-center gap-2 text-amber-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-exclamation"></i> พอใช้
+                  (พิจารณาปรับปรุง)
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600">ต่ำกว่า 0.20</span>
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-700">
-                  ไม่ดี (ตัดทิ้ง)
+              <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50/50 border border-rose-100/50 hover:bg-rose-50 transition-colors">
+                <span className="text-slate-700 font-medium">ต่ำกว่า 0.20</span>
+                <span className="flex items-center gap-2 text-rose-700 font-bold text-xs">
+                  <i className="fa-solid fa-circle-xmark"></i> ไม่ดี (ตัดทิ้ง)
                 </span>
               </div>
             </div>
@@ -684,11 +1211,23 @@ export function AnalysisPage({ data }) {
               key: "difficulty",
               label: "ค่าความยากง่าย",
               className: "text-center",
-              render: (row) => row.difficulty.toFixed(2),
+              render: (row) => (
+                <div className="flex flex-col items-center justify-center">
+                  <span
+                    className="text-[10px] text-slate-400 font-medium leading-none mb-1"
+                    title="คนตอบถูก / คนทั้งหมด"
+                  >
+                    {row.correctCount} / {results.length}
+                  </span>
+                  <span className="font-bold text-slate-800 leading-none">
+                    {row.difficulty.toFixed(2)}
+                  </span>
+                </div>
+              ),
             },
             {
               key: "difficultyLabel",
-              label: "ระดับ",
+              label: "ระดับความยาก",
               className: "text-center",
               render: (row) => (
                 <span
@@ -699,10 +1238,54 @@ export function AnalysisPage({ data }) {
               ),
             },
             {
+              key: "upperCorrect",
+              label: "กลุ่มเก่งตอบถูก",
+              className:
+                "text-center text-emerald-600 font-medium bg-emerald-50/30",
+              render: (row) => (
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">
+                    {row.upperCorrectCount} / {row.upperGroupLength}
+                  </span>
+                  <span className="font-bold leading-none">
+                    {Math.round((row.upperCorrect || 0) * 100)}%
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: "lowerCorrect",
+              label: "กลุ่มอ่อนตอบถูก",
+              className: "text-center text-rose-600 font-medium bg-rose-50/30",
+              render: (row) => (
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-[10px] text-slate-400 font-medium leading-none mb-1">
+                    {row.lowerCorrectCount} / {row.lowerGroupLength}
+                  </span>
+                  <span className="font-bold leading-none">
+                    {Math.round((row.lowerCorrect || 0) * 100)}%
+                  </span>
+                </div>
+              ),
+            },
+            {
               key: "discrimination",
               label: "ค่าอำนาจจำแนก",
               className: "text-center",
-              render: (row) => row.discrimination.toFixed(2),
+              render: (row) => (
+                <div className="flex flex-col items-center justify-center">
+                  <span
+                    className="text-[10px] text-slate-400 font-medium leading-none mb-1"
+                    title="กลุ่มเก่งตอบถูก - กลุ่มอ่อนตอบถูก"
+                  >
+                    {Math.round((row.upperCorrect || 0) * 100)}% -{" "}
+                    {Math.round((row.lowerCorrect || 0) * 100)}%
+                  </span>
+                  <span className="font-bold text-slate-800 leading-none">
+                    {row.discrimination.toFixed(2)}
+                  </span>
+                </div>
+              ),
             },
             {
               key: "discriminationLabel",
@@ -715,123 +1298,33 @@ export function AnalysisPage({ data }) {
                 </span>
               ),
             },
+            {
+              key: "action",
+              label: "",
+              className: "w-24 text-right pr-4",
+              render: (row) => (
+                <button
+                  onClick={() => setSelectedItemDetail(row)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 transition-colors border border-blue-200 shadow-sm"
+                >
+                  <i className="fa-solid fa-list-ul"></i> รายละเอียด
+                </button>
+              ),
+            },
           ]}
           rows={answeredItemAnalysis}
           emptyText="ยังไม่มีข้อมูลรายข้อสำหรับคำนวณค่าความยากง่ายและค่าอำนาจจำแนก"
         />
       </section>
 
-      <Modal
-        isOpen={infoModal.isOpen}
-        onClose={() => setInfoModal({ ...infoModal, isOpen: false })}
-        title={
-          infoModal.type === "p"
-            ? "ค่าความยากง่าย (Difficulty)"
-            : "ค่าอำนาจจำแนก (Discrimination)"
-        }
-        maxWidth="max-w-lg"
-      >
-        <div className="text-slate-700 text-sm leading-relaxed">
-          {infoModal.type === "p" && (
-            <div className="space-y-4">
-              <p className="text-base text-slate-600">
-                <strong>ค่าความยากง่าย (p)</strong>{" "}
-                คือสัดส่วนของผู้ที่ตอบข้อสอบข้อนั้นถูก จากจำนวนผู้สอบทั้งหมด
-                ยิ่งค่าเข้าใกล้ 1 แปลว่าง่าย ยิ่งเข้าใกล้ 0 แปลว่ายาก
-              </p>
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-                <h4 className="font-bold text-slate-800 mb-3 text-base">
-                  เกณฑ์การพิจารณา:
-                </h4>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        0.80 - 1.00
-                      </span>{" "}
-                      : ข้อสอบง่ายเกินไป (ควรปรับปรุง)
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        0.40 - 0.79
-                      </span>{" "}
-                      : ข้อสอบมีความยากง่ายเหมาะสม <strong>(เก็บไว้ใช้)</strong>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        0.00 - 0.39
-                      </span>{" "}
-                      : ข้อสอบยากเกินไป (ควรปรับปรุง)
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {infoModal.type === "D" && (
-            <div className="space-y-4">
-              <p className="text-base text-slate-600">
-                <strong>ค่าอำนาจจำแนก (D)</strong>{" "}
-                คือความสามารถของข้อสอบในการแยกแยะกลุ่มผู้ที่ได้คะแนนสูง
-                (เด็กเก่ง) ออกจากกลุ่มผู้ที่ได้คะแนนต่ำ (เด็กอ่อน)
-              </p>
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-                <h4 className="font-bold text-slate-800 mb-3 text-base">
-                  เกณฑ์การพิจารณา:
-                </h4>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        0.40 ขึ้นไป
-                      </span>{" "}
-                      : ดีมาก สามารถจำแนกเด็กเก่ง/อ่อนได้ชัดเจน{" "}
-                      <strong>(เก็บไว้ใช้)</strong>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-exclamation text-amber-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        0.20 - 0.39
-                      </span>{" "}
-                      : พอใช้ (ควรพิจารณาปรับปรุงตัวเลือก)
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <i className="fa-solid fa-circle-xmark text-rose-500 mt-0.5 text-lg"></i>
-                    <div>
-                      <span className="font-bold text-slate-800">
-                        ต่ำกว่า 0.20
-                      </span>{" "}
-                      : ไม่ดี ไม่สามารถจำแนกเด็กได้ หรือมีโอกาสเฉลยผิด
-                      (ควรตัดทิ้ง)
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-8 flex justify-end">
-            <button
-              onClick={() => setInfoModal({ ...infoModal, isOpen: false })}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm"
-            >
-              เข้าใจแล้ว
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <QuestionDetailModal
+        isOpen={!!selectedItemDetail}
+        onClose={() => setSelectedItemDetail(null)}
+        detail={selectedItemDetail}
+        results={results}
+        students={data.students}
+        exam={exam}
+      />
     </div>
   );
 }

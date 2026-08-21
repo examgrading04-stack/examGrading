@@ -446,6 +446,29 @@ def download_summary_pdf_report(
     )
 
 
+@app.post("/api/results/{result_id}/update_answer")
+def update_result_answer_endpoint(
+    result_id: str,
+    payload: dict = Body(...),
+    authorization: str | None = Header(None),
+    db=Depends(get_db),
+):
+    user_email = get_user_email(authorization)
+    question_no = payload.get("question_no")
+    new_answer = payload.get("new_answer", "")
+
+    if question_no is None:
+        raise HTTPException(status_code=400, detail="Missing question_no")
+
+    try:
+        res = db.update_result_answer(
+            user_email, result_id, int(question_no), new_answer
+        )
+        return {"ok": True, "score": res["score"], "percent": res["percent"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/results/report/excel/download")
 def download_excel_report(
     payload: dict = Body(...),

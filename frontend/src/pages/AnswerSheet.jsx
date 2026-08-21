@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Field, Icon, Input, PrimaryButton } from "../ui.jsx";
 
 export function AnswerSheet({ config, hideToolbar = false }) {
@@ -12,8 +12,12 @@ export function AnswerSheet({ config, hideToolbar = false }) {
   );
   const optionsCount = Number(sheet.options || config?.options || 4);
   const setsCount = Number(sheet.sets || config?.sets || 1);
+  const safeQuestionsCount = Math.max(
+    1,
+    Math.min(100, Number(sheet.questions || 50)),
+  );
   const questionNumbers = Array.from(
-    { length: Number(sheet.questions || 50) },
+    { length: safeQuestionsCount },
     (_, index) => index + 1,
   );
   const options = Array.from({ length: optionsCount }, (_, index) =>
@@ -25,11 +29,7 @@ export function AnswerSheet({ config, hideToolbar = false }) {
     100: ["6mm", "2mm", "2mm", "4mm", "2mm", "6mm"],
   };
   const sheetType =
-    Number(sheet.questions) <= 20
-      ? 20
-      : Number(sheet.questions) <= 50
-        ? 50
-        : 100;
+    safeQuestionsCount <= 20 ? 20 : safeQuestionsCount <= 50 ? 50 : 100;
 
   return (
     <div className="omr-page">
@@ -83,11 +83,15 @@ export function AnswerSheet({ config, hideToolbar = false }) {
           <div className="sheet-content">
             <div className="sheet-header border-b-2 border-black pb-3 mb-3">
               <div className="flex justify-between gap-4">
-                <div>
+                <div className="flex-1 min-w-0 pr-4">
                   <h1 className="text-2xl font-bold">กระดาษคำตอบ</h1>
                   <p className="text-sm">OMR Answer Sheet</p>
-                  <p className="mt-2 font-bold">วิชา: {sheet.subject || "-"}</p>
-                  <p className="font-bold">ข้อสอบ: {sheet.examName || "-"}</p>
+                  <p className="mt-2 font-bold truncate">
+                    วิชา: {sheet.subject || "-"}
+                  </p>
+                  <p className="font-bold truncate">
+                    ข้อสอบ: {sheet.examName || "-"}
+                  </p>
                 </div>
                 <div className="flex gap-4">
                   <div className="text-center">
@@ -130,7 +134,7 @@ export function AnswerSheet({ config, hideToolbar = false }) {
             </div>
             <div className="sheet-bubbles">
               <div
-                className={`${Number(sheet.questions) <= 50 ? "omr-columns-2" : "omr-columns-4"} h-full`}
+                className={`${safeQuestionsCount <= 50 ? "omr-columns-2" : "omr-columns-4"} h-full`}
               >
                 {questionNumbers.map((question) => (
                   <div
