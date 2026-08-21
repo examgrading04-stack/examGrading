@@ -55,7 +55,7 @@ class OMRResult:
 
 
 class OMRConfig:
-    NORM_FILL_MIN = 0.075
+    NORM_FILL_MIN = 0.090
     NORM_GAP_MIN = 0.035
     MULTI_MARK_RATIO = 0.55
     ANCHOR_MIN_AREA = 3000
@@ -482,8 +482,7 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
         y_arr = [int(v) for v in np.sort(grp[:, 1])]
 
         def cluster_1d(arr, max_gap):
-            if not arr:
-                return []
+            if not arr: return []
             clusters = []
             curr = [arr[0]]
             for v in arr[1:]:
@@ -495,22 +494,61 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
             clusters.append(int(np.median(curr)))
             return clusters
 
-        x_centers = cluster_1d(x_arr, 15)
-        y_centers = cluster_1d(y_arr, 20)
+        def select_best_5_cols(xc):
+            if not xc: return []
+            if len(xc) == 5:
+                return xc
+            if len(xc) < 5:
+                step = int(np.median(np.diff(xc))) if len(xc) >= 2 else 32
+                while len(xc) < 5:
+                    xc.append(int(xc[-1] + step))
+                return xc
+            # If > 5 columns found (e.g. detected question number digits on the left),
+            # find the best window of 5 consecutive columns whose spacing is most consistent (~32px)
+            best_window = xc[:5]
+            best_score = float("inf")
+            for i in range(len(xc) - 4):
+                window = xc[i : i + 5]
+                diffs = np.diff(window)
+                score = float(np.std(diffs) + abs(np.median(diffs) - 32))
+                if score < best_score:
+                    best_score = score
+                    best_window = window
+            return list(best_window)
 
-        # We expect up to 5 columns and up to 'rpg' rows.
-        # If the image is cut off, we might have fewer rows. That's fine!
-        if len(x_centers) == 0 or len(y_centers) == 0:
+        def fit_rpg_rows(yc, expected_rpg):
+            if not yc: return []
+            if len(yc) == expected_rpg:
+                return yc
+            if len(yc) < expected_rpg:
+                step = int(np.median(np.diff(yc))) if len(yc) >= 2 else (28 if expected_rpg > 15 else 48)
+                while len(yc) < expected_rpg:
+                    yc.append(int(yc[-1] + step))
+                return yc
+            # If > expected_rpg rows found, pick the best window
+            best_window = yc[:expected_rpg]
+            best_score = float("inf")
+            target_step = 28 if expected_rpg > 15 else 48
+            for i in range(len(yc) - expected_rpg + 1):
+                window = yc[i : i + expected_rpg]
+                diffs = np.diff(window)
+                score = float(np.std(diffs) + abs(np.median(diffs) - target_step))
+                if score < best_score:
+                    best_score = score
+                    best_window = window
+            return list(best_window)
+
+        x_raw = cluster_1d(x_arr, 18)
+        x_centers = select_best_5_cols(x_raw)
+
+        y_gap = 14 if rpg > 15 else 20
+        y_raw = cluster_1d(y_arr, y_gap)
+        y_centers = fit_rpg_rows(y_raw, rpg)
+
+        if len(x_centers) == 5 and len(y_centers) == rpg:
+            positions.append((x_centers, y_centers))
+        else:
             return None
-
-        # Fill missing X columns if we found fewer than 5 (assuming ~45px apart)
-        while len(x_centers) < 5:
-            # Just append based on the last one + 45
-            x_centers.append(x_centers[-1] + 45)
-        if len(x_centers) > 5:
-            x_centers = x_centers[:5]
-
-        positions.append((x_centers, y_centers))
 
     if len(positions) != n_groups:
         return None
@@ -520,12 +558,25 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
 def get_bubble_positions(warped, grid_rect, n_q):
     """
     พยายามใช้ตำแหน่ง bubble จากภาพจริง (Adaptive) ก่อน
-    หากหาไม่เจอจริงๆ ค่อยใช้ fallback positions
+    หากหาไม่เจอจริงๆ หรือได้จำนวนแถว/คอลัมน์ไม่ตรง ให้ใช้ fallback
     """
     adapt = _adaptive_bubble_positions(warped, grid_rect, n_q)
+    
     if adapt:
-        print("[DEBUG] Using adaptive bubble positions")
-        return adapt
+        # Validate that adaptive found exactly 5 cols and rpg rows for all groups
+        n_groups = 4 if n_q > 50 else 2
+        rpg = n_q // n_groups
+        valid = True
+        for xs, ys in adapt:
+            if len(xs) != 5 or len(ys) != rpg:
+                valid = False
+                break
+                
+        if valid:
+            print("[DEBUG] Using adaptive bubble positions")
+            return adapt
+        else:
+            print("[DEBUG] Adaptive found incorrect rows/cols. Using fallback positions")
 
     print("[DEBUG] Adaptive failed, using fallback positions")
     return _fallback_positions(grid_rect, n_q)
@@ -556,7 +607,7 @@ def _fallback_positions(grid_rect, n_q):
         positions_abs = [(xs0_list, ys_abs), (xs1_list, ys_abs)]
 
     elif n_q <= 50:
-        ys_abs = [int(410 + i * 48) for i in range(25)]
+        ys_abs = [int(410 + i * 28) for i in range(25)]
         xs0_list = [interpolate_xs(y, top_x0, bot_x0) for y in ys_abs]
         xs1_list = [interpolate_xs(y, top_x1, bot_x1) for y in ys_abs]
         positions_abs = [(xs0_list, ys_abs), (xs1_list, ys_abs)]
@@ -619,12 +670,17 @@ def measure_bubble_ratios(warped, grid_rect, positions):
             row_paper_bg = float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
 
             q_scores = []
-            for x in current_xs:
+            for ch, x in enumerate(current_xs):
                 cx = int(x)
-                y1 = max(0, cy - r_inner)
-                y2 = min(g.shape[0], cy + r_inner + 1)
                 x1 = max(0, cx - r_inner)
-                x2 = min(g.shape[1], cx + r_inner + 1)
+                x2 = min(grid_img.shape[1], cx + r_inner)
+                y1 = max(0, cy - r_inner)
+                y2 = min(grid_img.shape[0], cy + r_inner)
+                
+                # Prevent negative dimensions if circle is completely outside grid
+                if x2 <= x1 or y2 <= y1:
+                    q_scores.append(0.0)
+                    continue
 
                 inner_mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
                 cv2.circle(inner_mask, (cx - x1, cy - y1), r_inner, 255, -1)
@@ -655,6 +711,10 @@ def measure_bubble_ratios(warped, grid_rect, positions):
 
 def _compute_baselines(raw_scores, n_q):
     """column baseline per group = 20th percentile ratio ของแต่ละ choice"""
+    if raw_scores:
+        n_q = max(n_q, max(raw_scores.keys()))
+        
+    
     n_groups = 4 if n_q > 50 else 2
     rpg = n_q // n_groups
     baselines = {}
@@ -718,7 +778,7 @@ def _compute_decision_stats(raw_scores, n_q=None):
             except Exception:
                 pass
 
-    dynamic_fill_min = min(max(dynamic_fill_min, 0.060), 0.085)
+    dynamic_fill_min = min(max(dynamic_fill_min, 0.070), 0.120)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 
@@ -981,35 +1041,42 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
         meta = decode_qr(warped)
         if not meta.exam_id and not meta.sheet_id:
             meta = _merge_metadata(meta, decode_qr(img))
-        total_q = meta.total_questions if meta.total_questions > 0 else force_questions
-        if total_q == 0:
-            # QR ไม่ได้ → detect จาก bubble grid
-            grid_rect_tmp = detect_grid_region(warped_gray, 0)
-            total_q = auto_detect_questions(warped_gray, grid_rect_tmp)
-            print(f"[4] QR decode ไม่ได้ → auto-detect: {total_q} ข้อ")
-        else:
+            
+        grid_rect_tmp = detect_grid_region(warped_gray, 0)
+        detected_layout_q = auto_detect_questions(warped_gray, grid_rect_tmp)
+        
+        total_q = meta.total_questions if meta.total_questions > 0 else (force_questions or detected_layout_q)
+        if meta.total_questions > 0:
             print(f"[4] QR: subject='{meta.subject_code}' tq={total_q}")
+        else:
+            print(f"[4] QR decode ไม่ได้ → auto-detect: {total_q} ข้อ")
+            
         meta.total_questions = total_q
         result.metadata = meta
-        layout_q = _layout_question_count(total_q)
+        
+        layout_q = detected_layout_q
         if layout_q != total_q:
             print(f"[4.1] Layout normalize: exam={total_q} -> sheet_layout={layout_q}")
+            
         grid_rect = detect_grid_region(warped_gray, layout_q)
         print(f"[5] Grid: {grid_rect}")
         positions = get_bubble_positions(warped, grid_rect, layout_q)
         print(f"[6] Positions: {sum(1 for p in positions if p)} groups OK")
         raw_scores = measure_bubble_ratios(warped, grid_rect, positions)
-        # ถ้าข้อสอบจริงน้อยกว่า layout ของกระดาษ ให้ตัดเฉพาะข้อที่ใช้จริง
-        if total_q and total_q < layout_q:
-            raw_scores = {q: v for q, v in raw_scores.items() if q <= total_q}
-        result.raw_scores = raw_scores
-        print(f"[7] Measured: {len(raw_scores)} questions (layout={layout_q})")
+        
         answers, flagged = decide_answers(raw_scores, n_q=layout_q)
         if total_q and total_q < layout_q:
-            answers = {q: a for q, a in answers.items() if q <= total_q}
+            answers = {int(q): a for q, a in answers.items() if int(q) <= total_q}
             flagged = [f for f in flagged if int(f.get("question", 0)) <= total_q]
+            raw_scores = {int(q): v for q, v in raw_scores.items() if int(q) <= total_q}
+        else:
+            answers = {int(q): a for q, a in answers.items()}
+            raw_scores = {int(q): v for q, v in raw_scores.items()}
+            
+        result.raw_scores = raw_scores
         result.answers = answers
         result.flagged = flagged
+        print(f"[7] Measured: {len(raw_scores)} questions (layout={layout_q})")
         print(f"[8] Answers: {len(answers)} ข้อ, flagged: {len(flagged)}")
         if debug:
             _save_debug(warped, grid_rect, positions, answers, flagged, image_input)

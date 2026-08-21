@@ -31,6 +31,7 @@ from .omr_scanner import (
     OMRConfig,
     summarize_marks,
     analyze_bubble_drift,
+    auto_detect_questions,
 )
 
 YELLOW = (0, 200, 255)
@@ -167,8 +168,9 @@ def diag_bubbles(warped, grid_rect, n_q, report: DiagReport, debug_img):
         # วาด detected positions
         # วาดตำแหน่งที่จะวัด (หลัง snapping ใน measure_bubble_ratios จะขยับได้เล็กน้อย)
         for row, y in enumerate(ys):
-            for ch, x in enumerate(xs):
-                cx, cy = gx + x, gy + y
+            current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            for ch, x in enumerate(current_xs):
+                cx, cy = gx + int(x), gy + int(y)
                 cv2.circle(
                     debug_img, (cx, cy), max(3, OMRConfig.BUBBLE_RADIUS - 2), BLUE, 1
                 )
@@ -238,12 +240,13 @@ def diag_fill_quality(
             xs, ys = group
             rpg = len(ys)
             for row, y in enumerate(ys):
+                current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
                 q_no = gi * rpg + row + 1
                 if q_no not in raw_scores:
                     continue
                 ratios = raw_scores[q_no]
-                for ch, (x, ratio) in enumerate(zip(xs, ratios)):
-                    cx, cy = gx + x, gy + y
+                for ch, (x, ratio) in enumerate(zip(current_xs, ratios)):
+                    cx, cy = gx + int(x), gy + int(y)
                     # ratio คือ score 0..1
                     intensity = int(min(max(ratio, 0.0), 1.0) * 255)
                     color = (0, intensity, 255 - intensity)
@@ -307,11 +310,12 @@ def draw_answers_overlay(debug_img, answers, flagged, positions, grid_rect):
         xs, ys = group
         rpg = len(ys)
         for row, y in enumerate(ys):
+            current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
             q_no = gi * rpg + row + 1
             ans = answers.get(q_no)
             if ans and ans in choices:
                 ch = choices.index(ans)
-                cx, cy = gx + xs[ch], gy + y
+                cx, cy = gx + int(current_xs[ch]), gy + int(y)
                 color = MAGENTA if q_no in flagged_qs else GREEN
                 cv2.circle(debug_img, (cx, cy), dbg_r, color, 3)
                 cv2.putText(
@@ -365,7 +369,9 @@ def diagnose(image_path: str, force_q: int = 0):
 
     # ── Step 2: QR ──
     diag_qr(warped, report, debug_img)
-    n_q = int(report.qr_data.get("tq", force_q or 30))
+    n_q = int(report.qr_data.get("tq", force_q or 0))
+    if n_q == 0:
+        n_q = auto_detect_questions(warped_gray, detect_grid_region(warped_gray, 50))
     report.n_questions = n_q
     report.info.append(f"📋 จำนวนข้อ: {n_q}")
 
