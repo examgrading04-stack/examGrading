@@ -299,7 +299,7 @@ class SqlExamDetail(Base):
         "exam_detail_id", Integer, primary_key=True, autoincrement=True
     )
     question_no = Column("question_no", Integer, nullable=False)
-    student_answer = Column("student_answer", String(1))
+    student_answer = Column("student_answer", String(20))
     status_answer = Column("status_answer", String(20))
     result_id = Column("result_id", String(100), nullable=False)
     user_id = Column(
@@ -586,19 +586,31 @@ class MySQLAdapter(BaseDBAdapter):
         try:
             try:
                 # LEFT OUTER JOIN — exam ที่ไม่มี subject ยังคงแสดงอยู่
-                rows = session.query(SqlExam).outerjoin(
-                    SqlSubject,
-                    (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
-                ).filter(SqlExam.user_email == user_email).all()
+                rows = (
+                    session.query(SqlExam)
+                    .outerjoin(
+                        SqlSubject,
+                        (SqlExam.subject_id == SqlSubject.code)
+                        & (SqlExam.user_email == SqlSubject.user_email),
+                    )
+                    .filter(SqlExam.user_email == user_email)
+                    .all()
+                )
             except Exception as ex:
                 if "1054" in str(ex) or "unknown column" in str(ex).lower():
                     session.close()
                     self._auto_migrate()
                     session = self._get_session()
-                    rows = session.query(SqlExam).outerjoin(
-                        SqlSubject,
-                        (SqlExam.subject_id == SqlSubject.code) & (SqlExam.user_email == SqlSubject.user_email)
-                    ).filter(SqlExam.user_email == user_email).all()
+                    rows = (
+                        session.query(SqlExam)
+                        .outerjoin(
+                            SqlSubject,
+                            (SqlExam.subject_id == SqlSubject.code)
+                            & (SqlExam.user_email == SqlSubject.user_email),
+                        )
+                        .filter(SqlExam.user_email == user_email)
+                        .all()
+                    )
                 else:
                     raise
 
@@ -831,6 +843,120 @@ class MySQLAdapter(BaseDBAdapter):
 
             session.commit()
             return row.id
+        finally:
+            session.close()
+
+    def update_result_answer(
+        self, user_email: str, result_id: str, question_no: int, new_answer: str
+    ) -> dict[str, Any]:
+        # Validations: Allow empty string, "-", or combinations of A,B,C,D,E separated by commas
+        valid_chars = {"A", "B", "C", "D", "E"}
+        if new_answer and new_answer != "-":
+            parts = [p.strip() for p in new_answer.split(",")]
+            for part in parts:
+                if part not in valid_chars:
+                    raise ValueError(f"Invalid answer format: {new_answer}")
+
+        session = self._get_session()
+        try:
+            # Get Result
+            result = (
+                session.query(SqlResult)
+                .filter(
+                    SqlResult.id == result_id,
+                    SqlResult.user_email == user_email,
+                )
+                .first()
+            )
+            if not result:
+                raise Exception("Result not found")
+
+            # Get Exam Detail for this question
+            detail = (
+                session.query(SqlExamDetail)
+                .filter(
+                    SqlExamDetail.result_id == result_id,
+                    SqlExamDetail.user_id == user_email,
+                    SqlExamDetail.question_no == question_no,
+                )
+                .first()
+            )
+            if not detail:
+                raise Exception("Exam detail not found for this question")
+
+            # Get Answer Key
+            exam_id = result.examId
+            key = (
+                session.query(SqlExamAnswerKey)
+                .filter(
+                    SqlExamAnswerKey.exam_id == exam_id,
+                    SqlExamAnswerKey.user_id == user_email,
+                    SqlExamAnswerKey.question_no == question_no,
+                )
+                .first()
+            )
+
+            # Determine correctness
+            is_custom = getattr(
+                session.query(SqlExam).filter(SqlExam.id == exam_id).first(),
+                "isCustomScore",
+                False,
+            )
+
+            status = "Correct"
+            if not new_answer:
+                status = "Skipped"
+            elif not key:
+                status = "Wrong"
+            elif str(new_answer).strip() != str(key.correct_answer).strip():
+                status = "Wrong"
+
+            detail.student_answer = new_answer
+            detail.status_answer = status
+            session.flush()
+
+            # Recalculate score
+            all_details = (
+                session.query(SqlExamDetail)
+                .filter(
+                    SqlExamDetail.result_id == result_id,
+                    SqlExamDetail.user_id == user_email,
+                )
+                .all()
+            )
+
+            keys = (
+                session.query(SqlExamAnswerKey)
+                .filter(
+                    SqlExamAnswerKey.exam_id == exam_id,
+                    SqlExamAnswerKey.user_id == user_email,
+                )
+                .all()
+            )
+            key_map = {k.question_no: k for k in keys}
+
+            total_score = 0.0
+            total_qs = getattr(
+                session.query(SqlExam).filter(SqlExam.id == exam_id).first(),
+                "total_questions",
+                result.total,
+            )
+
+            for d in all_details:
+                if d.status_answer == "Correct":
+                    if is_custom and d.question_no in key_map:
+                        total_score += float(key_map[d.question_no].score)
+                    else:
+                        total_score += 1.0
+
+            result.score = total_score
+            if total_qs and total_qs > 0:
+                result.percent = (total_score / float(total_qs)) * 100.0
+            else:
+                result.percent = 0.0
+
+            session.commit()
+            return {"score": result.score, "percent": result.percent}
         finally:
             session.close()
 
@@ -1321,6 +1447,7 @@ class MySQLAdapter(BaseDBAdapter):
                 session.rollback()
                 err_str = str(e)
                 if "Duplicate entry" in err_str or "IntegrityError" in str(type(e)):
+                    # pyrefly: ignore [missing-import]
                     from fastapi import HTTPException
 
                     item_name = "รหัสวิชา" if collection == "subjects" else "รหัส"
@@ -1565,6 +1692,25 @@ class MySQLAdapter(BaseDBAdapter):
                             else:
                                 enroll.section_id = sec_row.id
 
+                        old_subject_code = mapped_data.get("oldSubjectCode")
+                        if (
+                            old_subject_code
+                            and str(old_subject_code).strip()
+                            and str(old_subject_code).strip() != str(subj_id).strip()
+                        ):
+                            old_enroll = (
+                                session.query(SqlStudentEnrollment)
+                                .filter(
+                                    SqlStudentEnrollment.student_code == doc_id,
+                                    SqlStudentEnrollment.subject_id
+                                    == str(old_subject_code).strip(),
+                                    SqlStudentEnrollment.user_id == user_email,
+                                )
+                                .first()
+                            )
+                            if old_enroll:
+                                session.delete(old_enroll)
+
                 session.commit()
         finally:
             session.close()
@@ -1634,6 +1780,81 @@ class MySQLAdapter(BaseDBAdapter):
                         session.delete(st_row)
 
                 session.commit()
+                return
+
+            if collection == "sections":
+                # Move students to 'ไม่ระบุ' section to avoid CASCADE deletion of enrollments
+                sec_row = (
+                    session.query(SqlSection)
+                    .filter_by(id=doc_id, user_email=user_email)
+                    .first()
+                )
+                if sec_row:
+                    subject_id = sec_row.subject
+                    unspec_id = f"{subject_id}_unspecified"
+                    unspec_sec = (
+                        session.query(SqlSection)
+                        .filter_by(id=unspec_id, user_email=user_email)
+                        .first()
+                    )
+                    if not unspec_sec:
+                        unspec_sec = SqlSection(
+                            id=unspec_id,
+                            sec="ไม่ระบุ",
+                            subject=subject_id,
+                            user_email=user_email,
+                        )
+                        session.add(unspec_sec)
+                        session.flush()
+
+                    # pyrefly: ignore [missing-import]
+                    from sqlalchemy import text
+
+                    session.execute(
+                        text(
+                            "UPDATE student_enrollments SET section_id = :new_sec WHERE section_id = :old_sec AND user_id = :uid"
+                        ),
+                        {
+                            "new_sec": unspec_sec.id,
+                            "old_sec": doc_id,
+                            "uid": user_email,
+                        },
+                    )
+
+                    # Rescue exams from CASCADE deletion
+                    session.execute(
+                        text(
+                            "UPDATE exams SET section_id = NULL WHERE section_id = :old_sec AND user_id = :uid"
+                        ),
+                        {
+                            "old_sec": doc_id,
+                            "uid": user_email,
+                        },
+                    )
+
+                    session.delete(sec_row)
+                    session.commit()
+                return
+
+            if collection == "subjects":
+                subj_row = (
+                    session.query(SqlSubject)
+                    .filter_by(code=doc_id, user_email=user_email)
+                    .first()
+                )
+                if subj_row:
+                    session.delete(subj_row)
+                    session.flush()
+                    # pyrefly: ignore [missing-import]
+                    from sqlalchemy import text
+
+                    session.execute(
+                        text(
+                            "DELETE FROM students WHERE user_id = :uid AND student_code NOT IN (SELECT student_code FROM student_enrollments WHERE user_id = :uid)"
+                        ),
+                        {"uid": user_email},
+                    )
+                    session.commit()
                 return
 
             query = session.query(model_cls)

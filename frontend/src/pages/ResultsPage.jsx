@@ -13,6 +13,28 @@ import {
   API_BASE_URL,
 } from "../ui.jsx";
 
+const checkIsFlagged = (row) => {
+  let isFlagged = false;
+  if (Array.isArray(row.flagged) && row.flagged.length > 0) isFlagged = true;
+  else if (row.flagged === true) isFlagged = true;
+  
+  if (!isFlagged && row.answers && row.totalQuestions) {
+    for (let i = 1; i <= row.totalQuestions; i++) {
+      const ans = row.answers[String(i)];
+      if (ans === undefined || ans === null) {
+        isFlagged = true;
+        break;
+      }
+      const strAns = String(ans);
+      if (strAns === "" || strAns === "-" || strAns.includes(",") || strAns === "ฝนมากกว่า 1 ตัวเลือก" || strAns.length > 1) {
+        isFlagged = true;
+        break;
+      }
+    }
+  }
+  return isFlagged;
+};
+
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey) return "-";
 
@@ -368,6 +390,17 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     searchResult,
   ]);
 
+  // Sync selectedResult with updated filteredResults
+  useEffect(() => {
+    if (selectedResult) {
+      const updatedResult = filteredResults.find((r) => r.id === selectedResult.id);
+      if (updatedResult) {
+        // Only update if there are meaningful changes (e.g., score, answers) to avoid unnecessary re-renders
+        setSelectedResult(updatedResult);
+      }
+    }
+  }, [filteredResults]);
+
   // Summary Statistics
   const stats = useMemo(() => {
     if (filteredResults.length === 0) return null;
@@ -375,7 +408,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     const uniqueStudents = new Set(filteredResults.map((r) => r.studentCode))
       .size;
-    const flaggedCount = filteredResults.filter((r) => r.flagged).length;
+    const flaggedCount = filteredResults.filter((r) => checkIsFlagged(r)).length;
     return {
       avg: avg.toFixed(1),
       count: filteredResults.length,
@@ -443,16 +476,16 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
-            title="จำนวนกระดาษคำตอบ"
-            value={stats.count}
-            icon="fa-file-lines"
-            color="violet"
-          />
-          <StatCard
             title="จำนวนผู้เข้าสอบ"
             value={stats.uniqueStudents}
             icon="fa-users"
             color="indigo"
+          />
+          <StatCard
+            title="จำนวนกระดาษคำตอบ"
+            value={stats.count}
+            icon="fa-file-lines"
+            color="violet"
           />
           <StatCard
             title="รอตรวจสอบ (Flagged)"
@@ -643,61 +676,78 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
               key: "correctCount",
               label: "ข้อที่ถูก",
               className: "w-[100px] sm:w-[120px] text-center",
-              render: (row) => (
-                <span className="font-semibold text-emerald-600 text-base">
-                  {row.score}
-                </span>
-              ),
+              render: (row) => {
+                const isFlagged = checkIsFlagged(row);
+                return (
+                  <span className="font-semibold text-emerald-600 text-base">
+                    {isFlagged ? "-" : row.score}
+                  </span>
+                );
+              },
             },
             {
               key: "wrongCount",
               label: "ข้อที่ผิด",
               className: "w-[100px] sm:w-[120px] text-center",
-              render: (row) => (
-                <span className="font-semibold text-rose-600 text-base">
-                  {row.wrongCount}
-                </span>
-              ),
+              render: (row) => {
+                const isFlagged = checkIsFlagged(row);
+                return (
+                  <span className="font-semibold text-rose-600 text-base">
+                    {isFlagged ? "-" : row.wrongCount}
+                  </span>
+                );
+              },
             },
             {
               key: "score",
               label: "คะแนนเต็ม",
               className: "w-[100px] sm:w-[120px] text-center",
-              render: (row) => (
-                <div className="flex items-baseline justify-center gap-1.5 py-1">
-                  <span className="text-xl font-bold text-blue-600">
-                    {row.score}
-                  </span>
-                  <span className="text-sm font-medium text-slate-400">
-                    / {row.totalQuestions}
-                  </span>
-                </div>
-              ),
+              render: (row) => {
+                const isFlagged = checkIsFlagged(row);
+                return (
+                  <div className="flex items-baseline justify-center gap-1.5 py-1">
+                    <span className="text-xl font-bold text-blue-600">
+                      {isFlagged ? "-" : row.score}
+                    </span>
+                    <span className="text-sm font-medium text-slate-400">
+                      / {row.totalQuestions}
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: "percent",
               label: "ร้อยละ",
               className: "text-center",
-              render: (row) => (
-                <div className="w-full max-w-[120px] mx-auto text-center">
-                  <div className="flex justify-between text-[10px] font-black text-slate-400 mb-1">
-                    <span>{row.percentage.toFixed(0)}%</span>
+              render: (row) => {
+                const isFlagged = checkIsFlagged(row);
+                return (
+                  <div className="w-full max-w-[120px] mx-auto text-center">
+                    <div className="flex justify-between text-[10px] font-black text-slate-400 mb-1">
+                      <span>
+                        {isFlagged ? "-" : `${row.percentage.toFixed(0)}%`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all"
+                        style={{
+                          width: isFlagged ? "0%" : `${row.percentage}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-blue-500"
-                      style={{ width: `${row.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ),
+                );
+              },
             },
             {
               key: "flagged",
               label: "สถานะ",
               className: "w-[110px] sm:w-[140px] text-center",
-              render: (row) =>
-                row.flagged ? (
+              render: (row) => {
+                const isFlagged = checkIsFlagged(row);
+                return isFlagged ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-md">
                     <Icon name="fa-triangle-exclamation" /> รอตรวจสอบ
                   </span>
@@ -705,7 +755,8 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-md">
                     <Icon name="fa-check" /> สมบูรณ์
                   </span>
-                ),
+                );
+              }
             },
             {
               key: "actions",
@@ -810,6 +861,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
             exam={data.exams.find((e) => e.id === selectedResult.examId)}
             api={api}
             refresh={refresh}
+            userEmail={userEmail}
           />
         )}
       </Modal>
@@ -817,9 +869,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
   );
 }
 
-function StudentAnswersView({ result, exam, api, refresh }) {
+function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(1);
+  const [verifiedQuestions, setVerifiedQuestions] = useState(new Set());
+  const [unlockedQuestions, setUnlockedQuestions] = useState(new Set());
+  const [updatingQuestions, setUpdatingQuestions] = useState(new Set());
   const imgContainerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -867,6 +922,76 @@ function StudentAnswersView({ result, exam, api, refresh }) {
     }
   };
 
+  const handleVerifyRow = async (question) => {
+    const nextSet = new Set(verifiedQuestions);
+    nextSet.add(question);
+    setVerifiedQuestions(nextSet);
+
+    // Check if all problematic questions are verified
+    const allProblematic = rows
+      .filter(
+        (r) =>
+          r.isMultiMark ||
+          r.flagInfo?.reason === "multiple_mark" ||
+          r.flagInfo?.reason === "low_confidence" ||
+          r.flagInfo?.reason === "out_of_bounds" ||
+          r.isSkipped,
+      )
+      .map((r) => r.question);
+
+    if (
+      allProblematic.length > 0 &&
+      allProblematic.every((q) => nextSet.has(q) || q === question)
+    ) {
+      await handleFlag(result.id, false);
+    }
+  };
+
+  const handleUpdateAnswer = async (question, newAns) => {
+    if (updatingQuestions.has(question)) return;
+    try {
+      setUpdatingQuestions(prev => new Set(prev).add(question));
+      const res = await fetch(`${API_BASE_URL}/api/results/${result.id}/update_answer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userEmail || ""}`,
+        },
+        body: JSON.stringify({
+          question_no: parseInt(question),
+          new_answer: newAns,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to update answer");
+      }
+
+      // Mark as verified
+      await handleVerifyRow(question);
+
+      await refresh("อัปเดตคำตอบแล้ว");
+    } catch (e) {
+      console.error(e);
+      Swal().fire(
+        "เกิดข้อผิดพลาด",
+        e.message || "ไม่สามารถอัปเดตคำตอบได้",
+        "error",
+      );
+    } finally {
+      setUpdatingQuestions(prev => {
+        const next = new Set(prev);
+        next.delete(question);
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    setVerifiedQuestions(new Set());
+  }, [result?.id]);
+
   const flaggedMap = useMemo(() => {
     const map = {};
     if (Array.isArray(result.flagged)) {
@@ -891,6 +1016,8 @@ function StudentAnswersView({ result, exam, api, refresh }) {
 
     if (result.answers) {
       const val = result.answers[questionStr];
+      const isVerified = verifiedQuestions.has(questionStr);
+
       if (val !== undefined && val !== null && val !== "" && val !== "-") {
         studentAns = String(val);
         isSkipped = false;
@@ -898,9 +1025,20 @@ function StudentAnswersView({ result, exam, api, refresh }) {
           isMultiMark = true;
           isCorrect = false;
         } else {
+          isMultiMark = false;
           isCorrect = studentAns === correctAns;
         }
-      } else if (flagInfo && flagInfo.reason === "multiple_mark") {
+      } else if (val === "" || val === "-") {
+        // User explicitly cleared the answer, or it was originally empty
+        studentAns = "-";
+        isSkipped = true;
+        // Only show as multi_mark if it hasn't been verified AND flagInfo says so
+        if (flagInfo && flagInfo.reason === "multiple_mark" && !isVerified) {
+          isMultiMark = true;
+          isSkipped = false;
+          studentAns = flagInfo.detected || "ฝนมากกว่า 1 ตัวเลือก";
+        }
+      } else if (flagInfo && flagInfo.reason === "multiple_mark" && !isVerified) {
         isMultiMark = true;
         isSkipped = false;
         studentAns = flagInfo.detected || "ฝนมากกว่า 1 ตัวเลือก";
@@ -918,8 +1056,10 @@ function StudentAnswersView({ result, exam, api, refresh }) {
       if (studentAns === "-") isSkipped = true;
     }
 
-    if (flagInfo && flagInfo.reason === "multiple_mark") {
-      isMultiMark = true;
+    if (flagInfo && flagInfo.reason === "multiple_mark" && !verifiedQuestions.has(questionStr)) {
+      if (studentAns === "-" || studentAns === "ฝนมากกว่า 1 ตัวเลือก" || studentAns.includes(",")) {
+         isMultiMark = true;
+      }
     }
 
     return {
@@ -937,49 +1077,29 @@ function StudentAnswersView({ result, exam, api, refresh }) {
   const visibleRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
   const flaggedReasons = [];
-  if (result.flagged) {
-    if (Array.isArray(result.flagged) && result.flagged.length > 0) {
-      result.flagged.forEach((f) => {
-        if (typeof f === "object" && f !== null) {
-          const q = f.question;
-          if (f.reason === "not_filled") {
-            flaggedReasons.push(`ข้อ ${q}: ไม่ได้ฝนคำตอบ`);
-          } else if (f.reason === "multiple_mark") {
-            flaggedReasons.push(
-              `ข้อ ${q}: ฝนมากกว่า 1 ตัวเลือก${f.detected ? ` (สแกนพบ: ${f.detected})` : ""}`,
-            );
-          } else if (f.reason === "low_confidence") {
-            flaggedReasons.push(
-              `ข้อ ${q}: ความมั่นใจในการอ่านคำตอบต่ำ (ฝนจางหรือลบไม่สะอาด)`,
-            );
-          } else {
-            flaggedReasons.push(`ข้อ ${q}: ${f.reason || "ต้องตรวจสอบ"}`);
-          }
-        }
-      });
+  rows.forEach((r) => {
+    if (r.isMultiMark || r.flagInfo?.reason === "multiple_mark") {
+      flaggedReasons.push(`ข้อ ${r.question}: ฝนมากกว่า 1 ตัวเลือก`);
+    } else if (r.flagInfo?.reason === "low_confidence") {
+      flaggedReasons.push(`ข้อ ${r.question}: ความมั่นใจในการอ่านจุดฝนต่ำ (ฝนจางหรือลบไม่สะอาด)`);
+    } else if (r.flagInfo?.reason === "out_of_bounds") {
+      flaggedReasons.push(`ข้อ ${r.question}: ฝนเกินขอบเขตที่กำหนด`);
+    } else if (r.isSkipped) {
+      flaggedReasons.push(`ข้อ ${r.question}: ไม่ได้ฝนคำตอบ`);
     }
+  });
 
-    if (flaggedReasons.length === 0) {
-      const skippedQs = rows.filter((r) => r.isSkipped).map((r) => r.question);
-      const multiQs = rows.filter((r) => r.isMultiMark).map((r) => r.question);
-
-      if (skippedQs.length > 0) {
-        flaggedReasons.push(
-          `พบข้อที่ไม่ได้ฝนคำตอบ: ข้อ ${skippedQs.join(", ")}`,
-        );
+  if (Array.isArray(result.flagged)) {
+    result.flagged.forEach((f) => {
+      if (f && f.reason === "not_filled") {
+        flaggedReasons.push(`ข้อ ${f.question || "-"}: ไม่ได้ฝนคำตอบ`);
       }
-      if (multiQs.length > 0) {
-        flaggedReasons.push(
-          `พบข้อที่ฝนมากกว่า 1 ตัวเลือก: ข้อ ${multiQs.join(", ")}`,
-        );
-      }
-      if (flaggedReasons.length === 0) {
-        flaggedReasons.push(
-          "ความมั่นใจในการอ่านจุดฝนต่ำ (อาจฝนจางหรือลบไม่สะอาด)",
-        );
-      }
-    }
+    });
   }
+
+  // Deduplicate reasons
+  const uniqueFlaggedReasons = [...new Set(flaggedReasons)];
+  const isActuallyFlagged = uniqueFlaggedReasons.length > 0;
 
   useEffect(() => {
     setPage(1);
@@ -1014,7 +1134,7 @@ function StudentAnswersView({ result, exam, api, refresh }) {
             คะแนนที่ได้
           </p>
           <div className="text-3xl font-bold text-blue-600">
-            {result.score}{" "}
+            {isActuallyFlagged ? "-" : result.score}{" "}
             <span className="text-lg text-slate-400 font-normal">
               / {questionsCount}
             </span>
@@ -1022,7 +1142,7 @@ function StudentAnswersView({ result, exam, api, refresh }) {
         </div>
       </div>
 
-      {result.flagged ? (
+      {isActuallyFlagged ? (
         <div className="bg-amber-50 text-amber-900 rounded-lg p-4 text-base flex flex-col gap-2 border border-amber-200">
           <div className="flex items-center gap-2 font-bold text-amber-800">
             <Icon
@@ -1032,19 +1152,10 @@ function StudentAnswersView({ result, exam, api, refresh }) {
             <span>รอตรวจสอบความถูกต้อง</span>
           </div>
           <ul className="list-disc list-inside pl-1 text-amber-700 text-sm space-y-1 font-medium">
-            {flaggedReasons.map((reason, idx) => (
+            {uniqueFlaggedReasons.map((reason, idx) => (
               <li key={idx}>{reason}</li>
             ))}
           </ul>
-
-          <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-amber-200/60">
-            <PrimaryButton
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
-              onClick={() => handleFlag(result.id, false)}
-            >
-              <Icon name="fa-check" /> ยืนยันว่าตรวจสอบแล้ว
-            </PrimaryButton>
-          </div>
         </div>
       ) : (
         <div className="flex items-center justify-between bg-emerald-50 text-emerald-800 rounded-lg p-3.5 px-4 text-sm border border-emerald-200">
@@ -1055,12 +1166,6 @@ function StudentAnswersView({ result, exam, api, refresh }) {
             />
             <span>สถานะ: ตรวจสอบสมบูรณ์แล้ว</span>
           </div>
-          <GhostButton
-            className="text-xs text-slate-600 hover:text-amber-700 border-slate-200"
-            onClick={() => handleFlag(result.id, true)}
-          >
-            <Icon name="fa-flag" /> เปลี่ยนเป็นรอตรวจสอบ
-          </GhostButton>
         </div>
       )}
 
@@ -1078,7 +1183,9 @@ function StudentAnswersView({ result, exam, api, refresh }) {
                 <th className="px-4 py-3.5">ข้อ</th>
                 <th className="px-4 py-3.5 text-center">คำตอบที่เลือก</th>
                 <th className="px-4 py-3.5 text-center">เฉลย</th>
-                <th className="px-4 py-3.5 text-center">สถานะ</th>
+                <th className="px-4 py-3.5 text-center">ผลตรวจ</th>
+                <th className="px-4 py-3.5 text-center">สถานะการฝน</th>
+                <th className="px-4 py-3.5 text-center">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -1091,51 +1198,63 @@ function StudentAnswersView({ result, exam, api, refresh }) {
                     {row.question}
                   </td>
                   <td className="px-4 py-3 text-center font-bold">
-                    {row.isMultiMark ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                        <Icon
-                          name="fa-triangle-exclamation"
-                          className="text-amber-600"
-                        />
-                        {row.studentAns}{" "}
-                        <span className="text-[11px] font-normal text-amber-700">
-                          (ฝนซ้ำ)
-                        </span>
-                      </span>
-                    ) : row.flagInfo?.reason === "low_confidence" ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                        <Icon
-                          name="fa-triangle-exclamation"
-                          className="text-amber-500 text-xs"
-                        />
-                        {row.studentAns}{" "}
-                        <span className="text-[11px] font-normal text-amber-600">
-                          (ฝนจาง)
-                        </span>
-                      </span>
-                    ) : row.isSkipped ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-400">
-                        -{" "}
-                        <span className="text-[10px] text-slate-400">
-                          (ไม่ได้ฝน)
-                        </span>
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-base font-bold ${row.isCorrect ? "text-slate-800" : "text-rose-700"}`}
-                      >
-                        {row.studentAns}
-                      </span>
-                    )}
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {["A", "B", "C", "D", "E"].map((opt, i) => {
+                        // Check if the student's answer includes this option (for multi-mark support)
+                        const isSelected = row.studentAns
+                          ? row.studentAns
+                              .split(",")
+                              .map((s) => s.trim())
+                              .includes(opt)
+                          : false;
+                          
+                        const hasProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
+                        const isUnlocked = unlockedQuestions.has(row.question);
+                        const isUpdating = updatingQuestions.has(row.question);
+                        const isDisabled = (!hasProblem && !isUnlocked) || isUpdating;
+
+                        return (
+                          <button
+                            key={i}
+                            disabled={isDisabled}
+                            onClick={() =>
+                              handleUpdateAnswer(row.question, opt)
+                            }
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-200 ease-in-out relative ${
+                              isDisabled && !isUpdating
+                                ? isSelected
+                                  ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
+                                  : "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                                : isUpdating
+                                  ? isSelected
+                                    ? "bg-emerald-300 text-white cursor-wait"
+                                    : "bg-slate-100 text-slate-300 cursor-wait"
+                                : isSelected
+                                ? "bg-emerald-500 text-white border-emerald-500 scale-105 shadow-md hover:scale-110"
+                                : "bg-slate-50 text-slate-500 border border-slate-200 shadow-sm hover:scale-110 hover:shadow-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
+                            }`}
+                            title={isDisabled && !isUpdating ? "ข้อนี้ปกติ ไม่สามารถแก้ไขได้" : `เลือกคำตอบ ${opt}`}
+                          >
+                            {isUpdating && isSelected ? (
+                               <Icon name="fa-spinner" className="animate-spin text-white" />
+                            ) : (
+                               opt
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-center font-bold text-emerald-600">
                     {row.correctAns}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {row.isSkipped ? (
+                    {row.isSkipped ||
+                    row.isMultiMark ||
+                    row.flagInfo?.reason === "multiple_mark" ? (
                       <span
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400"
-                        title="ไม่ตอบ"
+                        title="ไม่ได้คะแนน"
                       >
                         <Icon name="fa-minus" />
                       </span>
@@ -1154,6 +1273,109 @@ function StudentAnswersView({ result, exam, api, refresh }) {
                         <Icon name="fa-xmark" />
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {/* Badge Rendering */}
+                      {(() => {
+                        const isVerified = verifiedQuestions.has(row.question);
+                        const isProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
+                        
+                        if (!isProblem || isVerified) {
+                           return (
+                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap">
+                               <Icon name="fa-circle-check" /> ปกติ
+                             </span>
+                           );
+                        }
+                        
+                        if (row.isMultiMark || row.flagInfo?.reason === "multiple_mark") {
+                           return (
+                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+                               <Icon name="fa-triangle-exclamation" className="text-amber-600" /> ฝนเกิน
+                             </span>
+                           );
+                        }
+                        if (row.flagInfo?.reason === "low_confidence") {
+                           return (
+                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                               <Icon name="fa-triangle-exclamation" className="text-amber-500" /> ฝนจาง
+                             </span>
+                           );
+                        }
+                        if (row.flagInfo?.reason === "out_of_bounds") {
+                           return (
+                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                               <Icon name="fa-triangle-exclamation" className="text-rose-600" /> ฝนเกินขอบ
+                             </span>
+                           );
+                        }
+                        if (row.isSkipped) {
+                           return (
+                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                               <Icon name="fa-triangle-exclamation" className="text-rose-600 text-[10px]" /> ไม่ได้ฝน
+                             </span>
+                           );
+                        }
+                      })()}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center">
+                      {/* Action Buttons */}
+                      {(() => {
+                        const isVerified = verifiedQuestions.has(row.question);
+                        const isUnlocked = unlockedQuestions.has(row.question);
+                        const isProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
+
+                        if (isProblem && !isVerified) {
+                          return (
+                            <button
+                              onClick={() => handleVerifyRow(row.question)}
+                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-all text-xs font-bold shadow-sm hover:shadow"
+                              title="ยอมรับข้อผิดพลาด (ยืนยันให้คะแนนตามจริงและเปลี่ยนสถานะเป็นปกติ)"
+                            >
+                              <Icon name="fa-check" /> ยอมรับ
+                            </button>
+                          );
+                        }
+                        if (!isUnlocked && (!isProblem || isVerified)) {
+                          return (
+                            <button
+                              onClick={() => {
+                                setUnlockedQuestions(prev => new Set(prev).add(row.question));
+                              }}
+                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-all text-xs font-bold shadow-sm hover:shadow"
+                              title="ปลดล็อคเพื่อแก้ไขคำตอบ"
+                            >
+                              <Icon name="fa-pen" /> แก้ไข
+                            </button>
+                          );
+                        }
+                        if (isUnlocked) {
+                          return (
+                            <button
+                              onClick={() => {
+                                setUnlockedQuestions(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(row.question);
+                                  return next;
+                                });
+                              }}
+                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-slate-100 hover:text-slate-600 border border-blue-200 hover:border-transparent transition-all text-xs font-bold shadow-sm hover:shadow"
+                              title="ล็อคการแก้ไข"
+                            >
+                              <Icon name="fa-lock" /> ล็อค
+                            </button>
+                          );
+                        }
+                        return (
+                          <span className="px-3 py-1.5 flex items-center justify-center rounded-md text-slate-300 text-xs font-bold">
+                            -
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </td>
                 </tr>
               ))}

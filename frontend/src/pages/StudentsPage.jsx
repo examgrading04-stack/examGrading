@@ -81,12 +81,22 @@ export function StudentsPage({ data, api, refresh }) {
           .trim()
           .toLowerCase();
       if (!isEditing) {
+        if (!form.subjectCode) return matchId;
         return matchId && matchSubject;
       } else {
         const sameRecord =
-          (s.id === form.id || s.code === form.id) &&
-          (s.subjectCode === form.subjectCode ||
-            s.subject === form.subjectCode);
+          String(s.id || s.code || "")
+            .trim()
+            .toLowerCase() ===
+            String(form.id || "")
+              .trim()
+              .toLowerCase() &&
+          String(s.subjectCode || s.subject || "")
+            .trim()
+            .toLowerCase() ===
+            String(form.oldSubjectCode || form.subjectCode || "")
+              .trim()
+              .toLowerCase();
         return matchId && matchSubject && !sameRecord;
       }
     });
@@ -94,7 +104,7 @@ export function StudentsPage({ data, api, refresh }) {
     if (existingStudent) {
       return Swal().fire({
         title: "รหัสผู้เรียนนี้มีอยู่แล้ว",
-        text: `รหัสผู้เรียน "${studentIdTrimmed}" (${existingStudent.name || ""}) มีอยู่ในรายวิชานี้เรียบร้อยแล้ว`,
+        text: `รหัสผู้เรียน "${studentIdTrimmed}" (${existingStudent.name || ""}) มีอยู่ในระบบนี้เรียบร้อยแล้ว`,
         icon: "warning",
         confirmButtonText: "ตกลง",
       });
@@ -113,21 +123,29 @@ export function StudentsPage({ data, api, refresh }) {
         String(form.subjectCode || "")
           .trim()
           .toLowerCase();
-      if (!isEditing) {
-        return matchName && matchSubject;
-      } else {
-        const sameRecord =
-          (s.id === form.id || s.code === form.id) &&
-          (s.subjectCode === form.subjectCode ||
-            s.subject === form.subjectCode);
-        return matchName && matchSubject && !sameRecord;
-      }
+      const sameStudentId =
+        String(s.id || s.code || "")
+          .trim()
+          .toLowerCase() ===
+        String(form.id || "")
+          .trim()
+          .toLowerCase();
+      return matchName && !sameStudentId;
     });
 
     if (existingName) {
       return Swal().fire({
         title: "ชื่อ-นามสกุลนี้มีอยู่แล้ว",
-        text: `ชื่อ-นามสกุล "${nameTrimmed}" (รหัสผู้เรียน: ${existingName.id || existingName.code || ""}) มีอยู่ในรายวิชานี้เรียบร้อยแล้ว`,
+        text: `ชื่อ-นามสกุล "${nameTrimmed}" (รหัสผู้เรียน: ${existingName.id || existingName.code || ""}) มีอยู่ในระบบนี้เรียบร้อยแล้ว`,
+        icon: "warning",
+        confirmButtonText: "ตกลง",
+      });
+    }
+
+    if (form.subjectCode && !form.section) {
+      return Swal().fire({
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณาเลือกกลุ่มเรียนด้วยครับ หากยังไม่มีกลุ่มเรียน โปรดไปสร้างกลุ่มเรียนในเมนู 'รายวิชา' ก่อน",
         icon: "warning",
         confirmButtonText: "ตกลง",
       });
@@ -186,7 +204,10 @@ export function StudentsPage({ data, api, refresh }) {
     });
     try {
       if (row.id != null && row.id !== "") {
-        await api.remove("students", row.id);
+        const removeId = row.subjectCode
+          ? `${row.id}_${row.subjectCode}`
+          : row.id;
+        await api.remove("students", removeId);
       }
       await refresh("ลบผู้เรียนแล้ว");
     } catch (err) {
@@ -224,8 +245,15 @@ export function StudentsPage({ data, api, refresh }) {
         const student = data.students.find(
           (s) => `${s.id}_${s.subjectCode}` === uniqueId || s.id === uniqueId,
         );
-        if (student) idsToDelete.add(student.id);
-        else idsToDelete.add(uniqueId.split("_")[0]);
+        if (student) {
+          idsToDelete.add(
+            student.subjectCode
+              ? `${student.id}_${student.subjectCode}`
+              : student.id,
+          );
+        } else {
+          idsToDelete.add(uniqueId);
+        }
       }
 
       const validIds = Array.from(idsToDelete).filter(
@@ -776,6 +804,8 @@ export function StudentsPage({ data, api, refresh }) {
                       setForm({
                         ...emptyForm(["id", "name", "section", "subjectCode"]),
                         ...row,
+                        oldSubjectCode: row.subjectCode,
+                        originalName: row.name,
                       });
                       setIsEditing(true);
                     }}
@@ -826,7 +856,16 @@ export function StudentsPage({ data, api, refresh }) {
             <GhostButton
               type="button"
               onClick={() => {
-                setForm(emptyForm(["id", "name", "section", "subjectCode"]));
+                setForm(
+                  emptyForm([
+                    "id",
+                    "name",
+                    "section",
+                    "subjectCode",
+                    "oldSubjectCode",
+                    "originalName",
+                  ]),
+                );
                 setIsEditing(false);
               }}
               className="py-1 px-3 text-sm whitespace-nowrap text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100"
