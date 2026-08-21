@@ -1,24 +1,43 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/data/services/api_service.dart';
 import 'package:exam_grading/presentation/widgets/skeleton_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:quickalert/quickalert.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/widgets/pagination_bar.dart';
 
 class _ItemAnalysis {
   const _ItemAnalysis({
+    required this.question,
+    required this.answer,
     required this.difficulty,
     required this.discrimination,
     required this.correctCount,
     required this.totalCount,
+    required this.upperCorrectCount,
+    required this.upperGroupLength,
+    required this.lowerCorrectCount,
+    required this.lowerGroupLength,
+    this.choiceCounts = const {},
   });
+  final String question;
+  final String answer;
   final double difficulty;
   final double discrimination;
   final int correctCount;
   final int totalCount;
+  final int upperCorrectCount;
+  final int upperGroupLength;
+  final int lowerCorrectCount;
+  final int lowerGroupLength;
+  final Map<String, int> choiceCounts;
 }
 
 class AnalysisScreen extends StatefulWidget {
@@ -143,6 +162,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             }
           }
 
+          double sd = 0.0;
+          if (scores.length > 1) {
+            final sumSq = scores.fold<double>(
+              0.0,
+              (acc, s) => acc + (s - average) * (s - average),
+            );
+            sd = math.sqrt(sumSq / (scores.length - 1));
+          }
+
           final itemAnalysis = _calculateItemAnalysis(exam, results);
           final avgDifficulty = _average(
             itemAnalysis.map((item) => item.difficulty).toList(),
@@ -154,6 +182,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           _examStats[exam.id] = {
             'count': count,
             'average': average,
+            'sd': sd,
             'passRate': passRate,
             'maxScore': maxScore,
             'minScore': minScore,
@@ -804,6 +833,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final avgDifficulty = stats['avgDifficulty'] ?? 0.0;
     final avgDiscrimination = stats['avgDiscrimination'] ?? 0.0;
 
+    final sd = stats['sd'] ?? 0.0;
+    final String sdStr = count > 1 ? (sd as double).toStringAsFixed(2) : '-';
+
     String fmt(double val) =>
         val.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
     final String maxMinStr = count == 0
@@ -872,7 +904,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final width3 = (constraints.maxWidth - 16) / 3;
-                final width2 = (constraints.maxWidth - 8) / 2;
                 return Column(
                   children: [
                     Row(
@@ -885,13 +916,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         SizedBox(
                           width: width3,
                           child: _buildMiniStat(
-                            'เฉลี่ย',
+                            'คะแนนเฉลี่ย',
                             average.toStringAsFixed(1),
                           ),
                         ),
                         SizedBox(
                           width: width3,
-                          child: _buildMiniStat('สูงสุด/ต่ำสุด', maxMinStr),
+                          child: _buildMiniStat('ส่วนเบี่ยงเบน (SD)', sdStr),
                         ),
                       ],
                     ),
@@ -900,12 +931,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         SizedBox(
-                          width: width2,
+                          width: width3,
                           child: _buildMiniStat('มัธยฐาน', medianStr),
                         ),
                         SizedBox(
-                          width: width2,
+                          width: width3,
                           child: _buildMiniStat('ฐานนิยม', modeStr),
+                        ),
+                        SizedBox(
+                          width: width3,
+                          child: _buildMiniStat('สูงสุด/ต่ำสุด', maxMinStr),
                         ),
                       ],
                     ),
@@ -1080,31 +1115,69 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             (result['answers'] as Map?)?.containsKey(question) == true,
       );
       if (!hasItemData) continue;
+
+      final correctAns = _getCorrectAnswer(
+        exam,
+        question,
+        results.isNotEmpty ? results.first['set']?.toString() : null,
+      );
+
+      final choiceCounts = <String, int>{
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+        '-': 0,
+      };
+
       bool isCorrect(Map<String, dynamic> result) {
-        final correctAns = _getCorrectAnswer(
+        final currentCorrectAns = _getCorrectAnswer(
           exam,
           question,
           result['set']?.toString(),
         );
         final answers = result['answers'] as Map?;
         if (answers != null && answers.containsKey(question)) {
-          return answers[question].toString() == correctAns &&
-              correctAns != '-';
+          final sAns = answers[question]?.toString().trim() ?? '';
+          if (choiceCounts.containsKey(sAns)) {
+            choiceCounts[sAns] = (choiceCounts[sAns] ?? 0) + 1;
+          } else {
+            choiceCounts['-'] = (choiceCounts['-'] ?? 0) + 1;
+          }
+          return sAns == currentCorrectAns && currentCorrectAns != '-';
         }
-        return (result['itemResults'] as Map?)?[question] == true;
+        final isCorr = (result['itemResults'] as Map?)?[question] == true;
+        if (isCorr) {
+          choiceCounts[currentCorrectAns] =
+              (choiceCounts[currentCorrectAns] ?? 0) + 1;
+        } else {
+          choiceCounts['-'] = (choiceCounts['-'] ?? 0) + 1;
+        }
+        return isCorr;
       }
 
       final correctCount = results.where(isCorrect).length;
+      final upperCorrectCount = upperGroup.where(isCorrect).length;
+      final lowerCorrectCount = lowerGroup.where(isCorrect).length;
       final upperCorrect =
-          upperGroup.where(isCorrect).length / upperGroup.length;
+          upperGroup.isNotEmpty ? upperCorrectCount / upperGroup.length : 0.0;
       final lowerCorrect =
-          lowerGroup.where(isCorrect).length / lowerGroup.length;
+          lowerGroup.isNotEmpty ? lowerCorrectCount / lowerGroup.length : 0.0;
+
       items.add(
         _ItemAnalysis(
+          question: question,
+          answer: correctAns,
           difficulty: correctCount / results.length,
           discrimination: upperCorrect - lowerCorrect,
           correctCount: correctCount,
           totalCount: results.length,
+          upperCorrectCount: upperCorrectCount,
+          upperGroupLength: upperGroup.length,
+          lowerCorrectCount: lowerCorrectCount,
+          lowerGroupLength: lowerGroup.length,
+          choiceCounts: choiceCounts,
         ),
       );
     }
@@ -1117,20 +1190,20 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   String _difficultyLabel(double value) {
-    if (value >= 0.8) return 'ง่าย';
+    if (value >= 0.8) return 'ง่ายเกินไป';
     if (value >= 0.4) return 'เหมาะสม';
-    return 'ยาก';
+    return 'ยากเกินไป';
   }
 
   String _discriminationLabel(double value) {
-    if (value >= 0.4) return 'ดี';
+    if (value >= 0.4) return 'ดีมาก';
     if (value >= 0.2) return 'พอใช้';
-    return 'ควรปรับ';
+    return 'ควรปรับปรุง';
   }
 
   Color _difficultyColor(double value) {
-    if (value >= 0.8) return AppColors.success;
-    if (value >= 0.4) return AppColors.warning;
+    if (value >= 0.8) return AppColors.warning;
+    if (value >= 0.4) return AppColors.success;
     return AppColors.error;
   }
 
@@ -1138,6 +1211,285 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (value >= 0.4) return AppColors.success;
     if (value >= 0.2) return AppColors.warning;
     return AppColors.error;
+  }
+
+  Future<void> _exportItemAnalysisCsv(
+    ExamModel exam,
+    List<_ItemAnalysis> items,
+  ) async {
+    try {
+      final header = [
+        'ข้อ',
+        'เฉลย',
+        'ตอบถูก',
+        'ทั้งหมด',
+        'p (ความยาก)',
+        'ระดับความยาก',
+        'กลุ่มสูงตอบถูก',
+        'กลุ่มต่ำตอบถูก',
+        'D (อำนาจจำแนก)',
+        'ผลลัพธ์',
+      ];
+
+      final rows = items.map((r) => [
+            r.question,
+            r.answer,
+            '${r.correctCount}',
+            '${r.totalCount}',
+            r.difficulty.toStringAsFixed(3),
+            _difficultyLabel(r.difficulty),
+            '${r.upperCorrectCount}/${r.upperGroupLength} (${(r.upperGroupLength > 0 ? (r.upperCorrectCount * 100 / r.upperGroupLength).round() : 0)}%)',
+            '${r.lowerCorrectCount}/${r.lowerGroupLength} (${(r.lowerGroupLength > 0 ? (r.lowerCorrectCount * 100 / r.lowerGroupLength).round() : 0)}%)',
+            r.discrimination.toStringAsFixed(3),
+            _discriminationLabel(r.discrimination),
+          ]);
+
+      final csvContent = [header, ...rows]
+          .map((row) => row.map((c) => '"${c.replaceAll('"', '""')}"').join(','))
+          .join('\n');
+
+      final dir = await getApplicationDocumentsDirectory();
+      final filename =
+          'Item_Analysis_${exam.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final file = File('${dir.path}/$filename');
+      await file.writeAsString('\uFEFF$csvContent', encoding: utf8);
+
+      await OpenFilex.open(file.path);
+      if (mounted) {
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.success,
+          title: 'ส่งออก CSV สำเร็จ',
+          text: 'บันทึกและเปิดไฟล์เรียบร้อยแล้ว',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.error,
+          title: 'เกิดข้อผิดพลาด',
+          text: e.toString(),
+        );
+      }
+    }
+  }
+
+  void _showQuestionDetailDialog(
+    ExamModel exam,
+    _ItemAnalysis item,
+    List<Map<String, dynamic>> results,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final upperRate = item.upperGroupLength > 0
+            ? (item.upperCorrectCount * 100 / item.upperGroupLength).round()
+            : 0;
+        final lowerRate = item.lowerGroupLength > 0
+            ? (item.lowerCorrectCount * 100 / item.lowerGroupLength).round()
+            : 0;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.infoSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'ข้อ ${item.question}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.infoDark,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'เฉลย: ${item.answer}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'ตอบถูก ${item.correctCount}/${item.totalCount} คน (${(item.difficulty * 100).round()}%)',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text(
+                  'กลุ่มคะแนน (27% Upper/Lower):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'กลุ่มสูงตอบถูก',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.upperCorrectCount}/${item.upperGroupLength} ($upperRate%)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.error.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'กลุ่มต่ำตอบถูก',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.lowerCorrectCount}/${item.lowerGroupLength} ($lowerRate%)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'สถิติการเลือกตอบ:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                ...['A', 'B', 'C', 'D', 'E', '-'].map((choice) {
+                  final cnt = item.choiceCounts[choice] ?? 0;
+                  final isAnswer = choice == item.answer;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isAnswer
+                                ? AppColors.success
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            choice == '-' ? 'ไม่ฝน' : choice,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isAnswer ? Colors.white : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: item.totalCount > 0
+                                  ? cnt / item.totalCount
+                                  : 0,
+                              color: isAnswer
+                                  ? AppColors.success
+                                  : AppColors.info,
+                              backgroundColor: AppColors.border,
+                              minHeight: 8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '$cnt คน',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isAnswer
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ปิด'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showItemAnalysisBottomSheet(
@@ -1154,21 +1506,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       return;
     }
     final itemAnalysis = _calculateItemAnalysis(exam, results);
+    final isLowN = results.length < 15;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: const BoxDecoration(
             color: AppColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: const BorderRadius.vertical(
@@ -1187,7 +1541,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     Container(
                       width: 40,
                       height: 5,
-                      margin: const EdgeInsets.only(bottom: 24),
+                      margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: AppColors.border,
                         borderRadius: BorderRadius.circular(3),
@@ -1215,25 +1569,82 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                             children: [
                               Text(
                                 'วิเคราะห์คุณภาพข้อสอบ',
-                                style: TextStyle(
-                                  fontSize: 18,
+                                style: const TextStyle(
+                                  fontSize: 17,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
-                                exam.name,
-                                style: TextStyle(
-                                  fontSize: 13,
+                                '${exam.name} (${results.length} คน)',
+                                style: const TextStyle(
+                                  fontSize: 12,
                                   color: AppColors.textSecondary,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              _exportItemAnalysisCsv(exam, itemAnalysis),
+                          icon: const Icon(FontAwesomeIcons.fileCsv, size: 13),
+                          label: const Text(
+                            'CSV',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.infoSoft,
+                            foregroundColor: AppColors.infoDark,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
+                    if (isLowN) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.warning.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: AppColors.warning,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'จำนวนผู้สอบน้อยกว่า 15 คน ผลวิเคราะห์ 27% อาจคลาดเคลื่อน',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.warning,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1244,8 +1655,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     children: [
                       /* Table Header */ Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 14,
+                          horizontal: 20,
+                          vertical: 12,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.infoSoft,
@@ -1261,7 +1672,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 'ข้อ',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: AppColors.infoDark,
                                 ),
                               ),
@@ -1272,7 +1683,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 'ตอบถูก',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: AppColors.infoDark,
                                 ),
                               ),
@@ -1283,7 +1694,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 'ความยาก (p)',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: AppColors.infoDark,
                                 ),
                               ),
@@ -1294,7 +1705,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 'จำแนก (D)',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   color: AppColors.infoDark,
                                 ),
                               ),
@@ -1308,29 +1719,34 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           itemCount: itemAnalysis.length,
                           itemBuilder: (context, index) {
                             final item = itemAnalysis[index];
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 16,
+                            return InkWell(
+                              onTap: () => _showQuestionDetailDialog(
+                                exam,
+                                item,
+                                results,
                               ),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: AppColors.border,
-                                    width: 0.5,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: AppColors.border,
+                                      width: 0.5,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 1,
-                                    child: Container(
-                                      width: 28,
-                                      height: 28,
-                                      alignment: Alignment.centerLeft,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 1,
                                       child: Container(
-                                        padding: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 4,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: AppColors.background,
                                           borderRadius: BorderRadius.circular(
@@ -1338,8 +1754,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                           ),
                                         ),
                                         child: Text(
-                                          '${index + 1}',
-                                          style: TextStyle(
+                                          item.question,
+                                          style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: AppColors.textPrimary,
                                             fontSize: 12,
@@ -1347,121 +1763,109 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          FontAwesomeIcons.solidCircleCheck,
-                                          color: AppColors.success,
-                                          size: 10,
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        '${item.correctCount}/${item.totalCount}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${item.correctCount}/${item.totalCount}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.difficulty.toStringAsFixed(2),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: _difficultyColor(
-                                              item.difficulty,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _difficultyColor(
-                                              item.difficulty,
-                                            ).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _difficultyLabel(item.difficulty),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.difficulty.toStringAsFixed(2),
                                             style: TextStyle(
-                                              fontSize: 9,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 13,
                                               color: _difficultyColor(
                                                 item.difficulty,
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 2),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _difficultyColor(
+                                                item.difficulty,
+                                              ).withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              _difficultyLabel(item.difficulty),
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: _difficultyColor(
+                                                  item.difficulty,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.discrimination.toStringAsFixed(
-                                            2,
-                                          ),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: _discriminationColor(
-                                              item.discrimination,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _discriminationColor(
-                                              item.discrimination,
-                                            ).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _discriminationLabel(
-                                              item.discrimination,
+                                    Expanded(
+                                      flex: 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.discrimination.toStringAsFixed(
+                                              2,
                                             ),
                                             style: TextStyle(
-                                              fontSize: 9,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 13,
                                               color: _discriminationColor(
                                                 item.discrimination,
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 2),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _discriminationColor(
+                                                item.discrimination,
+                                              ).withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              _discriminationLabel(
+                                                item.discrimination,
+                                              ),
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: _discriminationColor(
+                                                  item.discrimination,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
                           },

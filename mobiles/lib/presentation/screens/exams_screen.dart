@@ -139,7 +139,17 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
     List<String> getAvailableSections(String? subjectCode) {
       if (subjectCode == null) return [];
-      return _students
+      final fromSections = _sections
+          .where(
+            (s) =>
+                s.subject == subjectCode ||
+                s.id.startsWith('${subjectCode}_'),
+          )
+          .map((s) => s.sec)
+          .where((sec) => sec.isNotEmpty)
+          .toSet()
+          .toList();
+      final fromStudents = _students
           .where(
             (s) =>
                 s.className.startsWith('${subjectCode}_') ||
@@ -150,9 +160,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 ? s.className.split('_').last
                 : s.className,
           )
+          .where((sec) => sec.isNotEmpty && sec != subjectCode)
           .toSet()
-          .toList()
-        ..sort();
+          .toList();
+      final combined = {...fromSections, ...fromStudents}.toList()..sort();
+      return combined;
     }
 
     final isEdit = exam != null;
@@ -328,6 +340,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           }
                           final subjectCode = selectedSubjectCode!;
                           final examSection = selectedSection ?? '';
+                          final subjectObj = _subjects.firstWhere(
+                            (s) => s.code == subjectCode,
+                            orElse: () => _subjects.isNotEmpty
+                                ? _subjects.first
+                                : SubjectModel(
+                                    id: subjectCode,
+                                    code: subjectCode,
+                                    name: subjectCode,
+                                    term: '1',
+                                    year: '',
+                                    teacher: '',
+                                  ),
+                          );
                           final studentsSnapshot = isEdit
                               ? exam.studentsSnapshot
                               : await _buildStudentsSnapshotForExam(
@@ -343,7 +368,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           } else if (finalSheetType.startsWith('50')) {
                             templateSize = 50;
                           }
-                          
+
                           if (questionsCount > templateSize) {
                             if (questionsCount <= 30) {
                               finalSheetType = '30-A-E';
@@ -354,11 +379,19 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             }
                           }
 
+                          final examId =
+                              '$subjectCode${examSection.isNotEmpty ? '_$examSection' : ''}_${nameController.text.trim().replaceAll(' ', '_')}';
+
                           final data = {
                             'name': nameController.text.trim(),
                             'subject': subjectCode,
+                            'subject_id': subjectCode,
+                            'subjectName': subjectObj.name,
                             'date': dateController.text,
-                            'section': examSection,
+                            'examDate': dateController.text,
+                            'section': examSection.isNotEmpty
+                                ? examSection
+                                : 'All Section',
                             'questions': questionsCount,
                             'options': 5,
                             'sets': 1,
@@ -377,25 +410,22 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             await ApiService.instance.setDoc(
                               _uid,
                               'exams',
-                              '${selectedSubjectCode}_${nameController.text.trim().replaceAll(' ', '_')}',
+                              examId,
                               data,
                             );
                           }
                           if (!mounted || !context.mounted) return;
                           Navigator.pop(context);
                           if (!isEdit) {
-                            final subjectObj = _subjects.firstWhere(
-                              (s) => s.code == subjectCode,
-                              orElse: () => _subjects.first,
-                            );
-                            final examId =
-                                '${subjectCode}_${nameController.text.trim().replaceAll(' ', '_')}';
                             final newExam = ExamModel(
                               id: examId,
                               name: nameController.text.trim(),
                               subject: subjectCode,
+                              subjectName: subjectObj.name,
                               date: dateController.text,
-                              section: examSection,
+                              section: examSection.isNotEmpty
+                                  ? examSection
+                                  : 'All Section',
                               questions: questionsCount,
                               options: 5,
                               sets: 1,
@@ -420,6 +450,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                               confirmBtnColor: AppColors.warning,
                             );
                           }
+                          _fetchData();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
