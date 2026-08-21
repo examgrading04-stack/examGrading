@@ -201,6 +201,17 @@ class ApiService {
     _assertOk(resp);
   }
 
+  // ── Academic Settings ─────────────────────────────────────────────────────
+  /// ดึงค่า academic_year และ academic_term จาก /api/settings/academic_year
+  Future<Map<String, dynamic>> getAcademicSettings() async {
+    final uri = ApiConfig.endpoint('/api/settings/academic_year');
+    final resp = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 20));
+    _assertOk(resp);
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   // ── Helper ──────────────────────────────────────────────────────────────
   void _assertOk(http.Response resp) {
     if (resp.statusCode >= 200 && resp.statusCode < 300) return;

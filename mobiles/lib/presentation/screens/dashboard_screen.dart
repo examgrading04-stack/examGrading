@@ -7,7 +7,6 @@ import 'package:exam_grading/presentation/screens/results_screen.dart';
 import 'package:exam_grading/presentation/screens/subjects_screen.dart';
 import 'package:exam_grading/presentation/screens/students_screen.dart';
 import 'package:exam_grading/presentation/screens/exams_screen.dart';
-import 'package:exam_grading/presentation/screens/analysis_screen.dart';
 import 'package:exam_grading/presentation/screens/profile_screen.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 
@@ -19,7 +18,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0;
   int _profileRevision = 0;
 
   Future<void> _openProfile() async {
@@ -34,17 +32,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _DashboardHome(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: _DashboardHome(
         key: ValueKey(_profileRevision),
         onOpenProfile: _openProfile,
       ),
-      const AnalysisScreen(),
-    ];
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: pages[_selectedIndex],
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -56,93 +49,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         foregroundColor: Colors.white,
         elevation: 8,
         shape: const CircleBorder(),
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primary,
-          ),
-          child: const Center(
-            child: Icon(FontAwesomeIcons.cameraRetro, size: 24),
-          ),
-        ),
+        child: const Icon(FontAwesomeIcons.cameraRetro, size: 24),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        color: Colors.white,
-        padding: EdgeInsets.zero,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => setState(() => _selectedIndex = 0),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.house,
-                          color: _selectedIndex == 0
-                              ? AppColors.primary
-                              : AppColors.textMuted,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'หน้าแรก',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedIndex == 0
-                                ? AppColors.primary
-                                : AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 80),
-              Expanded(
-                child: InkWell(
-                  onTap: () => setState(() => _selectedIndex = 1),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.chartPie,
-                          color: _selectedIndex == 1
-                              ? AppColors.primary
-                              : AppColors.textMuted,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'วิเคราะห์',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedIndex == 1
-                                ? AppColors.primary
-                                : AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
