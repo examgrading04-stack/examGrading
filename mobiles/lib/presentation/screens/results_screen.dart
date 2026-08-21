@@ -1,7 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:quickalert/quickalert.dart';
+import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/data/services/api_service.dart';
@@ -19,6 +25,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   bool _isLoading = true;
+  bool _isExporting = false;
   static const int _pageSize = 10;
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
@@ -69,6 +76,174 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return extractAnswer(firstSet[qNum]);
     }
     return '-';
+  }
+
+  Future<void> _exportPdfReport() async {
+    if (_results.isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.warning,
+        text: 'ไม่พบข้อมูลผลการสอบสำหรับส่งออกรายงาน',
+      );
+      return;
+    }
+    setState(() => _isExporting = true);
+    try {
+      ExamModel? targetExam;
+      if (_selectedSubject != 'ทั้งหมด') {
+        try {
+          targetExam = _exams.firstWhere((e) => e.subject == _selectedSubject);
+        } catch (_) {}
+      }
+      if (targetExam == null && _exams.isNotEmpty) {
+        targetExam = _exams.first;
+      }
+
+      http.Response response;
+      String filename;
+      if (targetExam != null) {
+        filename =
+            'Report_${targetExam.id}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        response = await http
+            .post(
+              ApiConfig.endpoint('/api/results/report/pdf/download'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': _uid,
+              },
+              body: json.encode({
+                'examId': targetExam.id,
+                'user_email': _uid,
+              }),
+            )
+            .timeout(const Duration(seconds: 60));
+      } else {
+        filename =
+            'Summary_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        response = await http
+            .post(
+              ApiConfig.endpoint('/api/reports/summary/pdf/download'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': _uid,
+              },
+              body: json.encode({
+                'title': 'รายงานสรุปผลการสอบ',
+                'columns': ['รหัสนักเรียน', 'ชื่อ-นามสกุล', 'วิชา/ข้อสอบ', 'คะแนน'],
+                'rows': _results
+                    .map((r) => [
+                          r['studentCode'] ?? '-',
+                          r['studentName'] ?? '-',
+                          r['examId'] ?? '-',
+                          '${r['score'] ?? 0}',
+                        ])
+                    .toList(),
+              }),
+            )
+            .timeout(const Duration(seconds: 60));
+      }
+
+      if (response.statusCode == 200) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/$filename');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFilex.open(file.path, type: 'application/pdf');
+        if (mounted) {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.success,
+            title: 'ส่งออก PDF สำเร็จ',
+            text: 'บันทึกและเปิดไฟล์รายงานเรียบร้อยแล้ว',
+          );
+        }
+      } else {
+        throw Exception(
+          'Server error (${response.statusCode}): ${response.body}',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.error,
+          title: 'เกิดข้อผิดพลาด',
+          text: e.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _exportExcelReport() async {
+    if (_results.isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.warning,
+        text: 'ไม่พบข้อมูลผลการสอบสำหรับส่งออกรายงาน',
+      );
+      return;
+    }
+    setState(() => _isExporting = true);
+    try {
+      ExamModel? targetExam;
+      if (_selectedSubject != 'ทั้งหมด') {
+        try {
+          targetExam = _exams.firstWhere((e) => e.subject == _selectedSubject);
+        } catch (_) {}
+      }
+      if (targetExam == null && _exams.isNotEmpty) {
+        targetExam = _exams.first;
+      }
+
+      final examId =
+          targetExam?.id ?? (_results.isNotEmpty ? _results.first['examId'] : '');
+      final response = await http
+          .post(
+            ApiConfig.endpoint('/api/results/report/excel/download'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': _uid,
+            },
+            body: json.encode({
+              'examId': examId,
+              'user_email': _uid,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        final dir = await getApplicationDocumentsDirectory();
+        final filename =
+            'Report_${examId}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+        final file = File('${dir.path}/$filename');
+        await file.writeAsBytes(response.bodyBytes);
+        await OpenFilex.open(file.path);
+        if (mounted) {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.success,
+            title: 'ส่งออก Excel สำเร็จ',
+            text: 'บันทึกและเปิดไฟล์ Excel เรียบร้อยแล้ว',
+          );
+        }
+      } else {
+        throw Exception(
+          'Server error (${response.statusCode}): ${response.body}',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.error,
+          title: 'เกิดข้อผิดพลาด',
+          text: e.toString(),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -133,52 +308,134 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 ),
                 background: Container(color: AppColors.surface),
               ),
+              actions: [
+                if (_isExporting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: AppColors.softShadow,
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedSubject,
-                      isExpanded: true,
-                      icon: Icon(
-                        FontAwesomeIcons.chevronDown,
-                        size: 14,
-                        color: AppColors.textSecondary,
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: AppColors.softShadow,
                       ),
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedSubject = newValue;
-                            _currentPage = 1;
-                          });
-                        }
-                      },
-                      items: _subjects.map<DropdownMenuItem<String>>((
-                        String value,
-                      ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(
-                            value == 'ทั้งหมด' ? 'ทุกวิชา' : 'วิชา: $value',
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedSubject,
+                          isExpanded: true,
+                          icon: Icon(
+                            FontAwesomeIcons.chevronDown,
+                            size: 14,
+                            color: AppColors.textSecondary,
                           ),
-                        );
-                      }).toList(),
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                _selectedSubject = newValue;
+                                _currentPage = 1;
+                              });
+                            }
+                          },
+                          items: _subjects.map<DropdownMenuItem<String>>((
+                            String value,
+                          ) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(
+                                value == 'ทั้งหมด' ? 'ทุกวิชา' : 'วิชา: $value',
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isExporting ? null : _exportPdfReport,
+                            icon: const Icon(
+                              FontAwesomeIcons.filePdf,
+                              size: 14,
+                            ),
+                            label: const Text(
+                              'รายงาน (PDF)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isExporting ? null : _exportExcelReport,
+                            icon: const Icon(
+                              FontAwesomeIcons.fileExcel,
+                              size: 14,
+                            ),
+                            label: const Text(
+                              'คะแนน (Excel)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.success,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(
+                                color: AppColors.success.withValues(alpha: 0.3),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),

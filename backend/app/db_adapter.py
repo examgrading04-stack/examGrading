@@ -368,6 +368,7 @@ class MySQLAdapter(BaseDBAdapter):
                     "ALTER TABLE exams ADD COLUMN exam_date VARCHAR(50) NULL",
                     "ALTER TABLE exams MODIFY COLUMN template_id VARCHAR(50) NULL",
                     "ALTER TABLE results MODIFY COLUMN template_id VARCHAR(50) NULL",
+                    "ALTER TABLE exams_detail MODIFY COLUMN student_answer VARCHAR(50) NULL",
                     "ALTER TABLE student_enrollments DROP FOREIGN KEY student_enrollments_ibfk_2",
                     "ALTER TABLE subjects_sec MODIFY COLUMN section_id VARCHAR(50)",
                     "ALTER TABLE student_enrollments MODIFY COLUMN section_id VARCHAR(50)",

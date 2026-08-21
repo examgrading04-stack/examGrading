@@ -2,12 +2,15 @@ class ExamModel {
   String id;
   String name;
   String subject;
+  String subjectName;
   String date;
   int questions;
   int options;
   int sets;
   String? section;
   String? sheetType;
+  bool isCustomScore;
+  double defaultScore;
   Map<String, Map<String, dynamic>> answerKey;
   List<Map<String, dynamic>> studentsSnapshot;
 
@@ -15,12 +18,15 @@ class ExamModel {
     required this.id,
     required this.name,
     required this.subject,
+    this.subjectName = '',
     required this.date,
     required this.questions,
     required this.options,
     required this.sets,
     this.section,
     this.sheetType,
+    this.isCustomScore = false,
+    this.defaultScore = 1.0,
     required this.answerKey,
     this.studentsSnapshot = const [],
   });
@@ -30,18 +36,36 @@ class ExamModel {
 
     return ExamModel(
       id: id,
-      name: map['name']?.toString() ?? '',
-      subject: map['subject']?.toString() ?? '',
+      name: map['name']?.toString() ?? map['exam_name']?.toString() ?? '',
+      subject: map['subject']?.toString() ??
+          map['subject_id']?.toString() ??
+          map['subjectCode']?.toString() ??
+          '',
+      subjectName: map['subjectName']?.toString() ??
+          map['subject_name']?.toString() ??
+          map['subject_title']?.toString() ??
+          '',
       date: _parseDate(
         map['date']?.toString() ??
+            map['examDate']?.toString() ??
+            map['exam_date']?.toString() ??
             map['createdAt']?.toString() ??
             map['created_at']?.toString(),
       ),
       questions: int.tryParse(map['questions']?.toString() ?? '') ?? 0,
-      options: int.tryParse(map['options']?.toString() ?? '') ?? 0,
-      sets: int.tryParse(map['sets']?.toString() ?? '') ?? 0,
+      options: int.tryParse(map['options']?.toString() ?? '') ?? 5,
+      sets: int.tryParse(map['sets']?.toString() ?? '') ?? 1,
       section: map['section']?.toString(),
-      sheetType: map['sheetType']?.toString(),
+      sheetType: map['sheetType']?.toString() ?? map['template_id']?.toString(),
+      isCustomScore: map['isCustomScore'] == true ||
+          map['is_custom_score'] == 1 ||
+          map['is_custom_score'] == true,
+      defaultScore: double.tryParse(
+            map['defaultScore']?.toString() ??
+                map['default_score']?.toString() ??
+                '1.0',
+          ) ??
+          1.0,
       answerKey: _parseAnswerKey(rawAnswerKey),
       studentsSnapshot: _parseStudentsSnapshot(map['studentsSnapshot']),
     );
@@ -51,12 +75,15 @@ class ExamModel {
     return {
       'name': name,
       'subject': subject,
+      if (subjectName.isNotEmpty) 'subjectName': subjectName,
       'date': date,
       'questions': questions,
       'options': options,
       'sets': sets,
       if (section != null) 'section': section,
       if (sheetType != null) 'sheetType': sheetType,
+      'isCustomScore': isCustomScore,
+      'defaultScore': defaultScore,
       'answerKey': answerKey,
       'studentsSnapshot': studentsSnapshot,
     };
