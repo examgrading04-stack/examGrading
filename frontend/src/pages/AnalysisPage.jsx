@@ -202,6 +202,23 @@ function getQuestionScore(exam, question) {
   return 1.0;
 }
 
+// Fix: handle tied scores at group boundary
+function splitGroups(sorted, groupSize) {
+  const upper = [];
+  const lower = [];
+  const upperCutScore = sorted[groupSize - 1]?.score;
+  const lowerCutScore = sorted[sorted.length - groupSize]?.score;
+  for (const r of sorted) {
+    const s = Number(r.score || 0);
+    if (s >= upperCutScore && upper.length < groupSize) upper.push(r);
+  }
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const s = Number(sorted[i].score || 0);
+    if (s <= lowerCutScore && lower.length < groupSize) lower.push(sorted[i]);
+  }
+  return { upper, lower };
+}
+
 function calculateItemAnalysis(results, exam) {
   const validResults = (results || []).filter((r) => !isPendingReview(r, exam));
   if (!exam || !validResults.length) return [];
@@ -209,8 +226,10 @@ function calculateItemAnalysis(results, exam) {
     (a, b) => Number(b.score || 0) - Number(a.score || 0),
   );
   const groupSize = Math.max(1, Math.ceil(sorted.length * 0.27));
-  const upperGroup = sorted.slice(0, groupSize);
-  const lowerGroup = sorted.slice(-groupSize);
+  const { upper: upperGroup, lower: lowerGroup } = splitGroups(
+    sorted,
+    groupSize,
+  );
 
   return Array.from({ length: Number(exam.questions || 0) }, (_, index) => {
     const question = String(index + 1);
@@ -270,8 +289,9 @@ function QuestionDetailModal({
       (a, b) => Number(b.score || 0) - Number(a.score || 0),
     );
     const groupSize = Math.max(1, Math.ceil(sorted.length * 0.27));
-    const upperThreshold = sorted[groupSize - 1]?.score || 0;
-    const lowerThreshold = sorted[sorted.length - groupSize]?.score || 0;
+    const upperThreshold = sorted[groupSize - 1]?.score ?? Infinity;
+    const lowerThreshold =
+      sorted[sorted.length - groupSize]?.score ?? -Infinity;
 
     return validResults
       .map((result) => {
@@ -291,13 +311,13 @@ function QuestionDetailModal({
         let group = "กลุ่มกลาง";
         let groupColor = "text-slate-500 bg-slate-50 border-slate-200";
         if (Number(result.score || 0) >= upperThreshold && groupSize > 0) {
-          group = "กลุ่มเก่ง";
+          group = "กลุ่มได้คะแนนสูง";
           groupColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
         } else if (
           Number(result.score || 0) <= lowerThreshold &&
           groupSize > 0
         ) {
-          group = "กลุ่มอ่อน";
+          group = "กลุ่มได้คะแนนต่ำ";
           groupColor = "text-rose-700 bg-rose-50 border-rose-200";
         }
 
@@ -345,37 +365,37 @@ function QuestionDetailModal({
   const getRecommendation = (p, D) => {
     if (D < 0)
       return {
-        text: "ข้อสอบมีความผิดปกติ (D ติดลบ) เด็กอ่อนตอบถูกมากกว่าเด็กเก่ง อาจเกิดจากการเฉลยผิด หรือโจทย์กำกวมจนทำให้เด็กเก่งสับสน ควรตรวจสอบโจทย์และตัวเลือกใหม่โดยด่วน",
+        text: "ข้อสอบมีความผิดปกติ (D ติดลบ) กลุ่มที่ได้คะแนนต่ำตอบถูกมากกว่ากลุ่มที่ได้คะแนนสูง อาจเกิดจากการเฉลยผิด หรือโจทย์กำกวมจนทำให้ผู้ที่รู้ลึกสับสน ควรตรวจสอบโจทย์และตัวเลือกใหม่โดยด่วน",
         type: "danger",
       };
     if (D < 0.2) {
       if (p > 0.8)
         return {
-          text: "ข้อสอบง่ายเกินไปและไม่สามารถจำแนกเด็กได้ ควรปรับตัวเลือกหลอกให้ท้าทายขึ้น หรือปรับคำถามให้ต้องใช้การวิเคราะห์มากขึ้น",
+          text: "ข้อสอบง่ายเกินไปและไม่สามารถจำแนกผู้เรียนได้ ควรปรับตัวเลือกหลอกให้ท้าทายขึ้น หรือปรับคำถามให้ต้องใช้การวิเคราะห์มากขึ้น",
           type: "warning",
         };
       if (p < 0.4)
         return {
-          text: "ข้อสอบยากเกินไปและจำแนกเด็กไม่ได้ อาจเกิดจากเนื้อหาที่ยังไม่ได้สอน หรือคำถามซับซ้อนเกินไป ควรปรับปรุง",
+          text: "ข้อสอบยากเกินไปและไม่สามารถจำแนกผู้เรียนได้ อาจเกิดจากเนื้อหาที่ยังไม่ได้สอน หรือคำถามซับซ้อนเกินไป ควรทบทวนและปรับปรุง",
           type: "warning",
         };
       return {
-        text: "ข้อสอบมีระดับความยากปานกลาง แต่จำแนกเด็กได้ไม่ดีนัก ควรพิจารณาปรับปรุงตัวเลือกหลอกให้ดึงดูดเด็กอ่อนมากขึ้น",
+        text: "ข้อสอบมีระดับความยากปานกลาง แต่จำแนกผู้เรียนได้ไม่ดีนัก ควรพิจารณาปรับปรุงตัวเลือกหลอกให้สามารถดึงดูดกลุ่มที่ยังไม่เข้าใจเนื้อหามากขึ้น",
         type: "warning",
       };
     }
     if (p > 0.8)
       return {
-        text: "ข้อสอบง่าย แต่ยังพอจำแนกเด็กได้บ้าง สามารถเก็บไว้ใช้เป็นข้อสอบพื้นฐานแจกคะแนนได้",
+        text: "ข้อสอบง่าย แต่ยังพอจำแนกผู้เรียนได้บ้าง สามารถเก็บไว้ใช้เป็นข้อสอบพื้นฐานเพื่อแจกคะแนนความรู้พื้นฐานได้",
         type: "success",
       };
     if (p < 0.4)
       return {
-        text: "ข้อสอบยากแต่แยกเด็กเก่งกับเด็กอ่อนได้ดีเยี่ยม เหมาะสำหรับใช้เป็นข้อสอบคัดเลือกเพื่อตัดเกรด",
+        text: "ข้อสอบยากแต่แยกกลุ่มที่ได้คะแนนสูงและต่ำได้ดีเยี่ยม เหมาะสำหรับใช้เป็นข้อสอบคัดเลือกหรือตัดเกรด",
         type: "success",
       };
     return {
-      text: "ข้อสอบยอดเยี่ยม! มีความยากง่ายเหมาะสมและจำแนกเด็กได้ดีมาก ควรเก็บไว้ในคลังข้อสอบ",
+      text: "ข้อสอบยอดเยี่ยม มีความยากง่ายเหมาะสมและจำแนกผู้เรียนได้ดีมาก ควรเก็บไว้ในคลังข้อสอบ",
       type: "success",
     };
   };
@@ -475,11 +495,13 @@ function QuestionDetailModal({
                 {/* Upper Group */}
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded-md border border-emerald-200 text-center whitespace-nowrap">
-                    กลุ่มเก่งที่ตอบถูก {detail.upperCorrectCount} คน
+                    กลุ่มได้คะแนนสูง<br></br>ที่ตอบถูก{" "}
+                    {detail.upperCorrectCount} คน
                   </span>
                   <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
                   <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
-                    กลุ่มเก่งทั้งหมด {detail.upperGroupLength} คน
+                    กลุ่มได้คะแนนสูง<br></br>ทั้งหมด {detail.upperGroupLength}{" "}
+                    คน
                   </span>
                 </div>
 
@@ -490,11 +512,15 @@ function QuestionDetailModal({
                 {/* Lower Group */}
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-1.5 rounded-md border border-rose-200 text-center whitespace-nowrap">
-                    กลุ่มอ่อนที่ตอบถูก {detail.lowerCorrectCount} คน
+                    กลุ่มได้คะแนนต่ำ
+                    <br />
+                    {detail.lowerCorrectCount} คน
                   </span>
                   <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
                   <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 bg-slate-50 px-2 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
-                    กลุ่มอ่อนทั้งหมด {detail.lowerGroupLength} คน
+                    กลุ่มได้คะแนนต่ำ
+                    <br />
+                    {detail.lowerGroupLength} คน
                   </span>
                 </div>
 
@@ -764,6 +790,18 @@ export function AnalysisPage({ data }) {
   const maxScore = scores.length ? Math.max(...scores) : null;
   const minScore = scores.length ? Math.min(...scores) : null;
 
+  // Standard Deviation
+  const sd =
+    scores.length > 1 && mean !== null
+      ? Math.sqrt(
+          scores.reduce((sum, s) => sum + (s - mean) ** 2, 0) /
+            (scores.length - 1),
+        )
+      : null;
+
+  // Low-N warning: 27% grouping unreliable below 15 students
+  const isLowN = results.length > 0 && results.length < 15;
+
   const expectedStudentsCount = !examId
     ? null
     : (() => {
@@ -813,7 +851,7 @@ export function AnalysisPage({ data }) {
             backgroundColor: chartData.map(
               (v) =>
                 v >= 80
-                  ? "#E11D48" // ง่ายเกินไป (Rose)
+                  ? "#F59E0B" // ง่ายเกินไป (Amber)
                   : v >= 40
                     ? "#10B981" // เหมาะสม (Emerald)
                     : "#E11D48", // ยากเกินไป (Rose)
@@ -873,7 +911,7 @@ export function AnalysisPage({ data }) {
         labels: [
           "ดีมาก (คัดเลือกไว้ใช้)",
           "พอใช้ (ควรพิจารณาปรับ)",
-          "ไม่ดี (ตัดทิ้ง)",
+          "ควรปรับปรุง (D ต่ำ)",
         ],
         datasets: [
           {
@@ -942,7 +980,26 @@ export function AnalysisPage({ data }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      {/* Low-N reliability warning */}
+      {isLowN && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800">
+          <i className="fa-solid fa-triangle-exclamation mt-0.5 text-amber-500 shrink-0" />
+          <div>
+            <p className="font-bold text-sm">
+              คำเตือน: จำนวนผู้สอบน้อยเกินไป ({results.length} คน)
+            </p>
+            <p className="text-xs mt-0.5 leading-relaxed">
+              การวิเคราะห์คุณภาพข้อสอบแบบ 27% Upper-Lower Group
+              ต้องการผู้สอบอย่างน้อย 15–20 คน
+              เพื่อให้ผลมีความเชื่อถือได้ทางสถิติ
+              ผลวิเคราะห์ปัจจุบันอาจคลาดเคลื่อนสูง
+              ควรใช้เป็นเพียงข้อมูลเบื้องต้นเท่านั้น
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         <StatCard
           title="จำนวนผู้สอบ"
           value={!examId ? "-" : results.length}
@@ -954,6 +1011,12 @@ export function AnalysisPage({ data }) {
           value={mean !== null ? mean.toFixed(2) : "-"}
           icon="fa-chart-simple"
           color="emerald"
+        />
+        <StatCard
+          title="ส่วนเบี่ยงเบนมาตรฐาน"
+          value={sd !== null ? sd.toFixed(2) : "-"}
+          icon="fa-wave-square"
+          color="sky"
         />
         <StatCard
           title="มัธยฐาน"
@@ -1005,14 +1068,18 @@ export function AnalysisPage({ data }) {
               <canvas ref={canvasRef} />
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm font-bold text-slate-600">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm font-bold text-slate-600">
             <span className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#10B981] shadow-sm shadow-emerald-200"></div>{" "}
-              เหมาะสม (40-79%)
+              เหมาะสม (40–79%)
+            </span>
+            <span className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#F59E0B] shadow-sm shadow-amber-200"></div>{" "}
+              ง่ายเกินไป (≥80%) ควรปรับปรุง
             </span>
             <span className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#E11D48] shadow-sm shadow-rose-200"></div>{" "}
-              ยาก/ง่ายเกินไป (ควรปรับปรุง)
+              ยากเกินไป (&lt;40%) ควรปรับปรุง
             </span>
           </div>
         </div>
@@ -1061,7 +1128,8 @@ export function AnalysisPage({ data }) {
                   </span>
                   <span className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 text-rose-700 rounded-md border border-rose-100 whitespace-nowrap">
                     <div className="w-2 h-2 rounded-full bg-rose-500 shadow-sm shadow-rose-200"></div>{" "}
-                    ไม่ดี {dPoor} ข้อ ({Math.round((dPoor * 100) / totalD)}%)
+                    ควรปรับปรุง {dPoor} ข้อ (
+                    {Math.round((dPoor * 100) / totalD)}%)
                   </span>
                 </div>
               );
@@ -1138,8 +1206,8 @@ export function AnalysisPage({ data }) {
                   ค่าอำนาจจำแนก (Discrimination)
                 </span>
                 <span className="text-xs text-emerald-800/80 mt-1 block leading-relaxed">
-                  ความสามารถในการแยกแยะเด็กเก่ง-อ่อน (สัดส่วนคนเก่งตอบถูก -
-                  สัดส่วนคนอ่อนตอบถูก)
+                  ความสามารถในการแยกกลุ่มผู้เรียนที่ได้คะแนนสูงและต่ำ
+                  (สัดส่วนกลุ่มสูงตอบถูก − สัดส่วนกลุ่มต่ำตอบถูก)
                 </span>
               </div>
             </div>
@@ -1161,7 +1229,7 @@ export function AnalysisPage({ data }) {
               <div className="flex items-center justify-between p-3 rounded-lg bg-rose-50/50 border border-rose-100/50 hover:bg-rose-50 transition-colors">
                 <span className="text-slate-700 font-medium">ต่ำกว่า 0.20</span>
                 <span className="flex items-center gap-2 text-rose-700 font-bold text-xs">
-                  <i className="fa-solid fa-circle-xmark"></i> ไม่ดี (ตัดทิ้ง)
+                  <i className="fa-solid fa-circle-xmark"></i> ควรปรับปรุง
                 </span>
               </div>
             </div>
@@ -1170,13 +1238,154 @@ export function AnalysisPage({ data }) {
       </section>
 
       <section className="space-y-4 mt-8">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-            ตารางวิเคราะห์คุณภาพข้อสอบรายข้อ
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            ข้อมูลการวิเคราะห์คุณภาพและการแปลผลรายข้อ
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              ตารางวิเคราะห์คุณภาพข้อสอบรายข้อ
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              ข้อมูลการวิเคราะห์คุณภาพและการแปลผลรายข้อ
+            </p>
+          </div>
+          {answeredItemAnalysis.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* CSV: item analysis */}
+              <button
+                onClick={() => {
+                  const header = [
+                    "ข้อ",
+                    "เฉลย",
+                    "ตอบถูก",
+                    "ทั้งหมด",
+                    "p (ความยาก)",
+                    "ระดับความยาก",
+                    "กลุ่มสูงตอบถูก",
+                    "กลุ่มต่ำตอบถูก",
+                    "d (อำนาจจำแนก)",
+                    "ผลลัพธ์",
+                  ];
+                  const rows = answeredItemAnalysis.map((r) => [
+                    r.question,
+                    r.answer,
+                    r.correctCount,
+                    results.length,
+                    r.difficulty.toFixed(3),
+                    r.difficultyLabel,
+                    `${r.upperCorrectCount}/${r.upperGroupLength} (${Math.round(r.upperCorrect * 100)}%)`,
+                    `${r.lowerCorrectCount}/${r.lowerGroupLength} (${Math.round(r.lowerCorrect * 100)}%)`,
+                    r.discrimination.toFixed(3),
+                    r.discriminationLabel,
+                  ]);
+                  const csv = [header, ...rows]
+                    .map((row) =>
+                      row
+                        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+                        .join(","),
+                    )
+                    .join("\n");
+                  const blob = new Blob(["\uFEFF" + csv], {
+                    type: "text/csv;charset=utf-8;",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `item_analysis_${exam?.name || examId}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors border border-slate-200 shadow-sm"
+              >
+                <i className="fa-solid fa-table" /> CSV (รายข้อ)
+              </button>
+
+              {/* XLSX: student response matrix */}
+              <button
+                onClick={async () => {
+                  const { utils, writeFile } = await import("xlsx");
+                  const numQ = Number(exam.questions || 0);
+                  const qs = Array.from({ length: numQ }, (_, i) =>
+                    String(i + 1),
+                  );
+                  const sorted = [...results].sort(
+                    (a, b) => Number(b.score || 0) - Number(a.score || 0),
+                  );
+                  const gs = Math.max(1, Math.ceil(sorted.length * 0.27));
+                  const { upper: ug, lower: lg } = splitGroups(sorted, gs);
+
+                  const headerRow = [
+                    "คนที่",
+                    ...qs.map((q) => `ข้อ ${q}`),
+                    "รวม",
+                  ];
+                  const studentRows = sorted.map((r, idx) => [
+                    idx + 1,
+                    ...qs.map((q) => (r.itemResults?.[q] === true ? 1 : 0)),
+                    Number(r.score || 0),
+                  ]);
+                  const blank = Array(headerRow.length).fill("");
+                  const mkRow = (label, fn) => [label, ...qs.map(fn), ""];
+
+                  const allRows = [
+                    headerRow,
+                    ...studentRows,
+                    blank,
+                    mkRow(
+                      "คนที่ตอบถูกในกลุ่มสูง",
+                      (q) =>
+                        ug.filter((r) => r.itemResults?.[q] === true).length,
+                    ),
+                    mkRow("คนทั้งหมดในกลุ่มสูง", () => ug.length),
+                    mkRow("PH", (q) =>
+                      ug.length
+                        ? ug.filter((r) => r.itemResults?.[q] === true).length /
+                          ug.length
+                        : 0,
+                    ),
+                    blank,
+                    mkRow(
+                      "คนที่ตอบถูกในกลุ่มต่ำ",
+                      (q) =>
+                        lg.filter((r) => r.itemResults?.[q] === true).length,
+                    ),
+                    mkRow("คนทั้งหมดในกลุ่มต่ำ", () => lg.length),
+                    mkRow("PL", (q) =>
+                      lg.length
+                        ? lg.filter((r) => r.itemResults?.[q] === true).length /
+                          lg.length
+                        : 0,
+                    ),
+                    blank,
+                    mkRow(
+                      "p (ความยากง่าย)",
+                      (q) =>
+                        answeredItemAnalysis.find((i) => i.question === q)
+                          ?.difficulty ?? "",
+                    ),
+                    mkRow(
+                      "D (อำนาจจำแนก)",
+                      (q) =>
+                        answeredItemAnalysis.find((i) => i.question === q)
+                          ?.discrimination ?? "",
+                    ),
+                  ];
+
+                  const ws = utils.aoa_to_sheet(allRows);
+                  ws["!cols"] = [
+                    { wch: 24 },
+                    ...qs.map(() => ({ wch: 8 })),
+                    { wch: 8 },
+                  ];
+                  ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+                  const wb = utils.book_new();
+                  utils.book_append_sheet(wb, ws, "Response Matrix");
+                  writeFile(wb, `response_matrix_${exam?.name || examId}.xlsx`);
+                }}
+                className="inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors border border-emerald-200 shadow-sm"
+              >
+                <i className="fa-solid fa-file-excel" /> Excel (Matrix)
+              </button>
+            </div>
+          )}
         </div>
 
         <DataTable
@@ -1239,7 +1448,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "upperCorrect",
-              label: "กลุ่มเก่งตอบถูก",
+              label: "กลุ่มคะแนนสูงตอบถูก",
               className:
                 "text-center text-emerald-600 font-medium bg-emerald-50/30",
               render: (row) => (
@@ -1255,7 +1464,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "lowerCorrect",
-              label: "กลุ่มอ่อนตอบถูก",
+              label: "กลุ่มคะแนนต่ำตอบถูก",
               className: "text-center text-rose-600 font-medium bg-rose-50/30",
               render: (row) => (
                 <div className="flex flex-col items-center justify-center">
@@ -1276,7 +1485,7 @@ export function AnalysisPage({ data }) {
                 <div className="flex flex-col items-center justify-center">
                   <span
                     className="text-[10px] text-slate-400 font-medium leading-none mb-1"
-                    title="กลุ่มเก่งตอบถูก - กลุ่มอ่อนตอบถูก"
+                    title="กลุ่มได้คะแนนสูงตอบถูก - กลุ่มได้คะแนนต่ำตอบถูก"
                   >
                     {Math.round((row.upperCorrect || 0) * 100)}% -{" "}
                     {Math.round((row.lowerCorrect || 0) * 100)}%
