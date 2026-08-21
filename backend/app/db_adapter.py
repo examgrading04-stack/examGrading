@@ -527,78 +527,18 @@ class MySQLAdapter(BaseDBAdapter):
         finally:
             session.close()
 
-    def _prepare_exam_data(
-        self, mapped_data: dict[str, Any], user_email: str, session, row=None
-    ) -> dict[str, Any]:
-        if "subject" in mapped_data and "subject_id" not in mapped_data:
-            mapped_data["subject_id"] = mapped_data["subject"]
-        if "name" in mapped_data and "exam_name" not in mapped_data:
-            mapped_data["exam_name"] = mapped_data["name"]
-        if "examDate" in mapped_data:
-            mapped_data["exam_date"] = mapped_data["examDate"]
-
-        sec = mapped_data.get("section")
-        if sec is not None:
-            sec_str = str(sec).strip()
-            if sec_str.lower() != "all section" and sec_str != "":
-                subject_id = mapped_data.get("subject_id") or getattr(
-                    row, "subject_id", None
-                )
-                sec_row = None
-                if subject_id:
-                    sec_row = (
-                        session.query(SqlSection)
-                        .filter(
-                            SqlSection.user_email == user_email,
-                            SqlSection.subject == subject_id,
-                            (SqlSection.sec == sec_str) | (SqlSection.id == sec_str),
-                        )
-                        .first()
-                    )
-                if not sec_row:
-                    sec_row = (
-                        session.query(SqlSection)
-                        .filter(
-                            SqlSection.user_email == user_email,
-                            (SqlSection.sec == sec_str) | (SqlSection.id == sec_str),
-                        )
-                        .first()
-                    )
-                if sec_row:
-                    mapped_data["section_id"] = sec_row.id
-                else:
-                    mapped_data["section_id"] = sec_str
-            else:
-                mapped_data["section_id"] = None
-
-        if "sheetType" in mapped_data:
-            st = str(mapped_data["sheetType"]).replace("-A-E", "")
-            if st == "30":
-                mapped_data["template_id"] = "30-A-E"
-            elif st == "50":
-                mapped_data["template_id"] = "50-A-E"
-            elif st == "100":
-                mapped_data["template_id"] = "100-A-E"
-            else:
-                mapped_data["template_id"] = str(mapped_data["sheetType"])
-
-        return mapped_data
-
     def update_exam(self, user_email: str, exam_id: str, data: dict[str, Any]) -> None:
         session = self._get_session()
         try:
             row = (
                 session.query(SqlExam)
-                .filter(SqlExam.user_email == user_email, SqlExam.id == exam_id)
+                .join(SqlSubject, SqlExam.subject_id == SqlSubject.code)
+                .filter(SqlSubject.user_email == user_email, SqlExam.id == exam_id)
                 .first()
             )
 
             mapped_data = dict(data)
             answer_key = mapped_data.pop("answerKey", None)
-
-            mapped_data = self._prepare_exam_data(
-                mapped_data, user_email, session, row=row
-            )
 
             valid_cols = {c.key for c in getattr(SqlExam, "__mapper__").column_attrs}
             cleaned_data = {k: v for k, v in mapped_data.items() if k in valid_cols}
@@ -674,7 +614,7 @@ class MySQLAdapter(BaseDBAdapter):
                 else:
                     raise
 
-            # Batch-load subjects และ sections เพื่อลด N+1
+            # Batch-load subjects เพื่อลด N+1
             subject_ids = list({r.subject_id for r in rows if r.subject_id})
             subject_map = {}
             if subject_ids:
@@ -688,21 +628,6 @@ class MySQLAdapter(BaseDBAdapter):
                 )
                 subject_map = {s.code: s for s in subjects}
 
-            section_ids = list({r.section_id for r in rows if r.section_id})
-            section_map = {}
-            if section_ids:
-                sections = (
-                    session.query(SqlSection)
-                    .filter(
-                        SqlSection.user_email == user_email,
-                        (SqlSection.id.in_(section_ids)) | (SqlSection.sec.in_(section_ids)),
-                    )
-                    .all()
-                )
-                for s in sections:
-                    section_map[s.id] = s.sec
-                    section_map[s.sec] = s.sec
-
             res = []
             for r in rows:
                 try:
@@ -713,10 +638,6 @@ class MySQLAdapter(BaseDBAdapter):
                     if subj:
                         d["subjectName"] = subj.name
                         d["subject_name"] = subj.name
-                    if r.section_id:
-                        d["section"] = section_map.get(r.section_id, r.section_id)
-                    else:
-                        d["section"] = "All Section"
                     res.append(d)
                 except Exception as e:
                     print(
@@ -1588,9 +1509,53 @@ class MySQLAdapter(BaseDBAdapter):
                         ).hexdigest()
 
                 if collection == "exams":
-                    mapped_data = self._prepare_exam_data(
-                        mapped_data, user_email, session, row=row
-                    )
+                    if "subject" in mapped_data and "subject_id" not in mapped_data:
+                        mapped_data["subject_id"] = mapped_data["subject"]
+                    if "name" in mapped_data and "exam_name" not in mapped_data:
+                        mapped_data["exam_name"] = mapped_data["name"]
+                    if "examDate" in mapped_data:
+                        mapped_data["exam_date"] = mapped_data["examDate"]
+
+                    sec = mapped_data.get("section")
+                    if sec is not None:
+                        if str(sec).lower() != "all section" and str(sec).strip() != "":
+                            subject_id = mapped_data.get("subject_id") or getattr(
+                                row, "subject_id", None
+                            )
+                            if subject_id:
+                                sec_row = (
+                                    session.query(SqlSection)
+                                    .filter(
+                                        SqlSection.subject == subject_id,
+                                        SqlSection.sec == str(sec),
+                                    )
+                                    .first()
+                                )
+                                if sec_row:
+                                    mapped_data["section_id"] = sec_row.id
+                                else:
+                                    try:
+                                        mapped_data["section_id"] = str(sec)
+                                    except ValueError:
+                                        mapped_data["section_id"] = None
+                            else:
+                                try:
+                                    mapped_data["section_id"] = str(sec)
+                                except ValueError:
+                                    mapped_data["section_id"] = None
+                        else:
+                            mapped_data["section_id"] = None
+
+                    if "sheetType" in mapped_data:
+                        st = str(mapped_data["sheetType"]).replace("-A-E", "")
+                        if st == "30":
+                            mapped_data["template_id"] = "30-A-E"
+                        elif st == "50":
+                            mapped_data["template_id"] = "50-A-E"
+                        elif st == "100":
+                            mapped_data["template_id"] = "100-A-E"
+                        else:
+                            mapped_data["template_id"] = str(mapped_data["sheetType"])
 
                 valid_cols = {
                     c.key for c in getattr(model_cls, "__mapper__").column_attrs
