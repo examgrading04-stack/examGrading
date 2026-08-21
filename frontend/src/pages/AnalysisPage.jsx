@@ -3,18 +3,18 @@ import { DataTable, Select, StatCard, useChart, Modal } from "../ui.jsx";
 
 function itemLabel(value, type) {
   if (type === "difficulty") {
-    if (value >= 0.8) return "ง่ายเกินไป";
+    if (value >= 0.8) return "ง่ายเกินเกณฑ์";
     if (value >= 0.4) return "เหมาะสม";
-    return "ยากเกินไป";
+    return "ยากเกินเกณฑ์";
   }
   if (value >= 0.4) return "ดีมาก";
-  if (value >= 0.2) return "พอใช้";
-  return "ไม่ดี";
+  if (value >= 0.2) return "พอใช้ได้";
+  return "ควรปรับปรุง";
 }
 
 function itemTone(value, type) {
   if (type === "difficulty") {
-    if (value >= 0.8) return "text-rose-700 bg-rose-50 border-rose-100";
+    if (value >= 0.8) return "text-amber-700 bg-amber-50 border-amber-100";
     if (value >= 0.4)
       return "text-emerald-700 bg-emerald-50 border-emerald-100";
     return "text-rose-700 bg-rose-50 border-rose-100";
@@ -439,7 +439,7 @@ function QuestionDetailModal({
             />
           </div>
           <div>
-            <h4 className="font-bold mb-1">คำแนะนำสำหรับอาจารย์:</h4>
+            <h4 className="font-bold mb-1">ข้อสังเกตและคำแนะนำ:</h4>
             <p className="text-sm leading-relaxed">{rec.text}</p>
           </div>
         </div>
@@ -463,11 +463,11 @@ function QuestionDetailModal({
               <div className="flex items-center justify-start mt-3 gap-3 sm:gap-4">
                 <div className="flex flex-col items-center">
                   <span className="text-[10px] sm:text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-100 text-center whitespace-nowrap">
-                    นักเรียนที่ตอบถูก {detail.correctCount} คน
+                    ผู้สอบที่ตอบถูก {detail.correctCount} คน
                   </span>
                   <div className="h-0.5 w-full bg-slate-200 my-1.5 rounded-full"></div>
                   <span className="text-[10px] sm:text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 text-center whitespace-nowrap">
-                    นักเรียนทั้งหมด {totalValid} คน
+                    ผู้สอบทั้งหมด {totalValid} คน
                   </span>
                 </div>
 
@@ -541,7 +541,7 @@ function QuestionDetailModal({
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">
-              ข้อมูลการตอบของนักเรียน ({studentResponses.length} คน)
+              ข้อมูลการตอบของผู้สอบ ({studentResponses.length} คน)
             </h4>
             <div className="relative">
               <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
@@ -562,9 +562,9 @@ function QuestionDetailModal({
                   <tr>
                     <th className="px-4 py-3">รหัสนักศึกษา</th>
                     <th className="px-4 py-3">ชื่อ-นามสกุล</th>
-                    <th className="px-4 py-3 text-center">กลุ่ม</th>
-                    <th className="px-4 py-3 text-center">คำตอบที่เลือก</th>
-                    <th className="px-4 py-3 text-center">สถานะ</th>
+                    <th className="px-4 py-3 text-center">กลุ่มคะแนน</th>
+                    <th className="px-4 py-3 text-center">ตัวเลือกที่เลือก</th>
+                    <th className="px-4 py-3 text-center">ผล</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1412,19 +1412,19 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "correctCount",
-              label: "ตอบถูก",
+              label: "N ถูก / รวม",
               className: "text-center",
-              render: (row) => `${row.correctCount}/${results.length}`,
+              render: (row) => `${row.correctCount} / ${results.length}`,
             },
             {
               key: "difficulty",
-              label: "ค่าความยากง่าย",
+              label: "p (ความยากง่าย)",
               className: "text-center",
               render: (row) => (
                 <div className="flex flex-col items-center justify-center">
                   <span
                     className="text-[10px] text-slate-400 font-medium leading-none mb-1"
-                    title="คนตอบถูก / คนทั้งหมด"
+                    title="p = จำนวนผู้ตอบถูก ÷ ผู้สอบทั้งหมด"
                   >
                     {row.correctCount} / {results.length}
                   </span>
@@ -1436,7 +1436,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "difficultyLabel",
-              label: "ระดับความยาก",
+              label: "ระดับความยาก (p)",
               className: "text-center",
               render: (row) => (
                 <span
@@ -1448,7 +1448,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "upperCorrect",
-              label: "กลุ่มคะแนนสูงตอบถูก",
+              label: "กลุ่มสูง (PH)",
               className:
                 "text-center text-emerald-600 font-medium bg-emerald-50/30",
               render: (row) => (
@@ -1464,7 +1464,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "lowerCorrect",
-              label: "กลุ่มคะแนนต่ำตอบถูก",
+              label: "กลุ่มต่ำ (PL)",
               className: "text-center text-rose-600 font-medium bg-rose-50/30",
               render: (row) => (
                 <div className="flex flex-col items-center justify-center">
@@ -1479,13 +1479,13 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "discrimination",
-              label: "ค่าอำนาจจำแนก",
+              label: "d (อำนาจจำแนก)",
               className: "text-center",
               render: (row) => (
                 <div className="flex flex-col items-center justify-center">
                   <span
                     className="text-[10px] text-slate-400 font-medium leading-none mb-1"
-                    title="กลุ่มได้คะแนนสูงตอบถูก - กลุ่มได้คะแนนต่ำตอบถูก"
+                    title="d = สัดส่วนกลุ่มสูงตอบถูก (PH) − สัดส่วนกลุ่มต่ำตอบถูก (PL)"
                   >
                     {Math.round((row.upperCorrect || 0) * 100)}% -{" "}
                     {Math.round((row.lowerCorrect || 0) * 100)}%
@@ -1498,7 +1498,7 @@ export function AnalysisPage({ data }) {
             },
             {
               key: "discriminationLabel",
-              label: "ผลลัพธ์",
+              label: "แปลผล D",
               render: (row) => (
                 <span
                   className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${itemTone(row.discrimination, "discrimination")}`}
