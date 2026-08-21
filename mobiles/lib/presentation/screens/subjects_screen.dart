@@ -39,7 +39,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       final settings = await ApiService.instance.getAcademicSettings();
       if (mounted) {
         setState(() {
-          _academicYear = settings['year']?.toString() ??
+          _academicYear =
+              settings['year']?.toString() ??
               (DateTime.now().year + 543).toString();
           _academicTerm = settings['term']?.toString() ?? '1';
         });
@@ -85,8 +86,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       text: subject?.year.isNotEmpty == true ? subject!.year : _academicYear,
     );
     // ตั้งค่า teacher เริ่มต้นเป็น displayName ของ user เหมือน Web
-    final defaultTeacher = AuthService.instance.currentUser?['displayName']
-            as String? ??
+    final defaultTeacher =
+        AuthService.instance.currentUser?['displayName'] as String? ??
         AuthService.instance.currentEmail ??
         '';
     final teacherController = TextEditingController(

@@ -1209,7 +1209,11 @@ function QuestionDetailModal({
               {detail.correctCount} / {validResults.length}
             </span>
             <span className="text-xs text-slate-400 block mt-0.5">
-              ({validResults.length ? Math.round((detail.correctCount / validResults.length) * 100) : 0}%)
+              (
+              {validResults.length
+                ? Math.round((detail.correctCount / validResults.length) * 100)
+                : 0}
+              %)
             </span>
           </div>
 
@@ -1249,7 +1253,8 @@ function QuestionDetailModal({
             <span>
               กลุ่มสูง (27% บน):{" "}
               <strong className="text-slate-800">{upperGroup.length} คน</strong>{" "}
-              (ตอบถูก {detail.upperCorrectCount} คน = {Math.round((detail.upperCorrect || 0) * 100)}%)
+              (ตอบถูก {detail.upperCorrectCount} คน ={" "}
+              {Math.round((detail.upperCorrect || 0) * 100)}%)
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1257,7 +1262,8 @@ function QuestionDetailModal({
             <span>
               กลุ่มต่ำ (27% ล่าง):{" "}
               <strong className="text-slate-800">{lowerGroup.length} คน</strong>{" "}
-              (ตอบถูก {detail.lowerCorrectCount} คน = {Math.round((detail.lowerCorrect || 0) * 100)}%)
+              (ตอบถูก {detail.lowerCorrectCount} คน ={" "}
+              {Math.round((detail.lowerCorrect || 0) * 100)}%)
             </span>
           </div>
         </div>
@@ -1273,9 +1279,15 @@ function QuestionDetailModal({
               <thead className="bg-slate-100 text-xs text-slate-600 font-bold border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4 text-center w-20">ตัวเลือก</th>
-                  <th className="py-3 px-4 text-center">กลุ่มสูง (N={upperGroup.length})</th>
-                  <th className="py-3 px-4 text-center">กลุ่มต่ำ (N={lowerGroup.length})</th>
-                  <th className="py-3 px-4 text-center">รวมทั้งหมด (N={validResults.length})</th>
+                  <th className="py-3 px-4 text-center">
+                    กลุ่มสูง (N={upperGroup.length})
+                  </th>
+                  <th className="py-3 px-4 text-center">
+                    กลุ่มต่ำ (N={lowerGroup.length})
+                  </th>
+                  <th className="py-3 px-4 text-center">
+                    รวมทั้งหมด (N={validResults.length})
+                  </th>
                   <th className="py-3 px-4">การประเมินตัวเลือก</th>
                 </tr>
               </thead>
@@ -1368,22 +1380,28 @@ function QuestionDetailModal({
             detail.difficulty >= 0.4 &&
             detail.difficulty <= 0.8 ? (
               <li className="text-emerald-800 font-semibold">
-                ข้อสอบข้อนี้มีคุณภาพดีมาก ทั้งความยากง่ายและอำนาจจำแนกอยู่ในเกณฑ์ที่เหมาะสม ควรเก็บไว้ใช้ในคลังข้อสอบ
+                ข้อสอบข้อนี้มีคุณภาพดีมาก
+                ทั้งความยากง่ายและอำนาจจำแนกอยู่ในเกณฑ์ที่เหมาะสม
+                ควรเก็บไว้ใช้ในคลังข้อสอบ
               </li>
             ) : detail.discrimination < 0.2 ? (
               <li className="text-rose-800 font-semibold">
-                ค่าอำนาจจำแนกต่ำกว่า 0.20 ควรพิจารณาปรับปรุงเนื้อหาข้อสอบ หรือตรวจสอบตัวลวงที่มีปัญหา
+                ค่าอำนาจจำแนกต่ำกว่า 0.20 ควรพิจารณาปรับปรุงเนื้อหาข้อสอบ
+                หรือตรวจสอบตัวลวงที่มีปัญหา
               </li>
             ) : (
               <li className="text-amber-800 font-semibold">
-                ข้อสอบอยู่ในเกณฑ์พอใช้ อาจปรับปรุงตัวเลือกที่ไม่มีผู้ตอบ หรือตัวลวงที่ลวงกลุ่มคะแนนสูง
+                ข้อสอบอยู่ในเกณฑ์พอใช้ อาจปรับปรุงตัวเลือกที่ไม่มีผู้ตอบ
+                หรือตัวลวงที่ลวงกลุ่มคะแนนสูง
               </li>
             )}
             <li>
-              <strong>ตัวลวงที่ดี:</strong> กลุ่มคะแนนต่ำ (เด็กอ่อน) ควรเลือกมากกว่ากลุ่มคะแนนสูง (เด็กเก่ง)
+              <strong>ตัวลวงที่ดี:</strong> กลุ่มคะแนนต่ำ (เด็กอ่อน)
+              ควรเลือกมากกว่ากลุ่มคะแนนสูง (เด็กเก่ง)
             </li>
             <li>
-              <strong>ตัวลวงที่ไม่มีคนเลือก:</strong> ควรปรับเปลี่ยนเนื้อหาตัวเลือกให้มีความน่าจะเป็นและดึงดูดมากขึ้น
+              <strong>ตัวลวงที่ไม่มีคนเลือก:</strong>{" "}
+              ควรปรับเปลี่ยนเนื้อหาตัวเลือกให้มีความน่าจะเป็นและดึงดูดมากขึ้น
             </li>
           </ul>
         </div>
@@ -1391,4 +1409,3 @@ function QuestionDetailModal({
     </Modal>
   );
 }
-
