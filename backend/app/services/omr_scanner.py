@@ -57,13 +57,16 @@ class OMRResult:
 class OMRConfig:
     NORM_FILL_MIN = 0.090
     NORM_GAP_MIN = 0.035
-    MULTI_MARK_RATIO = 0.55
+    MULTI_MARK_RATIO = 0.52
+    OVERFLOW_BLEED_RATIO = 0.42  # หากฝนล้ำข้ามช่องไปยังตัวเลือกข้างเคียง
+    OVERFLOW_SMUDGE_RATIO = 0.28  # หากมีรอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่น
     ANCHOR_MIN_AREA = 3000
     ANCHOR_MAX_AREA = 9000
     ANCHOR_ASPECT_TOL = 0.15
     WARP_W = 900
     WARP_H = 1200
     BUBBLE_RADIUS = 12
+    SAFE_MARGIN_RADIUS = 14  # ขอบเขตฝนเกินที่ยอมรับได้ (ไม่ล้ำไปตัวเลือกอื่น)
     HOUGH_MIN_R = 9
     HOUGH_MAX_R = 15
     HOUGH_MIN_DIST = 20
@@ -482,7 +485,8 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
         y_arr = [int(v) for v in np.sort(grp[:, 1])]
 
         def cluster_1d(arr, max_gap):
-            if not arr: return []
+            if not arr:
+                return []
             clusters = []
             curr = [arr[0]]
             for v in arr[1:]:
@@ -495,7 +499,8 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
             return clusters
 
         def select_best_5_cols(xc):
-            if not xc: return []
+            if not xc:
+                return []
             if len(xc) == 5:
                 return xc
             if len(xc) < 5:
@@ -517,11 +522,16 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
             return list(best_window)
 
         def fit_rpg_rows(yc, expected_rpg):
-            if not yc: return []
+            if not yc:
+                return []
             if len(yc) == expected_rpg:
                 return yc
             if len(yc) < expected_rpg:
-                step = int(np.median(np.diff(yc))) if len(yc) >= 2 else (28 if expected_rpg > 15 else 48)
+                step = (
+                    int(np.median(np.diff(yc)))
+                    if len(yc) >= 2
+                    else (28 if expected_rpg > 15 else 48)
+                )
                 while len(yc) < expected_rpg:
                     yc.append(int(yc[-1] + step))
                 return yc
@@ -561,7 +571,7 @@ def get_bubble_positions(warped, grid_rect, n_q):
     หากหาไม่เจอจริงๆ หรือได้จำนวนแถว/คอลัมน์ไม่ตรง ให้ใช้ fallback
     """
     adapt = _adaptive_bubble_positions(warped, grid_rect, n_q)
-    
+
     if adapt:
         # Validate that adaptive found exactly 5 cols and rpg rows for all groups
         n_groups = 4 if n_q > 50 else 2
@@ -571,12 +581,14 @@ def get_bubble_positions(warped, grid_rect, n_q):
             if len(xs) != 5 or len(ys) != rpg:
                 valid = False
                 break
-                
+
         if valid:
             print("[DEBUG] Using adaptive bubble positions")
             return adapt
         else:
-            print("[DEBUG] Adaptive found incorrect rows/cols. Using fallback positions")
+            print(
+                "[DEBUG] Adaptive found incorrect rows/cols. Using fallback positions"
+            )
 
     print("[DEBUG] Adaptive failed, using fallback positions")
     return _fallback_positions(grid_rect, n_q)
@@ -638,9 +650,15 @@ def measure_bubble_ratios(warped, grid_rect, positions):
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     g = cv2.GaussianBlur(clahe.apply(grid_gray), (3, 3), 0)
     R = OMRConfig.BUBBLE_RADIUS
-    r_inner = max(4, int(R) - 1)
+    r_core = max(3, int(R) - 4)  # 8px core
+    r_inner = max(4, int(R) - 1)  # 11px inner bubble
+    r_safe = max(
+        r_inner + 1, int(getattr(OMRConfig, "SAFE_MARGIN_RADIUS", 14))
+    )  # 14px safe margin (ฝนเกินขอบเล็กน้อย)
 
     results = {}
+    bridge_results = {}
+
     for gi, group in enumerate(positions):
         if group is None:
             continue
@@ -648,6 +666,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         rpg = len(ys)
         for row, y in enumerate(ys):
             q_no = gi * rpg + row + 1
+
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
             cy = int(y)
 
@@ -668,59 +687,128 @@ def measure_bubble_ratios(warped, grid_rect, positions):
             if row_bg_right.size > 0:
                 bg_vals.extend(row_bg_right.flatten())
             row_paper_bg = float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
+            dark_thresh = max(0, row_paper_bg - 25)
 
             q_scores = []
             for ch, x in enumerate(current_xs):
                 cx = int(x)
-                x1 = max(0, cx - r_inner)
-                x2 = min(grid_img.shape[1], cx + r_inner)
-                y1 = max(0, cy - r_inner)
-                y2 = min(grid_img.shape[0], cy + r_inner)
-                
+                x1 = max(0, cx - r_safe)
+                x2 = min(grid_img.shape[1], cx + r_safe)
+                y1 = max(0, cy - r_safe)
+                y2 = min(grid_img.shape[0], cy + r_safe)
+
                 # Prevent negative dimensions if circle is completely outside grid
                 if x2 <= x1 or y2 <= y1:
                     q_scores.append(0.0)
                     continue
 
-                inner_mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
-                cv2.circle(inner_mask, (cx - x1, cy - y1), r_inner, 255, -1)
-                patch_inner = g[y1:y2, x1:x2]
-                inner_vals = patch_inner[inner_mask > 0]
+                patch = g[y1:y2, x1:x2]
+                h_p, w_p = patch.shape
+                center_p = (cx - x1, cy - y1)
+
+                # 1. Core mask (r <= 8px)
+                core_mask = np.zeros((h_p, w_p), dtype=np.uint8)
+                cv2.circle(core_mask, center_p, r_core, 255, -1)
+                core_vals = patch[core_mask > 0]
+                core_mean = float(np.mean(core_vals)) if len(core_vals) > 0 else 255.0
+                core_contrast = max(
+                    0.0, (row_paper_bg - core_mean) / max(10.0, row_paper_bg)
+                )
+                core_dark = (
+                    float(np.mean(core_vals < dark_thresh))
+                    if len(core_vals) > 0
+                    else 0.0
+                )
+                core_score = 0.50 * core_contrast + 0.50 * core_dark
+
+                # 2. Inner circle mask (r <= 11px)
+                inner_mask = np.zeros((h_p, w_p), dtype=np.uint8)
+                cv2.circle(inner_mask, center_p, r_inner, 255, -1)
+                inner_vals = patch[inner_mask > 0]
                 inner_mean = (
                     float(np.mean(inner_vals)) if len(inner_vals) > 0 else 255.0
                 )
-
-                contrast = max(
+                inner_contrast = max(
                     0.0, (row_paper_bg - inner_mean) / max(10.0, row_paper_bg)
                 )
-                dark_thresh = max(0, row_paper_bg - 25)
-                dark_ratio = (
+                inner_dark = (
                     float(np.mean(inner_vals < dark_thresh))
                     if len(inner_vals) > 0
                     else 0.0
                 )
-                score = 0.50 * contrast + 0.50 * dark_ratio
-                if score < 0:
-                    score = 0.0
-                if score > 1:
-                    score = 1.0
+                inner_score = 0.50 * inner_contrast + 0.50 * inner_dark
+
+                # 3. Safe perimeter ring (11 < r <= 14px)
+                outer_ring_mask = np.zeros((h_p, w_p), dtype=np.uint8)
+                cv2.circle(outer_ring_mask, center_p, r_safe, 255, -1)
+                outer_ring_mask[inner_mask > 0] = 0
+                outer_ring_vals = patch[outer_ring_mask > 0]
+                outer_dark = (
+                    float(np.mean(outer_ring_vals < dark_thresh))
+                    if len(outer_ring_vals) > 0
+                    else 0.0
+                )
+
+                # Adaptive combined score:
+                # - หากฝนในวงหรือฝนเกินเล็กน้อยภายใน safe margin -> ให้คะแนนเต็มที่ ไม่ตัดทิ้ง
+                if core_score >= 0.10 or inner_score >= 0.10:
+                    score = 0.50 * core_score + 0.40 * inner_score + 0.10 * outer_dark
+                else:
+                    score = 0.40 * core_score + 0.60 * inner_score
+
+                score = min(max(score, 0.0), 1.0)
                 q_scores.append(round(score, 4))
+
+            # Bridge scores between choice ch and ch+1 (ตรวจวัดการฝนล้ำข้ามช่อง)
+            q_bridges = {}
+            for ch in range(len(current_xs) - 1):
+                x_mid = int((current_xs[ch] + current_xs[ch + 1]) / 2)
+                bx1 = max(0, x_mid - 4)
+                bx2 = min(grid_img.shape[1], x_mid + 5)
+                by1 = max(0, cy - 5)
+                by2 = min(grid_img.shape[0], cy + 6)
+                if bx2 > bx1 and by2 > by1:
+                    b_patch = g[by1:by2, bx1:bx2]
+                    b_dark = (
+                        float(np.mean(b_patch < dark_thresh))
+                        if b_patch.size > 0
+                        else 0.0
+                    )
+                    b_contrast = (
+                        max(
+                            0.0,
+                            (row_paper_bg - float(np.mean(b_patch)))
+                            / max(10.0, row_paper_bg),
+                        )
+                        if b_patch.size > 0
+                        else 0.0
+                    )
+                    q_bridges[ch] = round(0.50 * b_contrast + 0.50 * b_dark, 4)
+                else:
+                    q_bridges[ch] = 0.0
+
             results[q_no] = q_scores
+            bridge_results[q_no] = q_bridges
+
+    # แนบ bridge_results สำหรับใช้ตัดสินการฝนล้ำข้ามช่อง
+    results["__bridges__"] = bridge_results
     return results
 
 
 def _compute_baselines(raw_scores, n_q):
     """column baseline per group = 20th percentile ratio ของแต่ละ choice"""
-    if raw_scores:
-        n_q = max(n_q, max(raw_scores.keys()))
-        
-    
+    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    if filtered_scores:
+        n_q = max(n_q, max(filtered_scores.keys()))
+
     n_groups = 4 if n_q > 50 else 2
     rpg = n_q // n_groups
     baselines = {}
     for gi in range(n_groups):
         qs = {
-            q: raw_scores[q] for q in raw_scores if gi * rpg + 1 <= q <= (gi + 1) * rpg
+            q: filtered_scores[q]
+            for q in filtered_scores
+            if gi * rpg + 1 <= q <= (gi + 1) * rpg
         }
         if not qs:
             for q in range(gi * rpg + 1, (gi + 1) * rpg + 1):
@@ -730,7 +818,7 @@ def _compute_baselines(raw_scores, n_q):
         for r in qs.values():
             for i, v in enumerate(r):
                 cv[i].append(v)
-        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0 for i in range(5)]
+        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)]
         for q in qs:
             baselines[q] = bl
     return baselines
@@ -743,19 +831,20 @@ def _compute_decision_stats(raw_scores, n_q=None):
     - norms_by_q: normalized score (ratio - baseline)
     - dynamic_fill_min: threshold ฝน (จำกัดไม่เกิน 0.12 เพื่อไม่ตัดดินสอสีอ่อน)
     """
+    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
     if n_q and n_q > 0:
-        bls = _compute_baselines(raw_scores, n_q)
+        bls = _compute_baselines(filtered_scores, n_q)
     else:
         cv = {i: [] for i in range(5)}
-        for r in raw_scores.values():
+        for r in filtered_scores.values():
             for i, v in enumerate(r):
                 cv[i].append(v)
-        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0 for i in range(5)]
-        bls = {q: bl for q in raw_scores}
+        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)]
+        bls = {q: bl for q in filtered_scores}
 
     norms_by_q = {}
     max_norms = []
-    for q_no, ratios in raw_scores.items():
+    for q_no, ratios in filtered_scores.items():
         if not ratios:
             continue
         bl = bls.get(q_no, [0] * 5)
@@ -783,12 +872,24 @@ def _compute_decision_stats(raw_scores, n_q=None):
 
 
 def decide_answers(raw_scores, n_q=None):
-    """ตัดสินด้วย normalized score (ratio - baseline) แก้ปัญหาตัวอักษรใน bubble"""
+    """
+    ตัดสินด้วย normalized score พร้อมระบบตรวจสอบการฝนเกินและล้ำข้ามช่อง:
+    - ฝนเกินเล็กน้อย (ไม่ล้ำไปตัวเลือกอื่น): ตรวจถูกต้องตามตัวเลือกที่เลือก
+    - ฝนเกินมากจนล้ำไปตัวเลือกอื่น / ฝนหลายช่อง: ตรวจเป็นข้อผิดพลาดหลายตัวเลือก และแจ้งเตือน
+    - มีรอยเปื้อนหรือฝนเกินใกล้ตัวเลือกอื่น: ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนให้ครูตรวจสอบ
+    """
     choices = OMRConfig.CHOICES
     answers = {}
     flagged = []
-    bls, norms_by_q, dynamic_fill_min = _compute_decision_stats(raw_scores, n_q=n_q)
-    for q_no, ratios in sorted(raw_scores.items()):
+
+    bridges = raw_scores.get("__bridges__", {})
+    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+
+    bls, norms_by_q, dynamic_fill_min = _compute_decision_stats(
+        filtered_scores, n_q=n_q
+    )
+
+    for q_no, ratios in sorted(filtered_scores.items()):
         if not ratios:
             answers[q_no] = None
             continue
@@ -801,6 +902,12 @@ def decide_answers(raw_scores, n_q=None):
         second_idx, second_n = sr[1] if len(sr) > 1 else (0, 0.0)
         gap = max_n - second_n if len(sr) > 1 else 1.0
 
+        q_bridges = bridges.get(q_no, {})
+        is_adjacent = abs(max_idx - second_idx) == 1
+        bridge_val = (
+            q_bridges.get(min(max_idx, second_idx), 0.0) if is_adjacent else 0.0
+        )
+
         if max_n < dynamic_fill_min:
             flagged.append(
                 {
@@ -811,41 +918,79 @@ def decide_answers(raw_scores, n_q=None):
             )
             answers[q_no] = None
         else:
-            # Check for multiple marks (2 or more choices above threshold or close to max)
-            multi_choices = [
-                choices[i]
-                for i, n in enumerate(norm)
-                if n >= dynamic_fill_min * 0.75
-                and (
-                    (n / max(1e-5, max_n))
-                    >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.55))
-                    or (max_n - n) <= 0.06
+            # 1. ตรวจสอบการฝนหลายตัวเลือก หรือการฝนล้ำข้ามช่องอย่างรุนแรง (Severe Overfill / Bleed Across Options)
+            has_heavy_bleed = is_adjacent and (
+                (
+                    bridge_val >= 0.12
+                    and second_n >= dynamic_fill_min * 0.50
+                    and (second_n / max(1e-5, max_n))
+                    >= float(getattr(OMRConfig, "OVERFLOW_BLEED_RATIO", 0.40))
                 )
-            ]
-            if len(multi_choices) >= 2:
-                detected_str = ",".join(multi_choices)
+                or (bridge_val >= 0.18 and second_n >= dynamic_fill_min * 0.40)
+            )
+
+            has_multi_marks = second_n >= dynamic_fill_min * 0.65 and (
+                (second_n / max(1e-5, max_n))
+                >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.52))
+                or (max_n - second_n) <= 0.05
+            )
+
+            if has_multi_marks or has_heavy_bleed:
+                # รวบรวมตัวเลือกทั้งหมดที่ตรวจพบรอยฝนหรือรอยล้ำข้ามช่อง
+                cand_indices = [max_idx, second_idx]
+                for i, n in enumerate(norm):
+                    if (
+                        i not in cand_indices
+                        and n >= dynamic_fill_min * 0.60
+                        and (n / max(1e-5, max_n))
+                        >= float(getattr(OMRConfig, "MULTI_MARK_RATIO", 0.52))
+                    ):
+                        cand_indices.append(i)
+                cand_indices.sort()
+                detected_str = ",".join(choices[i] for i in cand_indices)
+
+                reason = (
+                    "overflow_bleed"
+                    if (has_heavy_bleed and not has_multi_marks)
+                    else "multiple_mark"
+                )
+                message = (
+                    f"รอยฝนเกินขอบเขตล้ำไปตัวเลือกอื่น (ตรวจพบ: {detected_str})"
+                    if reason == "overflow_bleed"
+                    else f"ฝนมากกว่า 1 ตัวเลือก ({detected_str})"
+                )
+
                 flagged.append(
                     {
                         "question": q_no,
-                        "reason": "multiple_mark",
+                        "reason": reason,
                         "detected": detected_str,
+                        "primary": choices[max_idx],
+                        "bleed_choice": choices[second_idx],
+                        "message": message,
                         "ratios": dict(zip(choices, ratios)),
                     }
                 )
                 answers[q_no] = detected_str
-            elif second_n >= dynamic_fill_min * 0.95 or second_n >= 0.075:
-                # มีรอยฝนเกินช่องหรือเปื้อนในช่องอื่นอย่างเห็นได้ชัด -> แจ้งเตือนให้ครูตรวจสอบ
+
+            elif (second_n >= dynamic_fill_min * 0.55 and second_n >= 0.075) or (
+                is_adjacent and bridge_val >= 0.10 and second_n >= 0.055
+            ):
+                # 2. รอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่นระดับปานกลาง (ตัวเลือกหลักยังเด่นชัด) -> ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนผู้ใช้
                 flagged.append(
                     {
                         "question": q_no,
                         "reason": "overflow_smudge",
                         "detected": choices[max_idx],
                         "smudge_choice": choices[second_idx],
+                        "message": f"มีรอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือก {choices[second_idx]}",
                         "ratios": dict(zip(choices, ratios)),
                     }
                 )
                 answers[q_no] = choices[max_idx]
+
             elif gap < OMRConfig.NORM_GAP_MIN:
+                # 3. ความเชื่อมั่นต่ำ (คะแนนใกล้เคียงกัน)
                 flagged.append(
                     {
                         "question": q_no,
@@ -854,8 +999,11 @@ def decide_answers(raw_scores, n_q=None):
                     }
                 )
                 answers[q_no] = choices[max_idx]
+
             else:
+                # 4. ฝนปกติ หรือฝนเกินขอบเขตเล็กน้อยที่ไม่ล้ำไปตัวเลือกอื่น -> ตรวจถูกต้อง 100%
                 answers[q_no] = choices[max_idx]
+
     return answers, flagged
 
 
@@ -867,13 +1015,14 @@ def summarize_marks(raw_scores, n_q):
     - suspicious: list ของข้อที่ควรตรวจด้วยตา
     """
     choices = OMRConfig.CHOICES
-    _, norms_by_q, fill_min = _compute_decision_stats(raw_scores, n_q=n_q)
+    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    _, norms_by_q, fill_min = _compute_decision_stats(filtered_scores, n_q=n_q)
 
     filled = 0
     blank = 0
     suspicious = []
 
-    for q_no in sorted(raw_scores):
+    for q_no in sorted(filtered_scores):
         norm = norms_by_q.get(q_no)
         if not norm:
             blank += 1
@@ -1041,38 +1190,49 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
         meta = decode_qr(warped)
         if not meta.exam_id and not meta.sheet_id:
             meta = _merge_metadata(meta, decode_qr(img))
-            
+
         grid_rect_tmp = detect_grid_region(warped_gray, 0)
         detected_layout_q = auto_detect_questions(warped_gray, grid_rect_tmp)
-        
-        total_q = meta.total_questions if meta.total_questions > 0 else (force_questions or detected_layout_q)
+
+        total_q = (
+            meta.total_questions
+            if meta.total_questions > 0
+            else (force_questions or detected_layout_q)
+        )
         if meta.total_questions > 0:
             print(f"[4] QR: subject='{meta.subject_code}' tq={total_q}")
         else:
             print(f"[4] QR decode ไม่ได้ → auto-detect: {total_q} ข้อ")
-            
+
         meta.total_questions = total_q
         result.metadata = meta
-        
+
         layout_q = detected_layout_q
         if layout_q != total_q:
             print(f"[4.1] Layout normalize: exam={total_q} -> sheet_layout={layout_q}")
-            
+
         grid_rect = detect_grid_region(warped_gray, layout_q)
         print(f"[5] Grid: {grid_rect}")
         positions = get_bubble_positions(warped, grid_rect, layout_q)
         print(f"[6] Positions: {sum(1 for p in positions if p)} groups OK")
         raw_scores = measure_bubble_ratios(warped, grid_rect, positions)
-        
+
         answers, flagged = decide_answers(raw_scores, n_q=layout_q)
+        clean_scores = {
+            int(q): v
+            for q, v in raw_scores.items()
+            if isinstance(q, int) or str(q).isdigit()
+        }
         if total_q and total_q < layout_q:
             answers = {int(q): a for q, a in answers.items() if int(q) <= total_q}
             flagged = [f for f in flagged if int(f.get("question", 0)) <= total_q]
-            raw_scores = {int(q): v for q, v in raw_scores.items() if int(q) <= total_q}
+            raw_scores = {
+                int(q): v for q, v in clean_scores.items() if int(q) <= total_q
+            }
         else:
             answers = {int(q): a for q, a in answers.items()}
-            raw_scores = {int(q): v for q, v in raw_scores.items()}
-            
+            raw_scores = {int(q): v for q, v in clean_scores.items()}
+
         result.raw_scores = raw_scores
         result.answers = answers
         result.flagged = flagged
@@ -1130,7 +1290,14 @@ def calculate_score(answers, answer_key):
             skipped.append(q_no)
         elif "," in a or len(a) > 1:
             # ฝนหลายข้อ หรือเครื่องหมายไม่ถูกต้อง -> ให้ 0 คะแนนและบันทึกใน wrong
-            wrong.append({"question": q_no, "student": a, "correct": key, "reason": "multiple_marks"})
+            wrong.append(
+                {
+                    "question": q_no,
+                    "student": a,
+                    "correct": key,
+                    "reason": "multiple_marks",
+                }
+            )
         elif a == key:
             correct.append(q_no)
             earned_score += q_score
@@ -1207,7 +1374,11 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
                 ch = choices.index(a_item)
                 cx = gx + int(current_xs[ch])
                 cy = gy + int(y)
-                color = (0, 165, 255) if (q_no in flagged_qs or len(ans_list) > 1) else (0, 255, 0)
+                color = (
+                    (0, 165, 255)
+                    if (q_no in flagged_qs or len(ans_list) > 1)
+                    else (0, 255, 0)
+                )
                 cv2.circle(debug, (cx, cy), dbg_r, color, 2)
                 cv2.putText(
                     debug,
@@ -1219,7 +1390,11 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
                     1,
                 )
             # If flagged for overflow/smudge, also highlight smudge choice
-            smudge_items = [f.get("smudge_choice") for f in flagged if f.get("question") == q_no and f.get("smudge_choice")]
+            smudge_items = [
+                f.get("smudge_choice")
+                for f in flagged
+                if f.get("question") == q_no and f.get("smudge_choice")
+            ]
             for s_item in smudge_items:
                 if s_item in choices and s_item not in ans_list:
                     ch = choices.index(s_item)

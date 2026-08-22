@@ -35,6 +35,7 @@ env/
 .env.*.local
 **/serviceAccountKey.json
 mobiles/**/.env
+*.sql
 
 # IDE / Editor
 .vscode/

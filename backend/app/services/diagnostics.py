@@ -240,7 +240,9 @@ def diag_fill_quality(
             xs, ys = group
             rpg = len(ys)
             for row, y in enumerate(ys):
-                current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+                current_xs = (
+                    xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+                )
                 q_no = gi * rpg + row + 1
                 if q_no not in raw_scores:
                     continue
@@ -260,30 +262,51 @@ def diag_answers(raw_scores, answers, flagged, n_q, report: DiagReport):
     report.flagged = flagged
 
     answered = sum(1 for v in answers.values() if v is not None)
-    not_filled = [f for f in flagged if f["reason"] == "not_filled"]
-    low_conf = [f for f in flagged if f["reason"] == "low_confidence"]
+    not_filled = [f for f in flagged if f.get("reason") == "not_filled"]
+    multi_mark = [f for f in flagged if f.get("reason") == "multiple_mark"]
+    overflow_bleed = [f for f in flagged if f.get("reason") == "overflow_bleed"]
+    overflow_smudge = [f for f in flagged if f.get("reason") == "overflow_smudge"]
+    low_conf = [f for f in flagged if f.get("reason") == "low_confidence"]
 
     report.info.append(f"✅ ผลตรวจ: {answered}/{n_q} ข้อมีคำตอบ")
     if not_filled:
+        q_list = [f.get("question") for f in not_filled]
+        report.warnings.append(f"⚠️ ไม่ระบาย {len(not_filled)} ข้อ: {q_list}")
+    if multi_mark:
+        m_list = [f"Q{f.get('question')}: {f.get('detected', '')}" for f in multi_mark]
         report.warnings.append(
-            f"⚠️ ไม่ระบาย {len(not_filled)} ข้อ: {[f['question'] for f in not_filled]}"
+            f"⚠️ ฝนมากกว่า 1 ตัวเลือก {len(multi_mark)} ข้อ: {m_list}"
+        )
+    if overflow_bleed:
+        b_list = [
+            f"Q{f.get('question')}: {f.get('detected', '')}" for f in overflow_bleed
+        ]
+        report.warnings.append(
+            f"⚠️ ฝนเกินขอบเขตล้ำไปตัวเลือกอื่น {len(overflow_bleed)} ข้อ: {b_list}"
+        )
+    if overflow_smudge:
+        s_list = [
+            f"Q{f.get('question')}: {f.get('detected', '')} (ใกล้ {f.get('smudge_choice', '')})"
+            for f in overflow_smudge
+        ]
+        report.warnings.append(
+            f"⚠️ มีรอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่น {len(overflow_smudge)} ข้อ: {s_list}"
         )
     if low_conf:
-        report.warnings.append(
-            f"⚠️ low confidence {len(low_conf)} ข้อ: {[f['question'] for f in low_conf]}"
-        )
+        lc_list = [f.get("question") for f in low_conf]
+        report.warnings.append(f"⚠️ low confidence {len(low_conf)} ข้อ: {lc_list}")
     if len(flagged) == 0:
-        report.info.append("✅ ไม่มี flagged — detect คำตอบครบสมบูรณ์")
+        report.info.append("✅ ไม่มี flagged — ตรวจพบคำตอบชัดเจนครบถ้วน")
 
 
 def add_legend(img):
     H, W = img.shape[:2]
     legends = [
-        (GREEN, "Anchor / QR OK"),
+        (GREEN, "Anchor / QR / Correct answer OK"),
         (BLUE, "Grid / Bubble position"),
-        (YELLOW, "Anchor candidate"),
-        (RED, "Error"),
-        (MAGENTA, "Flagged"),
+        (YELLOW, "Anchor candidate / Smudge alert"),
+        (RED, "Error / Multi-mark / Bleed"),
+        (MAGENTA, "Flagged question"),
     ]
     x0, y0 = 10, H - 20 - len(legends) * 28
     for i, (color, text) in enumerate(legends):
@@ -299,10 +322,11 @@ def add_legend(img):
 
 def draw_answers_overlay(debug_img, answers, flagged, positions, grid_rect):
     gx, gy = grid_rect[0], grid_rect[1]
-    flagged_qs = {f["question"] for f in flagged}
     choices = OMRConfig.CHOICES
     R = OMRConfig.BUBBLE_RADIUS
     dbg_r = max(3, R + int(getattr(OMRConfig, "DEBUG_CIRCLE_RADIUS_OFFSET", -3)))
+
+    flag_map = {f["question"]: f for f in flagged}
 
     for gi, group in enumerate(positions or []):
         if not group:
@@ -313,19 +337,46 @@ def draw_answers_overlay(debug_img, answers, flagged, positions, grid_rect):
             current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
             q_no = gi * rpg + row + 1
             ans = answers.get(q_no)
-            if ans and ans in choices:
-                ch = choices.index(ans)
+            if not ans or str(ans) == "None":
+                continue
+
+            ans_list = [a.strip() for a in str(ans).split(",") if a.strip() in choices]
+            f_info = flag_map.get(q_no)
+
+            for a_item in ans_list:
+                ch = choices.index(a_item)
                 cx, cy = gx + int(current_xs[ch]), gy + int(y)
-                color = MAGENTA if q_no in flagged_qs else GREEN
+                color = (
+                    RED
+                    if (
+                        f_info
+                        and f_info.get("reason") in ["overflow_bleed", "multiple_mark"]
+                    )
+                    else (MAGENTA if f_info else GREEN)
+                )
                 cv2.circle(debug_img, (cx, cy), dbg_r, color, 3)
                 cv2.putText(
                     debug_img,
-                    ans,
+                    a_item,
                     (cx - 6, cy + 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
                     color,
                     2,
+                )
+
+            if f_info and f_info.get("smudge_choice") in choices:
+                s_ch = choices.index(f_info["smudge_choice"])
+                cx, cy = gx + int(current_xs[s_ch]), gy + int(y)
+                cv2.circle(debug_img, (cx, cy), dbg_r, YELLOW, 2)
+                cv2.putText(
+                    debug_img,
+                    f"{f_info['smudge_choice']}?",
+                    (cx - 8, cy + 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.38,
+                    YELLOW,
+                    1,
                 )
 
 
