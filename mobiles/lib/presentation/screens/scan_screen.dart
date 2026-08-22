@@ -80,22 +80,29 @@ class _ScanScreenState extends State<ScanScreen> {
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         if (!mounted || !context.mounted) return;
-        
+
         final rawStatus = result['status']?.toString().toLowerCase();
         final rawFlagged = result['flagged'];
-        final bool hasFlaggedData = (rawFlagged is List && rawFlagged.isNotEmpty) ||
+        final bool hasFlaggedData =
+            (rawFlagged is List && rawFlagged.isNotEmpty) ||
             rawFlagged == true ||
             rawFlagged == 1 ||
             rawFlagged == '1' ||
             rawFlagged == 'true';
-        final bool isError = rawStatus == 'warning' || rawStatus == 'error' || rawStatus == 'failed' || rawStatus == 'flagged' || hasFlaggedData;
-        
+        final bool isError =
+            rawStatus == 'warning' ||
+            rawStatus == 'error' ||
+            rawStatus == 'failed' ||
+            rawStatus == 'flagged' ||
+            hasFlaggedData;
+
         if (isError) {
           QuickAlert.show(
             context: context,
             type: QuickAlertType.warning,
-            title: 'พบข้อผิดปกติ',
-            text: 'กระดาษคำตอบมีปัญหา โปรดตรวจสอบความถูกต้องในหน้ารายละเอียดคำตอบ (อาจลืมฝนรหัสนักศึกษา ฝนซ้ำ หรือฝนเกิน)',
+            title: 'สแกนสำเร็จ แต่พบข้อผิดพลาด',
+            text:
+                'กรุณาตรวจสอบความถูกต้องในหน้ารายละเอียดคำตอบ (อาจลืมฝน ฝนซ้ำ หรือฝนเกิน)',
             confirmBtnColor: AppColors.primary,
             onConfirmBtnTap: () {
               Navigator.pop(context); // close alert
@@ -108,7 +115,8 @@ class _ScanScreenState extends State<ScanScreen> {
           QuickAlert.show(
             context: context,
             type: QuickAlertType.success,
-            text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
+            text:
+                'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
             confirmBtnColor: AppColors.primary,
             onConfirmBtnTap: () {
               Navigator.pop(context); // close alert

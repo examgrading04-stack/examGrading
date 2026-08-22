@@ -822,15 +822,17 @@ class MySQLAdapter(BaseDBAdapter):
 
             # insert details
             if isinstance(answers, dict):
+                wrong_qs = {str(w["question"]) if isinstance(w, dict) else str(w) for w in wrong}
+                skipped_qs = {str(s) for s in skipped}
                 for q_str, ans in answers.items():
                     try:
                         q_no = int(q_str)
                     except ValueError:
                         continue
                     status = "Correct"
-                    if q_str in wrong:
+                    if q_str in wrong_qs:
                         status = "Wrong"
-                    elif q_str in skipped:
+                    elif q_str in skipped_qs:
                         status = "Skipped"
 
                     det = SqlExamDetail(
