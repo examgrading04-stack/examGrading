@@ -331,7 +331,10 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           const qStr = String(i);
           const correctAns = getCorrectAnswer(exam, qStr);
           const qScore = getQuestionScore(exam, qStr);
-          calculatedMax += qScore;
+          
+          if (correctAns !== "-" && correctAns !== "") {
+            calculatedMax += qScore;
+          }
 
           if (row.answers) {
             if (row.answers[qStr] === correctAns && correctAns !== "-") {

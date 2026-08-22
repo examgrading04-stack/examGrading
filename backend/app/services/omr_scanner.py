@@ -1102,6 +1102,13 @@ def calculate_score(answers, answer_key):
         else:
             key = key_data
 
+        if isinstance(key, str):
+            key = key.strip().upper()
+
+        # Skip empty answers so they don't count towards the max score
+        if not key or key == "" or key == "-":
+            continue
+
         total_score += q_score
 
         # รองรับทั้ง key แบบ int และ str จากหลายแหล่งข้อมูล
@@ -1118,8 +1125,6 @@ def calculate_score(answers, answer_key):
                 pass
         if isinstance(a, str):
             a = a.strip().upper()
-        if isinstance(key, str):
-            key = key.strip().upper()
 
         if a is None or a == "" or a == "NONE":
             skipped.append(q_no)

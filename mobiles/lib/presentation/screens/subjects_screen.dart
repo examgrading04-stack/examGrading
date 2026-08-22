@@ -150,18 +150,62 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            _buildField(
-              'ชื่อผู้สอน',
-              teacherController,
-              FontAwesomeIcons.userTie,
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.userTie,
+                    color: AppColors.textSecondary,
+                    size: 13,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ชื่อผู้สอน (อ้างอิงจากบัญชีผู้ใช้)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        teacherController.text.isNotEmpty ? teacherController.text : 'ไม่ได้ระบุ',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 36),
             _buildSubmitButton(
               onPressed: () async {
-                if (codeController.text.trim().isEmpty ||
-                    nameController.text.trim().isEmpty) {
+                final newCode = codeController.text.trim();
+                final newName = nameController.text.trim();
+                if (newCode.isEmpty || newName.isEmpty) {
                   _warn('กรุณากรอกรหัสวิชาและชื่อวิชา');
                   return;
+                }
+                
+                if (!isEdit || subject.code != newCode) {
+                  final exists = _subjects.any((s) => s.code == newCode);
+                  if (exists) {
+                    _warn('รหัสวิชานี้มีอยู่ในระบบแล้ว');
+                    return;
+                  }
                 }
 
                 final data = {

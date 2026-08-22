@@ -9,6 +9,7 @@ class AuthService {
   static const _keyDisplayName = 'user_displayName';
   static const _keyPhotoURL = 'user_photoURL';
   static const _keyRole = 'user_role';
+  static const _keyProviderId = 'user_providerId';
 
   static AuthService? _instance;
   static AuthService get instance => _instance ??= AuthService._();
@@ -20,6 +21,7 @@ class AuthService {
   Map<String, dynamic>? get currentUser => _currentUser;
   String? get currentEmail => _currentUser?['email'] as String?;
   bool get isLoggedIn => _currentUser != null;
+  bool get isGoogleSignIn => _currentUser?['providerId'] == 'google.com';
 
   // ── Initialise: อ่าน session จาก SharedPreferences ─────────────────────
   Future<void> init() async {
@@ -31,18 +33,24 @@ class AuthService {
         'displayName': prefs.getString(_keyDisplayName) ?? '',
         'photoURL': prefs.getString(_keyPhotoURL) ?? '',
         'role': prefs.getString(_keyRole) ?? 'user',
+        'providerId': prefs.getString(_keyProviderId) ?? 'password',
       };
     }
   }
 
   // ── Save session ────────────────────────────────────────────────────────
   Future<void> _saveSession(Map<String, dynamic> user) async {
+    final providerId = (user['providerData'] != null && (user['providerData'] as List).isNotEmpty)
+        ? user['providerData'][0]['providerId']
+        : 'password';
+    user['providerId'] = providerId;
     _currentUser = user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyEmail, user['email'] ?? '');
     await prefs.setString(_keyDisplayName, user['displayName'] ?? '');
     await prefs.setString(_keyPhotoURL, user['photoURL'] ?? '');
     await prefs.setString(_keyRole, user['role'] ?? 'user');
+    await prefs.setString(_keyProviderId, providerId);
   }
 
   // ── Clear session (Logout) ───────────────────────────────────────────────
@@ -53,6 +61,7 @@ class AuthService {
     await prefs.remove(_keyDisplayName);
     await prefs.remove(_keyPhotoURL);
     await prefs.remove(_keyRole);
+    await prefs.remove(_keyProviderId);
   }
 
   // ── Email/Password Login ────────────────────────────────────────────────

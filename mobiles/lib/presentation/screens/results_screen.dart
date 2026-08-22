@@ -24,11 +24,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
   DateTime? _readResultTime(Map<String, dynamic> data) {
-    final dynamic createdAt = data['createdAt'];
-    if (createdAt != null) return DateTime.tryParse(createdAt.toString());
-    final dynamic timestamp = data['timestamp'];
-    if (timestamp != null) return DateTime.tryParse(timestamp.toString());
-    return null;
+    final dynamic val = data['createdAt'] ?? data['created_at'] ?? data['timestamp'] ?? data['scanTime'];
+    if (val == null) return null;
+    if (val is int) {
+      if (val > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.fromMillisecondsSinceEpoch(val * 1000);
+    }
+    return DateTime.tryParse(val.toString());
   }
 
   List<String> get _subjects {
@@ -295,18 +297,34 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           final examId =
                               data['examId']?.toString() ?? 'ไม่ระบุ';
                           final isPending = data['score'] == null;
+                          final rawFlagged = data['flagged'];
+                          final bool hasFlaggedData =
+                              (rawFlagged is List && rawFlagged.isNotEmpty) ||
+                              rawFlagged == true ||
+                              rawFlagged == 1 ||
+                              rawFlagged == '1' ||
+                              rawFlagged == 'true';
+                          final rawStatus = data['status']?.toString().toLowerCase();
+                          final bool isError = rawStatus == 'warning' ||
+                              rawStatus == 'error' ||
+                              rawStatus == 'failed' ||
+                              rawStatus == 'flagged';
+                          final bool isAbnormal = isPending || isError || hasFlaggedData;
+                          
                           ExamModel? currentExam;
                           try {
                             currentExam = _exams.firstWhere(
                               (e) => e.id == examId,
                             );
                           } catch (_) {}
+                          
                           double dynamicScore =
                               double.tryParse(
                                 data['score']?.toString() ?? '0',
                               ) ??
                               0;
-                          if (currentExam != null &&
+                              
+                          if (!isAbnormal && currentExam != null &&
                               (data.containsKey('answers') ||
                                   data.containsKey('itemResults'))) {
                             double calculatedScore = 0;
@@ -339,9 +357,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             }
                             dynamicScore = calculatedScore;
                           }
-                          final scoreStr = isPending
-                              ? 'กำลังประมวลผล...'
-                              : dynamicScore.toString();
+                          
+                          String scoreStr = dynamicScore.toString();
+                          if (isError || hasFlaggedData) {
+                            scoreStr = 'พบปัญหา';
+                          } else if (isPending) {
+                            scoreStr = 'รอตรวจ';
+                          }
                           /* Parse exam ID for a cleaner display */
                           String subjectCode = '';
                           String examName = examId;
@@ -467,31 +489,37 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                             vertical: 8,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: isPending
-                                                ? AppColors.surface
-                                                : AppColors.infoSoft,
+                                            color: isError
+                                                ? Colors.amber.shade50
+                                                : (isPending
+                                                    ? AppColors.surface
+                                                    : AppColors.infoSoft),
                                             borderRadius: BorderRadius.circular(
                                               14,
                                             ),
                                             border: Border.all(
-                                              color: isPending
-                                                  ? AppColors.border
-                                                  : AppColors.info.withValues(
-                                                      alpha: 0.2,
-                                                    ),
+                                              color: isError
+                                                  ? Colors.amber.shade200
+                                                  : (isPending
+                                                      ? AppColors.border
+                                                      : AppColors.info.withValues(
+                                                          alpha: 0.2,
+                                                        )),
                                               width: 1.5,
                                             ),
                                           ),
                                           child: Text(
-                                            isPending
-                                                ? 'รอตรวจ'
+                                            isAbnormal
+                                                ? scoreStr
                                                 : '$scoreStr/${currentExam?.getTotalScore(data['set']?.toString()).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '') ?? 0} คะแนน',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 12,
-                                              color: isPending
-                                                  ? AppColors.textSecondary
-                                                  : AppColors.infoDark,
+                                              color: isError
+                                                  ? Colors.amber.shade800
+                                                  : (isPending
+                                                      ? AppColors.textSecondary
+                                                      : AppColors.infoDark),
                                             ),
                                           ),
                                         ),
@@ -539,57 +567,86 @@ class _ResultsScreenState extends State<ResultsScreen> {
         .toList();
 
     final rawFlagged = result['flagged'];
-    final bool isFlagged =
+    final bool hasFlaggedData =
+        (rawFlagged is List && rawFlagged.isNotEmpty) ||
         rawFlagged == true ||
         rawFlagged == 1 ||
         rawFlagged == '1' ||
         rawFlagged == 'true';
-    String pendingTitle = 'รอตรวจสอบความถูกต้อง';
 
-    if (isFlagged) {
-      final List<String> problemQs = [];
-      for (int i = 1; i <= exam.questions; i++) {
-        final qNum = i.toString();
-        String studentAns = '';
-        bool isSkipped = false;
+    final rawStatus = result['status']?.toString().toLowerCase();
+    final bool isError = rawStatus == 'warning' ||
+        rawStatus == 'error' ||
+        rawStatus == 'failed' ||
+        rawStatus == 'flagged';
+    final bool isPending = result['score'] == null;
 
-        if (answers.isNotEmpty && answers.containsKey(qNum)) {
-          studentAns = answers[qNum].toString().trim();
-          if (studentAns == '-' ||
-              studentAns.isEmpty ||
-              skippedQs.contains(qNum)) {
-            isSkipped = true;
-          }
-        } else if (itemResults.isNotEmpty) {
-          if (itemResults[qNum] == true) {
-            studentAns = ''; // Don't care for this check
-          } else if (itemResults[qNum] == false) {
-            studentAns = 'X';
-          } else {
-            studentAns = '-';
-            isSkipped = true;
-          }
-          if (skippedQs.contains(qNum)) isSkipped = true;
+    final List<String> flaggedReasons = [];
+    final Map<String, dynamic> flaggedMap = {};
+    if (result['flagged'] is List) {
+      for (var f in (result['flagged'] as List)) {
+        if (f is Map && f['question'] != null) {
+          flaggedMap[f['question'].toString()] = f;
         }
-
-        if (isSkipped) {
-          problemQs.add(qNum);
-        } else if (studentAns.length > 1 && studentAns != '-') {
-          problemQs.add(qNum);
-        }
-      }
-
-      if (problemQs.isNotEmpty) {
-        pendingTitle += ' (ข้อ ${problemQs.join(", ")})';
       }
     }
+
+    final totalQCount = exam.questions > 0
+        ? exam.questions
+        : (answers.isNotEmpty ? answers.length : 20);
+
+    for (int i = 1; i <= totalQCount; i++) {
+      final qNum = i.toString();
+      final flagInfo = flaggedMap[qNum];
+      String studentAns = '-';
+      bool isSkipped = false;
+      bool isMultiMark = false;
+
+      if (answers.isNotEmpty && answers.containsKey(qNum)) {
+        studentAns = answers[qNum].toString().trim();
+        if (studentAns == '-' ||
+            studentAns.isEmpty ||
+            skippedQs.contains(qNum)) {
+          isSkipped = true;
+        } else if (studentAns.contains(',') || studentAns.length > 1) {
+          isMultiMark = true;
+        }
+      } else if (itemResults.isNotEmpty) {
+        if (itemResults[qNum] == null || itemResults[qNum] == '-') {
+          isSkipped = true;
+        }
+      }
+
+      if (isMultiMark ||
+          (flagInfo != null && flagInfo['reason'] == 'multiple_mark')) {
+        flaggedReasons.add('ข้อ $qNum: ฝนมากกว่า 1 ตัวเลือก');
+      } else if (flagInfo != null && flagInfo['reason'] == 'low_confidence') {
+        flaggedReasons.add('ข้อ $qNum: ไม่มั่นใจในการอ่านจุดฝน (อาจลบไม่สะอาด)');
+      } else if (flagInfo != null && flagInfo['reason'] == 'out_of_bounds') {
+        flaggedReasons.add('ข้อ $qNum: ฝนเกินขอบเขตที่กำหนด');
+      } else if (isSkipped) {
+        flaggedReasons.add('ข้อ $qNum: ไม่ได้ฝนคำตอบ');
+      }
+    }
+
+    if (result['flagged'] is List) {
+      for (var f in (result['flagged'] as List)) {
+        if (f is Map && f['reason'] == 'not_filled') {
+          flaggedReasons.add('ข้อ ${f['question'] ?? "-"}: ไม่ได้ฝนคำตอบ');
+        }
+      }
+    }
+
+    final uniqueFlaggedReasons = flaggedReasons.toSet().toList();
+    final bool isActuallyFlagged =
+        uniqueFlaggedReasons.isNotEmpty || hasFlaggedData || isError || isPending;
 
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
 
-    final formattedScore = dynamicScore
-        .toStringAsFixed(1)
-        .replaceAll(RegExp(r'\.0$'), '');
+    final formattedScore = isActuallyFlagged
+        ? '-'
+        : dynamicScore.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
     final formattedTotal = exam
         .getTotalScore(result['set']?.toString())
         .toStringAsFixed(1)
@@ -640,7 +697,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'รายละเอียดคำตอบ',
                               style: TextStyle(
                                 fontSize: 20,
@@ -651,7 +708,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             const SizedBox(height: 4),
                             Text(
                               exam.name,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textSecondary,
                               ),
@@ -664,9 +721,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.info,
+                            color: isActuallyFlagged
+                                ? Colors.amber.shade700
+                                : AppColors.info,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: AppColors.infoShadow,
+                            boxShadow: isActuallyFlagged
+                                ? []
+                                : AppColors.infoShadow,
                           ),
                           child: Text(
                             '$formattedScore/$formattedTotal คะแนน',
@@ -688,7 +749,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (isFlagged) ...[
+                      if (isActuallyFlagged) ...[
                         Container(
                           padding: const EdgeInsets.all(16),
                           margin: const EdgeInsets.only(bottom: 24),
@@ -714,7 +775,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      pendingTitle,
+                                      'ผลสอบมีปัญหา กรุณาตรวจสอบ',
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontWeight: FontWeight.bold,
@@ -725,6 +786,44 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   ),
                                 ],
                               ),
+                              if (uniqueFlaggedReasons.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: uniqueFlaggedReasons.map((reason) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 24,
+                                        bottom: 4,
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '• ',
+                                            style: TextStyle(
+                                              color: Colors.amber.shade800,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              reason,
+                                              style: TextStyle(
+                                                color: Colors.amber.shade900,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),

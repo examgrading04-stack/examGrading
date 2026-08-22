@@ -131,15 +131,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       selectedSubjectId = sectionOpt?.subjectId;
     }
     final isEdit = student != null;
-    if (_sections.isEmpty && !isEdit) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        text: 'ยังไม่มีกลุ่มเรียน กรุณาสร้างกลุ่มเรียนก่อนเพิ่มผู้เรียน',
-        confirmBtnColor: AppColors.success,
-      );
-      return;
-    }
+    // Removed section check for Hybrid Mode
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -223,27 +215,46 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
-                          if (codeController.text.isEmpty ||
-                              nameController.text.isEmpty ||
-                              selectedSectionId == null) {
+                          final newCode = codeController.text.trim();
+                          final newName = nameController.text.trim();
+                          if (newCode.isEmpty || newName.isEmpty) {
                             QuickAlert.show(
                               context: context,
                               type: QuickAlertType.warning,
-                              text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                              text: 'กรุณากรอกรหัสนักเรียนและชื่อ-นามสกุล',
                               confirmBtnColor: AppColors.success,
                             );
                             return;
                           }
-                          final selectedOpt = _sections.firstWhere(
-                            (s) => s.id == selectedSectionId,
-                          );
+                          
+                          if (!isEdit || student.code != newCode) {
+                            final exists = _students.any((s) => s.code == newCode);
+                            if (exists) {
+                              QuickAlert.show(
+                                context: context,
+                                type: QuickAlertType.warning,
+                                text: 'รหัสนักเรียนนี้มีอยู่ในระบบแล้ว',
+                                confirmBtnColor: AppColors.success,
+                              );
+                              return;
+                            }
+                          }
+                          
+                          SectionOption? selectedOpt;
+                          if (selectedSectionId != null) {
+                            try {
+                              selectedOpt = _sections.firstWhere(
+                                (s) => s.id == selectedSectionId,
+                              );
+                            } catch (_) {}
+                          }
                           final data = {
-                            'id': codeController.text,
-                            'code': codeController.text,
-                            'name': nameController.text,
+                            'id': newCode,
+                            'code': newCode,
+                            'name': newName,
                             'class': selectedSectionId,
-                            'subjectCode': selectedOpt.subjectId,
-                            'section': selectedOpt.sectionId,
+                            'subjectCode': selectedOpt?.subjectId,
+                            'section': selectedOpt?.sectionId,
                           };
                           if (isEdit) {
                             await ApiService.instance.updateDoc(
@@ -593,7 +604,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     minHeight: 0,
                                   ),
                                 ),
-                                initialValue: _filterSubjectId,
+                                value: _filterSubjectId,
                                 items: [
                                   DropdownMenuItem(
                                     value: null,
@@ -687,7 +698,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       minHeight: 0,
                                     ),
                                   ),
-                                  initialValue: _filterSectionId,
+                                  value: _filterSectionId,
                                   items: [
                                     DropdownMenuItem(
                                       value: null,

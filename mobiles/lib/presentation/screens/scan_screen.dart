@@ -80,18 +80,38 @@ class _ScanScreenState extends State<ScanScreen> {
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         if (!mounted || !context.mounted) return;
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.success,
-          text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
-          confirmBtnColor: AppColors.primary,
-          onConfirmBtnTap: () {
-            Navigator.pop(context); // close alert
-            setState(() {
-              _image = null;
-            });
-          },
-        );
+        
+        final rawStatus = result['status']?.toString().toLowerCase();
+        final bool isError = rawStatus == 'warning' || rawStatus == 'error' || rawStatus == 'failed' || rawStatus == 'flagged';
+        
+        if (isError) {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.warning,
+            title: 'พบข้อผิดปกติ',
+            text: 'กรุณาตรวจสอบกระดาษคำตอบในหน้ารายละเอียดคำตอบ (อาจลืมฝนรหัสนักศึกษา หรือฝนคำตอบซ้ำ)',
+            confirmBtnColor: AppColors.primary,
+            onConfirmBtnTap: () {
+              Navigator.pop(context); // close alert
+              setState(() {
+                _image = null;
+              });
+            },
+          );
+        } else {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.success,
+            text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
+            confirmBtnColor: AppColors.primary,
+            onConfirmBtnTap: () {
+              Navigator.pop(context); // close alert
+              setState(() {
+                _image = null;
+              });
+            },
+          );
+        }
       } else if (response.statusCode == 409) {
         if (!mounted || !context.mounted) return;
         QuickAlert.show(

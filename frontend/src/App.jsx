@@ -401,19 +401,21 @@ function ProfileModal({ user, profile, auth, api, onClose, onProfileSaved }) {
           </PrimaryButton>
         </form>
 
-        <div className="border-t border-slate-100 p-6 space-y-4 bg-slate-50 rounded-b-lg">
-          <h3 className="font-extrabold text-md text-slate-800">ความปลอดภัย</h3>
-          <GhostButton
-            type="button"
-            variant="primary"
-            className="w-full border border-blue-200 bg-white"
-            onClick={() =>
-              setView(!isGoogleUser ? "VERIFY_PASSWORD" : "SET_NEW_PASSWORD")
-            }
-          >
-            <Icon name="fa-key" /> เปลี่ยนรหัสผ่าน
-          </GhostButton>
-        </div>
+        {!isGoogleUser && (
+          <div className="border-t border-slate-100 p-6 space-y-4 bg-slate-50 rounded-b-lg">
+            <h3 className="font-extrabold text-md text-slate-800">
+              ความปลอดภัย
+            </h3>
+            <GhostButton
+              type="button"
+              variant="primary"
+              className="w-full border border-blue-200 bg-white"
+              onClick={() => setView("VERIFY_PASSWORD")}
+            >
+              <Icon name="fa-key" /> เปลี่ยนรหัสผ่าน
+            </GhostButton>
+          </div>
+        )}
       </div>
     </div>
   );

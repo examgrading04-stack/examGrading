@@ -532,6 +532,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
+                        if (!AuthService.instance.isGoogleSignIn) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: TextButton.icon(
+                              onPressed: () {
+                                QuickAlert.show(
+                                  context: context,
+                                  type: QuickAlertType.info,
+                                  text: 'กรุณาเปลี่ยนรหัสผ่านผ่านทาง Web Application',
+                                  confirmBtnColor: AppColors.primary,
+                                );
+                              },
+                              icon: const Icon(
+                                FontAwesomeIcons.key,
+                                color: AppColors.primary,
+                                size: 15,
+                              ),
+                              label: const Text(
+                                'เปลี่ยนรหัสผ่าน',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                backgroundColor: AppColors.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  side: BorderSide(
+                                    color: AppColors.primary.withValues(alpha: 0.2),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
