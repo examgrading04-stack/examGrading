@@ -172,7 +172,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       r.studentCode || "-",
       r.studentName || "-",
       r.score || 0,
-      r.totalQuestions || 0,
+      r.totalMaxScore || r.totalQuestions || 0,
       (r.percentage || 0).toFixed(2),
       r.flagged ? "รอตรวจสอบ" : "ปกติ",
     ]);
@@ -305,6 +305,14 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     if (selectedExamId) {
       list = list.filter((r) => r.examId === selectedExamId);
     }
+    
+    // Sort by timestamp descending (latest first)
+    list = [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.timestamp || a.created_at || 0).getTime();
+      const timeB = new Date(b.createdAt || b.timestamp || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+
     const finalMapped = list.map((row) => {
       const exam = data.exams.find((e) => e.id === row.examId);
       const student = data.students.find(
@@ -352,7 +360,8 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       return {
         ...row,
         score: dynamicScore,
-        totalQuestions: totalMaxScore,
+        totalQuestions: questionsCount,
+        totalMaxScore: totalMaxScore,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
         examName: exam?.name || "",
@@ -710,7 +719,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                       {isFlagged ? "-" : row.score}
                     </span>
                     <span className="text-sm font-medium text-slate-400">
-                      / {row.totalQuestions}
+                      / {row.totalMaxScore || row.totalQuestions}
                     </span>
                   </div>
                 );
@@ -1136,7 +1145,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
           <div className="text-3xl font-bold text-blue-600">
             {isActuallyFlagged ? "-" : result.score}{" "}
             <span className="text-lg text-slate-400 font-normal">
-              / {questionsCount}
+              / {result.totalMaxScore || questionsCount}
             </span>
           </div>
         </div>

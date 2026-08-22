@@ -19,7 +19,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   bool _isLoading = true;
-  bool _isExporting = false;
+  final bool _isExporting = false;
   static const int _pageSize = 10;
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';

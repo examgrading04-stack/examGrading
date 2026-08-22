@@ -1784,45 +1784,16 @@ class MySQLAdapter(BaseDBAdapter):
                 return
 
             if collection == "sections":
-                # Move students to 'ไม่ระบุ' section to avoid CASCADE deletion of enrollments
                 sec_row = (
                     session.query(SqlSection)
                     .filter_by(id=doc_id, user_email=user_email)
                     .first()
                 )
                 if sec_row:
-                    subject_id = sec_row.subject
-                    unspec_id = f"{subject_id}_unspecified"
-                    unspec_sec = (
-                        session.query(SqlSection)
-                        .filter_by(id=unspec_id, user_email=user_email)
-                        .first()
-                    )
-                    if not unspec_sec:
-                        unspec_sec = SqlSection(
-                            id=unspec_id,
-                            sec="ไม่ระบุ",
-                            subject=subject_id,
-                            user_email=user_email,
-                        )
-                        session.add(unspec_sec)
-                        session.flush()
-
+                    # Rescue exams from CASCADE deletion
                     # pyrefly: ignore [missing-import]
                     from sqlalchemy import text
 
-                    session.execute(
-                        text(
-                            "UPDATE student_enrollments SET section_id = :new_sec WHERE section_id = :old_sec AND user_id = :uid"
-                        ),
-                        {
-                            "new_sec": unspec_sec.id,
-                            "old_sec": doc_id,
-                            "uid": user_email,
-                        },
-                    )
-
-                    # Rescue exams from CASCADE deletion
                     session.execute(
                         text(
                             "UPDATE exams SET section_id = NULL WHERE section_id = :old_sec AND user_id = :uid"

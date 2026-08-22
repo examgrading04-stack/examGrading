@@ -288,7 +288,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                         ),
                         Switch(
                           value: _isCustomScore,
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                           onChanged: (val) {
                             setState(() => _isCustomScore = val);
                           },
