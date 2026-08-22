@@ -327,7 +327,7 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                         const SizedBox(height: 12),
                         _infoRow(
                           FontAwesomeIcons.solidCalendarDays,
-                          'วันที่สร้าง',
+                          'วันที่สอบ',
                           exam.date.isNotEmpty ? exam.date : '-',
                         ),
                         const SizedBox(height: 12),

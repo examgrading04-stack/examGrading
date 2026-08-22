@@ -82,14 +82,20 @@ class _ScanScreenState extends State<ScanScreen> {
         if (!mounted || !context.mounted) return;
         
         final rawStatus = result['status']?.toString().toLowerCase();
-        final bool isError = rawStatus == 'warning' || rawStatus == 'error' || rawStatus == 'failed' || rawStatus == 'flagged';
+        final rawFlagged = result['flagged'];
+        final bool hasFlaggedData = (rawFlagged is List && rawFlagged.isNotEmpty) ||
+            rawFlagged == true ||
+            rawFlagged == 1 ||
+            rawFlagged == '1' ||
+            rawFlagged == 'true';
+        final bool isError = rawStatus == 'warning' || rawStatus == 'error' || rawStatus == 'failed' || rawStatus == 'flagged' || hasFlaggedData;
         
         if (isError) {
           QuickAlert.show(
             context: context,
             type: QuickAlertType.warning,
             title: 'พบข้อผิดปกติ',
-            text: 'กรุณาตรวจสอบกระดาษคำตอบในหน้ารายละเอียดคำตอบ (อาจลืมฝนรหัสนักศึกษา หรือฝนคำตอบซ้ำ)',
+            text: 'กระดาษคำตอบมีปัญหา โปรดตรวจสอบความถูกต้องในหน้ารายละเอียดคำตอบ (อาจลืมฝนรหัสนักศึกษา ฝนซ้ำ หรือฝนเกิน)',
             confirmBtnColor: AppColors.primary,
             onConfirmBtnTap: () {
               Navigator.pop(context); // close alert

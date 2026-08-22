@@ -593,7 +593,7 @@ async def scan_sheet(
             exam_id = exam["id"]
 
     answer_key = normalize_answer_key(exam, answer_set)
-    score = calculate_score(result.answers, answer_key)
+    score = calculate_score(result.answers, answer_key, exam.get("questions", 0))
     summary = (
         summarize_marks(result.raw_scores, result.metadata.total_questions)
         if result.raw_scores

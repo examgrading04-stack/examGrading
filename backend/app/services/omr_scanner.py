@@ -909,13 +909,7 @@ def decide_answers(raw_scores, n_q=None):
         )
 
         if max_n < dynamic_fill_min:
-            flagged.append(
-                {
-                    "question": q_no,
-                    "reason": "not_filled",
-                    "ratios": dict(zip(choices, ratios)),
-                }
-            )
+            # ไม่ถูกเลือก (เว้นว่าง) ไม่เก็บใน flagged เพราะถือเป็นเรื่องปกติที่ข้ามข้อ
             answers[q_no] = None
         else:
             # 1. ตรวจสอบการฝนหลายตัวเลือก หรือการฝนล้ำข้ามช่องอย่างรุนแรง (Severe Overfill / Bleed Across Options)
@@ -1249,12 +1243,20 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
     return result
 
 
-def calculate_score(answers, answer_key):
+def calculate_score(answers, answer_key, total_q=0):
     correct, wrong, skipped = [], [], []
     total_score = 0.0
     earned_score = 0.0
 
     for q_no, key_data in answer_key.items():
+        try:
+            q_int = int(q_no)
+        except ValueError:
+            q_int = 0
+            
+        if total_q > 0 and q_int > total_q:
+            continue
+
         q_score = 1.0
         if isinstance(key_data, dict):
             key = key_data.get("answer", "")
