@@ -14,25 +14,9 @@ import {
 } from "../ui.jsx";
 
 const checkIsFlagged = (row) => {
-  let isFlagged = false;
-  if (Array.isArray(row.flagged) && row.flagged.length > 0) isFlagged = true;
-  else if (row.flagged === true) isFlagged = true;
-  
-  if (!isFlagged && row.answers && row.totalQuestions) {
-    for (let i = 1; i <= row.totalQuestions; i++) {
-      const ans = row.answers[String(i)];
-      if (ans === undefined || ans === null) {
-        isFlagged = true;
-        break;
-      }
-      const strAns = String(ans);
-      if (strAns === "" || strAns === "-" || strAns.includes(",") || strAns === "ฝนมากกว่า 1 ตัวเลือก" || strAns.length > 1) {
-        isFlagged = true;
-        break;
-      }
-    }
-  }
-  return isFlagged;
+  if (Array.isArray(row.flagged) && row.flagged.length > 0) return true;
+  if (row.flagged === true) return true;
+  return false;
 };
 
 function getCorrectAnswer(exam, question) {
