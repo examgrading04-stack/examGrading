@@ -705,7 +705,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 cv2.circle(core_mask, center_p, r_core, 255, -1)
                 core_vals = patch[core_mask > 0]
                 core_mean = (
-                    float(np.mean(core_vals)) if len(core_vals) > 0 else 255.0
+                    float(np.median(core_vals)) if len(core_vals) > 0 else 255.0
                 )
                 core_contrast = max(
                     0.0, (row_paper_bg - core_mean) / max(10.0, row_paper_bg)
@@ -722,7 +722,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 cv2.circle(inner_mask, center_p, r_inner, 255, -1)
                 inner_vals = patch[inner_mask > 0]
                 inner_mean = (
-                    float(np.mean(inner_vals)) if len(inner_vals) > 0 else 255.0
+                    float(np.median(inner_vals)) if len(inner_vals) > 0 else 255.0
                 )
                 inner_contrast = max(
                     0.0, (row_paper_bg - inner_mean) / max(10.0, row_paper_bg)
