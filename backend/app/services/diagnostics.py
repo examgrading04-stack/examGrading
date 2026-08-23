@@ -240,7 +240,9 @@ def diag_fill_quality(
             xs, ys = group
             rpg = len(ys)
             for row, y in enumerate(ys):
-                current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+                current_xs = (
+                    xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+                )
                 q_no = gi * rpg + row + 1
                 if q_no not in raw_scores:
                     continue
@@ -271,16 +273,13 @@ def diag_answers(raw_scores, answers, flagged, n_q, report: DiagReport):
         q_list = [f.get("question") for f in not_filled]
         report.warnings.append(f"⚠️ ไม่ระบาย {len(not_filled)} ข้อ: {q_list}")
     if multi_mark:
-        m_list = [
-            f"Q{f.get('question')}: {f.get('detected', '')}" for f in multi_mark
-        ]
+        m_list = [f"Q{f.get('question')}: {f.get('detected', '')}" for f in multi_mark]
         report.warnings.append(
             f"⚠️ ฝนมากกว่า 1 ตัวเลือก {len(multi_mark)} ข้อ: {m_list}"
         )
     if overflow_bleed:
         b_list = [
-            f"Q{f.get('question')}: {f.get('detected', '')}"
-            for f in overflow_bleed
+            f"Q{f.get('question')}: {f.get('detected', '')}" for f in overflow_bleed
         ]
         report.warnings.append(
             f"⚠️ ฝนเกินขอบเขตล้ำไปตัวเลือกอื่น {len(overflow_bleed)} ข้อ: {b_list}"
@@ -295,9 +294,7 @@ def diag_answers(raw_scores, answers, flagged, n_q, report: DiagReport):
         )
     if low_conf:
         lc_list = [f.get("question") for f in low_conf]
-        report.warnings.append(
-            f"⚠️ low confidence {len(low_conf)} ข้อ: {lc_list}"
-        )
+        report.warnings.append(f"⚠️ low confidence {len(low_conf)} ข้อ: {lc_list}")
     if len(flagged) == 0:
         report.info.append("✅ ไม่มี flagged — ตรวจพบคำตอบชัดเจนครบถ้วน")
 
@@ -351,7 +348,10 @@ def draw_answers_overlay(debug_img, answers, flagged, positions, grid_rect):
                 cx, cy = gx + int(current_xs[ch]), gy + int(y)
                 color = (
                     RED
-                    if (f_info and f_info.get("reason") in ["overflow_bleed", "multiple_mark"])
+                    if (
+                        f_info
+                        and f_info.get("reason") in ["overflow_bleed", "multiple_mark"]
+                    )
                     else (MAGENTA if f_info else GREEN)
                 )
                 cv2.circle(debug_img, (cx, cy), dbg_r, color, 3)

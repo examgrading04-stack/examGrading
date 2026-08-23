@@ -60,9 +60,17 @@ def prepare_report_data(
         if student_sec == "All Section":
             student_sec = "All Section"
 
-        score = r.get("score", 0)
         total = r.get("total") or r.get("totalQuestions") or exam.get("questions") or 0
-        percent = r.get("percent") or r.get("percentage") or 0
+        flagged = r.get("flagged") or r.get("isFlagged")
+        
+        if flagged:
+            score = ""
+            percent_str = ""
+            student_name = f"{student_name} (รอตรวจสอบ)"
+        else:
+            score = r.get("score", 0)
+            percent = r.get("percent") or r.get("percentage") or 0
+            percent_str = f"{percent:.2f}%"
 
         data.append(
             {
@@ -72,7 +80,7 @@ def prepare_report_data(
                 "กลุ่มเรียน": student_sec,
                 "คะแนนที่ได้": score,
                 "คะแนนเต็ม": total,
-                "เปอร์เซ็นต์ (%)": f"{percent:.2f}%",
+                "เปอร์เซ็นต์ (%)": percent_str,
             }
         )
 

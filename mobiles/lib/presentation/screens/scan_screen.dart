@@ -80,18 +80,52 @@ class _ScanScreenState extends State<ScanScreen> {
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         if (!mounted || !context.mounted) return;
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.success,
-          text: 'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
-          confirmBtnColor: AppColors.primary,
-          onConfirmBtnTap: () {
-            Navigator.pop(context); // close alert
-            setState(() {
-              _image = null;
-            });
-          },
-        );
+
+        final rawStatus = result['status']?.toString().toLowerCase();
+        final rawFlagged = result['flagged'];
+        final bool hasFlaggedData =
+            (rawFlagged is List && rawFlagged.isNotEmpty) ||
+            rawFlagged == true ||
+            rawFlagged == 1 ||
+            rawFlagged == '1' ||
+            rawFlagged == 'true';
+        final bool isError =
+            rawStatus == 'warning' ||
+            rawStatus == 'error' ||
+            rawStatus == 'failed' ||
+            rawStatus == 'flagged' ||
+            hasFlaggedData;
+
+        if (isError) {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.warning,
+            title: 'สแกนสำเร็จ แต่พบข้อผิดพลาด',
+            text:
+                'กรุณาตรวจสอบความถูกต้องในหน้ารายละเอียดคำตอบ (อาจลืมฝน ฝนซ้ำ หรือฝนเกิน)',
+            confirmBtnColor: AppColors.primary,
+            onConfirmBtnTap: () {
+              Navigator.pop(context); // close alert
+              setState(() {
+                _image = null;
+              });
+            },
+          );
+        } else {
+          QuickAlert.show(
+            context: context,
+            type: QuickAlertType.success,
+            text:
+                'สแกนสำเร็จ! ได้ ${result['score']} / ${result['total']} คะแนน',
+            confirmBtnColor: AppColors.primary,
+            onConfirmBtnTap: () {
+              Navigator.pop(context); // close alert
+              setState(() {
+                _image = null;
+              });
+            },
+          );
+        }
       } else if (response.statusCode == 409) {
         if (!mounted || !context.mounted) return;
         QuickAlert.show(

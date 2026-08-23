@@ -109,7 +109,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       }
       return classStr == subjectCode || classStr.startsWith('${subjectCode}_');
     }).toList();
-    final source = filtered.isNotEmpty ? filtered : all;
+    final source = filtered;
     return source
         .map(
           (s) => {
@@ -132,7 +132,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
     );
     String? selectedSubjectCode = exam?.subject;
     String? selectedSection = exam?.section;
-    String? selectedSheetType = exam?.sheetType ?? '30-A-E';
     if (selectedSection != null && selectedSection.isEmpty) {
       selectedSection = null;
     }
@@ -142,8 +141,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
       final fromSections = _sections
           .where(
             (s) =>
-                s.subject == subjectCode ||
-                s.id.startsWith('${subjectCode}_'),
+                s.subject == subjectCode || s.id.startsWith('${subjectCode}_'),
           )
           .map((s) => s.sec)
           .where((sec) => sec.isNotEmpty)
@@ -252,70 +250,32 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildPopupField(
-                      'กำหนดเฉลยได้กี่ข้อ',
+                      'วันที่สอบ',
+                      dateController,
+                      FontAwesomeIcons.solidCalendarDays,
+                      readOnly: true,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            dateController.text = picked.toString().split(
+                              ' ',
+                            )[0];
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildPopupField(
+                      'จำนวนข้อ',
                       questionsController,
                       FontAwesomeIcons.circleQuestion,
                       keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 20),
-                    DropdownMenu<String>(
-                      initialSelection: selectedSheetType,
-                      expandedInsets: EdgeInsets.zero,
-                      label: const Text('รูปแบบกระดาษคำตอบ'),
-                      enableFilter: false,
-                      enableSearch: false,
-                      leadingIcon: const Padding(
-                        padding: EdgeInsets.only(left: 16, right: 10),
-                        child: Icon(
-                          FontAwesomeIcons.fileLines,
-                          color: AppColors.warning,
-                          size: 13,
-                        ),
-                      ),
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 16,
-                        ),
-                        labelStyle: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: AppColors.border,
-                            width: 1.5,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: AppColors.warning,
-                            width: 2.0,
-                          ),
-                        ),
-                      ),
-                      onSelected: (val) =>
-                          setModalState(() => selectedSheetType = val),
-                      dropdownMenuEntries: const [
-                        DropdownMenuEntry<String>(
-                          value: '30-A-E',
-                          label: '30 ข้อ (A-E)',
-                        ),
-                        DropdownMenuEntry<String>(
-                          value: '50-A-E',
-                          label: '50 ข้อ (A-E)',
-                        ),
-                        DropdownMenuEntry<String>(
-                          value: '100-A-E',
-                          label: '100 ข้อ (A-E)',
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 36),
                     Container(
@@ -359,24 +319,28 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                   subjectCode,
                                   examSection,
                                 );
-                          final questionsCount =
-                              int.tryParse(questionsController.text) ?? 100;
-                          String finalSheetType = selectedSheetType ?? '30-A-E';
-                          int templateSize = 100;
-                          if (finalSheetType.startsWith('30')) {
-                            templateSize = 30;
-                          } else if (finalSheetType.startsWith('50')) {
-                            templateSize = 50;
+
+                          if (!isEdit && studentsSnapshot.isEmpty) {
+                            if (!mounted || !context.mounted) return;
+                            QuickAlert.show(
+                              context: context,
+                              type: QuickAlertType.warning,
+                              text: 'ไม่พบรายชื่อผู้เรียนในกลุ่มเรียนนี้',
+                              confirmBtnColor: AppColors.warning,
+                            );
+                            return;
                           }
 
-                          if (questionsCount > templateSize) {
-                            if (questionsCount <= 30) {
-                              finalSheetType = '30-A-E';
-                            } else if (questionsCount <= 50) {
-                              finalSheetType = '50-A-E';
-                            } else {
-                              finalSheetType = '100-A-E';
-                            }
+                          final questionsCount =
+                              int.tryParse(questionsController.text) ?? 100;
+
+                          String finalSheetType = '30';
+                          if (questionsCount <= 30) {
+                            finalSheetType = '30';
+                          } else if (questionsCount <= 50) {
+                            finalSheetType = '50';
+                          } else {
+                            finalSheetType = '100';
                           }
 
                           final examId =
@@ -485,9 +449,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
     TextEditingController controller,
     IconData icon, {
     TextInputType? keyboardType,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return TextField(
       controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
       keyboardType: keyboardType,
       style: TextStyle(
         fontSize: 14,
@@ -627,7 +595,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: [
-        const DropdownMenuEntry<String>(value: '', label: 'กรุณาเลือกกลุ่มเรียน'),
+        const DropdownMenuEntry<String>(
+          value: '',
+          label: 'กรุณาเลือกกลุ่มเรียน',
+        ),
         ...sections.map((s) {
           final sectionName = _sections
               .firstWhere(

@@ -23,10 +23,37 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   List<SubjectModel> _subjects = [];
   bool _isLoading = true;
 
+  // Academic settings จาก /api/settings/academic_year
+  String _academicYear = '';
+  String _academicTerm = '1';
+
   @override
   void initState() {
     super.initState();
     _loadSubjects();
+    _loadAcademicSettings();
+  }
+
+  Future<void> _loadAcademicSettings() async {
+    try {
+      final settings = await ApiService.instance.getAcademicSettings();
+      if (mounted) {
+        setState(() {
+          _academicYear =
+              settings['year']?.toString() ??
+              (DateTime.now().year + 543).toString();
+          _academicTerm = settings['term']?.toString() ?? '1';
+        });
+      }
+    } catch (_) {
+      // ใช้ค่า default ถ้าโหลดไม่ได้
+      if (mounted) {
+        setState(() {
+          _academicYear = (DateTime.now().year + 543).toString();
+          _academicTerm = '1';
+        });
+      }
+    }
   }
 
   Future<void> _loadSubjects() async {
@@ -53,10 +80,21 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     final nameController = TextEditingController(text: subject?.name);
     final termText = (subject?.term != null && subject!.term.isNotEmpty)
         ? subject.term
-        : '1';
+        : _academicTerm;
     final termController = TextEditingController(text: termText);
-    final yearController = TextEditingController(text: subject?.year);
-    final teacherController = TextEditingController(text: subject?.teacher);
+    final yearController = TextEditingController(
+      text: subject?.year.isNotEmpty == true ? subject!.year : _academicYear,
+    );
+    // ตั้งค่า teacher เริ่มต้นเป็น displayName ของ user เหมือน Web
+    final defaultTeacher =
+        AuthService.instance.currentUser?['displayName'] as String? ??
+        AuthService.instance.currentEmail ??
+        '';
+    final teacherController = TextEditingController(
+      text: subject?.teacher.isNotEmpty == true
+          ? subject!.teacher
+          : defaultTeacher,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -70,132 +108,104 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             const SizedBox(height: 20),
             _buildField('ชื่อวิชา', nameController, FontAwesomeIcons.bookOpen),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: StatefulBuilder(
-                    builder: (context, setTermState) {
-                      int termValue = int.tryParse(termController.text) ?? 1;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                FontAwesomeIcons.layerGroup,
-                                color: AppColors.textSecondary,
-                                size: 13,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'ภาคเรียน',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textMuted,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  if (termValue > 1) {
-                                    setTermState(() {
-                                      termValue--;
-                                      termController.text = termValue
-                                          .toString();
-                                    });
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primarySoft,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    FontAwesomeIcons.minus,
-                                    size: 14,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                termValue.toString(),
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () {
-                                  if (termValue < 3) {
-                                    setTermState(() {
-                                      termValue++;
-                                      termController.text = termValue
-                                          .toString();
-                                    });
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primarySoft,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    FontAwesomeIcons.plus,
-                                    size: 14,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 11),
-                          Container(height: 1.5, color: AppColors.border),
-                        ],
-                      );
-                    },
+            // ภาคเรียน / ปีการศึกษา - แสดงค่าจากระบบ (read-only เหมือน Web)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.layerGroup,
+                    color: AppColors.textSecondary,
+                    size: 13,
                   ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: _buildField(
-                    'ปีการศึกษา',
-                    yearController,
-                    FontAwesomeIcons.solidCalendarDays,
-                    keyboardType: TextInputType.number,
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ภาคเรียน / ปีการศึกษา (ค่าจากระบบ)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${termController.text} / ${yearController.text}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 20),
-            _buildField(
-              'ชื่อผู้สอน',
-              teacherController,
-              FontAwesomeIcons.userTie,
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.userTie,
+                    color: AppColors.textSecondary,
+                    size: 13,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ชื่อผู้สอน (อ้างอิงจากบัญชีผู้ใช้)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        teacherController.text.isNotEmpty ? teacherController.text : 'ไม่ได้ระบุ',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 36),
             _buildSubmitButton(
               onPressed: () async {
-                if (codeController.text.trim().isEmpty ||
-                    nameController.text.trim().isEmpty) {
+                final newCode = codeController.text.trim();
+                final newName = nameController.text.trim();
+                if (newCode.isEmpty || newName.isEmpty) {
                   _warn('กรุณากรอกรหัสวิชาและชื่อวิชา');
                   return;
+                }
+                
+                if (!isEdit || subject.code != newCode) {
+                  final exists = _subjects.any((s) => s.code == newCode);
+                  if (exists) {
+                    _warn('รหัสวิชานี้มีอยู่ในระบบแล้ว');
+                    return;
+                  }
                 }
 
                 final data = {
@@ -214,11 +224,27 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     data,
                   );
                 } else {
+                  final subjectCode = codeController.text.trim();
                   await ApiService.instance.setDoc(
                     _uid,
                     'subjects',
-                    codeController.text.trim(),
+                    subjectCode,
                     data,
+                  );
+                  // สร้าง default section กลุ่ม 1 อัตโนมัติ (เหมือน Web)
+                  final secId = '${subjectCode}_1';
+                  await ApiService.instance.setNestedDoc(
+                    _uid,
+                    'subjects',
+                    subjectCode,
+                    'sections',
+                    secId,
+                    {
+                      'id': secId,
+                      'subject': subjectCode,
+                      'sec': '1',
+                      'created_at': DateTime.now().toIso8601String(),
+                    },
                   );
                 }
 

@@ -14,25 +14,9 @@ import {
 } from "../ui.jsx";
 
 const checkIsFlagged = (row) => {
-  let isFlagged = false;
-  if (Array.isArray(row.flagged) && row.flagged.length > 0) isFlagged = true;
-  else if (row.flagged === true) isFlagged = true;
-  
-  if (!isFlagged && row.answers && row.totalQuestions) {
-    for (let i = 1; i <= row.totalQuestions; i++) {
-      const ans = row.answers[String(i)];
-      if (ans === undefined || ans === null) {
-        isFlagged = true;
-        break;
-      }
-      const strAns = String(ans);
-      if (strAns === "" || strAns === "-" || strAns.includes(",") || strAns === "ฝนมากกว่า 1 ตัวเลือก" || strAns.length > 1) {
-        isFlagged = true;
-        break;
-      }
-    }
-  }
-  return isFlagged;
+  if (Array.isArray(row.flagged) && row.flagged.length > 0) return true;
+  if (row.flagged === true) return true;
+  return false;
 };
 
 function getCorrectAnswer(exam, question) {
@@ -170,10 +154,10 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     ];
     const rows = filteredResults.map((r) => [
       r.studentCode || "-",
-      r.studentName || "-",
-      r.score || 0,
-      r.totalQuestions || 0,
-      (r.percentage || 0).toFixed(2),
+      r.studentName ? (r.flagged ? `${r.studentName} (รอตรวจสอบ)` : r.studentName) : "-",
+      r.flagged ? "" : (r.score || 0),
+      r.totalMaxScore || r.totalQuestions || 0,
+      r.flagged ? "" : (r.percentage || 0).toFixed(2),
       r.flagged ? "รอตรวจสอบ" : "ปกติ",
     ]);
     const csvContent = [header, ...rows].map((e) => e.join(",")).join("\n");
@@ -305,6 +289,14 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     if (selectedExamId) {
       list = list.filter((r) => r.examId === selectedExamId);
     }
+    
+    // Sort by timestamp descending (latest first)
+    list = [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.timestamp || a.created_at || 0).getTime();
+      const timeB = new Date(b.createdAt || b.timestamp || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+
     const finalMapped = list.map((row) => {
       const exam = data.exams.find((e) => e.id === row.examId);
       const student = data.students.find(
@@ -323,7 +315,10 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           const qStr = String(i);
           const correctAns = getCorrectAnswer(exam, qStr);
           const qScore = getQuestionScore(exam, qStr);
-          calculatedMax += qScore;
+          
+          if (correctAns !== "-" && correctAns !== "") {
+            calculatedMax += qScore;
+          }
 
           if (row.answers) {
             if (row.answers[qStr] === correctAns && correctAns !== "-") {
@@ -352,7 +347,8 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
       return {
         ...row,
         score: dynamicScore,
-        totalQuestions: totalMaxScore,
+        totalQuestions: questionsCount,
+        totalMaxScore: totalMaxScore,
         percentage,
         wrongCount: Math.max(questionsCount - dynamicScore, 0),
         examName: exam?.name || "",
@@ -452,24 +448,6 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
               : "เลือกข้อสอบเพื่อดูรายละเอียดผลคะแนนแยกตามกลุ่มเรียน"}
           </p>
         </div>
-        {selectedResults.size > 0 && (
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={deleteSelectedResults}
-              className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-              title="ลบรายการที่เลือก"
-            >
-              <Icon name="fa-trash-can" /> ลบ
-            </button>
-            <button
-              onClick={() => setSelectedResults(new Set())}
-              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-              title="ยกเลิกการเลือก"
-            >
-              <Icon name="fa-xmark" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Stats Dashboard */}
@@ -545,13 +523,22 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           )}
         </div>
         {selectedResults.size > 0 && (
-          <button
-            onClick={deleteSelectedResults}
-            className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-            title="ลบผลการตรวจที่เลือก"
-          >
-            <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedResults.size})
-          </button>
+          <div className="flex gap-2 shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
+            <button
+              onClick={() => setSelectedResults(new Set())}
+              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap flex-1 sm:flex-none h-10"
+              title="ยกเลิกการเลือก"
+            >
+              <Icon name="fa-xmark" />
+            </button>
+            <button
+              onClick={deleteSelectedResults}
+              className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap flex-1 sm:flex-none h-10"
+              title="ลบผลการตรวจที่เลือก"
+            >
+              <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedResults.size})
+            </button>
+          </div>
         )}
       </div>
 
@@ -710,7 +697,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                       {isFlagged ? "-" : row.score}
                     </span>
                     <span className="text-sm font-medium text-slate-400">
-                      / {row.totalQuestions}
+                      / {row.totalMaxScore || row.totalQuestions}
                     </span>
                   </div>
                 );
@@ -1099,7 +1086,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
 
   // Deduplicate reasons
   const uniqueFlaggedReasons = [...new Set(flaggedReasons)];
-  const isActuallyFlagged = uniqueFlaggedReasons.length > 0;
+  const isActuallyFlagged = result.flagged;
 
   useEffect(() => {
     setPage(1);
@@ -1136,7 +1123,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
           <div className="text-3xl font-bold text-blue-600">
             {isActuallyFlagged ? "-" : result.score}{" "}
             <span className="text-lg text-slate-400 font-normal">
-              / {questionsCount}
+              / {result.totalMaxScore || questionsCount}
             </span>
           </div>
         </div>

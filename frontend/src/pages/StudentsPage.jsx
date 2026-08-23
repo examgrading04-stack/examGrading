@@ -9,6 +9,7 @@ import {
   Select,
   Swal,
   emptyForm,
+  LoadingOverlay,
 } from "../ui.jsx";
 
 export function StudentsPage({ data, api, refresh }) {
@@ -1010,14 +1011,10 @@ export function StudentsPage({ data, api, refresh }) {
               </PrimaryButton>
             </div>
             {isImporting && (
-              <div className="absolute inset-0 rounded-lg bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                <div className="loader" aria-live="polite" aria-busy="true">
-                  <span>LOADING</span>
-                </div>
-                <p className="text-sm font-medium text-slate-600">
-                  กำลังนำเข้ารายชื่อผู้เรียน...
-                </p>
-              </div>
+              <LoadingOverlay 
+                text="กำลังนำเข้ารายชื่อผู้เรียน..." 
+                className="rounded-lg" 
+              />
             )}
           </div>
         </div>
@@ -1107,14 +1104,10 @@ export function StudentsPage({ data, api, refresh }) {
             </div>
 
             {isBatchEnrolling && (
-              <div className="absolute inset-0 rounded-2xl bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                <div className="loader" aria-live="polite" aria-busy="true">
-                  <span>LOADING</span>
-                </div>
-                <p className="text-sm font-medium text-slate-600">
-                  กำลังลงทะเบียนวิชา...
-                </p>
-              </div>
+              <LoadingOverlay 
+                text="กำลังลงทะเบียนวิชา..." 
+                className="rounded-2xl" 
+              />
             )}
           </div>
         </div>

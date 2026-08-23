@@ -125,21 +125,13 @@ class _StudentsScreenState extends State<StudentsScreen> {
     String? selectedSubjectId;
     if (selectedSectionId != null) {
       final sectionOpt = _sections.cast<SectionOption?>().firstWhere(
-            (s) => s?.id == selectedSectionId,
-            orElse: () => null,
-          );
+        (s) => s?.id == selectedSectionId,
+        orElse: () => null,
+      );
       selectedSubjectId = sectionOpt?.subjectId;
     }
     final isEdit = student != null;
-    if (_sections.isEmpty && !isEdit) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        text: 'ยังไม่มีกลุ่มเรียน กรุณาสร้างกลุ่มเรียนก่อนเพิ่มผู้เรียน',
-        confirmBtnColor: AppColors.success,
-      );
-      return;
-    }
+    // Removed section check for Hybrid Mode
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -223,27 +215,48 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       ),
                       child: ElevatedButton(
                         onPressed: () async {
-                          if (codeController.text.isEmpty ||
-                              nameController.text.isEmpty ||
-                              selectedSectionId == null) {
+                          final newCode = codeController.text.trim();
+                          final newName = nameController.text.trim();
+                          if (newCode.isEmpty || newName.isEmpty) {
                             QuickAlert.show(
                               context: context,
                               type: QuickAlertType.warning,
-                              text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                              text: 'กรุณากรอกรหัสนักเรียนและชื่อ-นามสกุล',
                               confirmBtnColor: AppColors.success,
                             );
                             return;
                           }
-                          final selectedOpt = _sections.firstWhere(
-                            (s) => s.id == selectedSectionId,
-                          );
+
+                          if (!isEdit || student.code != newCode) {
+                            final exists = _students.any(
+                              (s) => s.code == newCode,
+                            );
+                            if (exists) {
+                              QuickAlert.show(
+                                context: context,
+                                type: QuickAlertType.warning,
+                                text: 'รหัสนักเรียนนี้มีอยู่ในระบบแล้ว',
+                                confirmBtnColor: AppColors.success,
+                              );
+                              return;
+                            }
+                          }
+
+                          SectionOption? selectedOpt;
+                          if (selectedSectionId != null) {
+                            try {
+                              selectedOpt = _sections.firstWhere(
+                                (s) => s.id == selectedSectionId,
+                              );
+                            } catch (_) {}
+                          }
                           final data = {
-                            'id': codeController.text,
-                            'code': codeController.text,
-                            'name': nameController.text,
+                            'id': newCode,
+                            'code': newCode,
+                            'name': newName,
                             'class': selectedSectionId,
-                            'subjectCode': selectedOpt.subjectId,
-                            'section': selectedOpt.sectionId,
+                            'subjectCode': selectedOpt?.subjectId,
+                            'section': selectedOpt?.sectionId,
                           };
                           if (isEdit) {
                             await ApiService.instance.updateDoc(
@@ -391,7 +404,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
       ),
       onSelected: onChanged,
       dropdownMenuEntries: subjects.map((s) {
-        return DropdownMenuEntry<String>(value: s.code, label: '${s.code} - ${s.name}');
+        return DropdownMenuEntry<String>(
+          value: s.code,
+          label: '${s.code} - ${s.name}',
+        );
       }).toList(),
     );
   }
@@ -403,11 +419,15 @@ class _StudentsScreenState extends State<StudentsScreen> {
     List<SectionOption> sections,
     ValueChanged<String?> onChanged,
   ) {
-    final filteredSections = sections.where((s) => s.subjectId == subjectId).toList();
+    final filteredSections = sections
+        .where((s) => s.subjectId == subjectId)
+        .toList();
     return DropdownMenu<String>(
       menuHeight: 300,
       enabled: subjectId != null,
-      initialSelection: filteredSections.any((s) => s.id == value) ? value : null,
+      initialSelection: filteredSections.any((s) => s.id == value)
+          ? value
+          : null,
       expandedInsets: EdgeInsets.zero,
       label: Text(label),
       enableFilter: true,
@@ -586,12 +606,24 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                     minHeight: 0,
                                   ),
                                 ),
-                                initialValue: _filterSubjectId,
+                                value: _filterSubjectId,
                                 items: [
                                   DropdownMenuItem(
                                     value: null,
                                     child: Text(
                                       'ทุกวิชา',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text(
+                                      'ไม่ระบุวิชา',
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 13,
@@ -680,7 +712,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       minHeight: 0,
                                     ),
                                   ),
-                                  initialValue: _filterSectionId,
+                                  value: _filterSectionId,
                                   items: [
                                     DropdownMenuItem(
                                       value: null,
@@ -748,9 +780,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
         return student.className == _filterSectionId;
       }
       if (_filterSubjectId != null) {
-        final subjectCode = _subjects
-            .firstWhere((s) => s.id == _filterSubjectId)
-            .code;
+        if (_filterSubjectId == 'none') {
+          return student.className.trim().isEmpty || student.className == '-';
+        }
+        final subjectOpt = _subjects
+            .where((s) => s.id == _filterSubjectId)
+            .firstOrNull;
+        if (subjectOpt == null) return false;
+        final subjectCode = subjectOpt.code;
         return student.className.startsWith('${subjectCode}_') ||
             student.className == subjectCode;
       }

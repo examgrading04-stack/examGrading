@@ -153,8 +153,11 @@ def find_anchor_points(thresh_img):
         if len(approx) < 4:
             continue
 
-        # score: ให้ความสำคัญกับพื้นที่ + ความทึบ
-        score = area * (0.5 + fill)
+        import math
+        # score: ให้ความสำคัญกับความเป็นสี่เหลี่ยมจัตุรัส และความทึบ
+        # ใช้ sqrt(area) เพื่อไม่ให้เงาดำขนาดใหญ่ได้คะแนนเวอร์เกินไป
+        shape_score = fill * (1.0 - abs(1.0 - asp))
+        score = math.sqrt(area) * shape_score
         cands.append((x + w // 2, y + h // 2, score, w, h))
     zones = {
         "TL": (0, W * 0.45, 0, H * 0.45),
@@ -194,7 +197,8 @@ def _select_anchor_points_from_candidates(cands, W, H):
             return False
         return True
 
-    candidates = sorted(cands, key=lambda p: p[2], reverse=True)[:80]
+    # ลดจำนวน candidates ลงเหลือ 25 เพื่อแก้ปัญหาคอขวดตอนรันบน Server (25^4 = 390k ลูป ใช้เวลา < 0.1 วินาที, ถ้า 80^4 จะล่อไป 40 ล้านลูป)
+    candidates = sorted(cands, key=lambda p: p[2], reverse=True)[:25]
     tl = min(candidates, key=lambda p: p[0] / W + p[1] / H)
     tr = max(candidates, key=lambda p: p[0] / W - p[1] / H)
     bl = max(candidates, key=lambda p: p[1] / H - p[0] / W)
@@ -289,7 +293,21 @@ def decode_qr(img):
         gray[: int(H * 0.45), :],
         gray[: int(H * 0.65), :],
     ]
-    candidates = []
+    def try_decode(cand):
+        if PYZBAR_AVAILABLE:
+            try:
+                for r in _pyzbar.decode(cand):
+                    return r.data.decode("utf-8")
+            except:
+                pass
+        try:
+            data, _, _ = detector.detectAndDecode(cand)
+            if data:
+                return data
+        except:
+            pass
+        return None
+
     for crop in crops:
         if crop.size == 0:
             continue
@@ -297,38 +315,22 @@ def decode_qr(img):
         _, otsu = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         variants.extend([otsu, 255 - otsu])
         adaptive = cv2.adaptiveThreshold(
-            clahe.apply(crop),
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            31,
-            5,
+            clahe.apply(crop), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
         )
         variants.extend([adaptive, 255 - adaptive])
+        
         for variant in variants:
-            candidates.append(variant)
+            res = try_decode(variant)
+            if res:
+                return _parse_qr_data(res, meta)
+                
             h, w = variant.shape[:2]
             if min(h, w) < 900:
-                candidates.append(
-                    cv2.resize(variant, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-                )
-    for cand in candidates:
-        try:
-            data, _, _ = detector.detectAndDecode(cand)
-            if data:
-                return _parse_qr_data(data, meta)
-        except:
-            pass
-    # pyzbar fallback
-    if PYZBAR_AVAILABLE:
-        for cand in candidates:
-            try:
-                for r in _pyzbar.decode(cand):
-                    data = r.data.decode("utf-8")
-                    if data:
-                        return _parse_qr_data(data, meta)
-            except:
-                pass
+                resized = cv2.resize(variant, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                res = try_decode(resized)
+                if res:
+                    return _parse_qr_data(res, meta)
+                    
     return meta
 
 
@@ -705,7 +707,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 cv2.circle(core_mask, center_p, r_core, 255, -1)
                 core_vals = patch[core_mask > 0]
                 core_mean = (
-                    float(np.mean(core_vals)) if len(core_vals) > 0 else 255.0
+                    float(np.median(core_vals)) if len(core_vals) > 0 else 255.0
                 )
                 core_contrast = max(
                     0.0, (row_paper_bg - core_mean) / max(10.0, row_paper_bg)
@@ -722,7 +724,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 cv2.circle(inner_mask, center_p, r_inner, 255, -1)
                 inner_vals = patch[inner_mask > 0]
                 inner_mean = (
-                    float(np.mean(inner_vals)) if len(inner_vals) > 0 else 255.0
+                    float(np.median(inner_vals)) if len(inner_vals) > 0 else 255.0
                 )
                 inner_contrast = max(
                     0.0, (row_paper_bg - inner_mean) / max(10.0, row_paper_bg)
@@ -777,7 +779,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                     b_contrast = (
                         max(
                             0.0,
-                            (row_paper_bg - float(np.mean(b_patch)))
+                            (row_paper_bg - float(np.median(b_patch)))
                             / max(10.0, row_paper_bg),
                         )
                         if b_patch.size > 0
@@ -877,7 +879,8 @@ def _compute_decision_stats(raw_scores, n_q=None):
             except Exception:
                 pass
 
-    dynamic_fill_min = min(max(dynamic_fill_min, 0.070), 0.120)
+    # Clamp threshold between 0.10 and 0.25 to handle extreme lighting
+    dynamic_fill_min = min(max(dynamic_fill_min, 0.10), 0.250)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 
@@ -933,12 +936,15 @@ def decide_answers(raw_scores, n_q=None):
             # 1. ตรวจสอบการฝนหลายตัวเลือก หรือการฝนล้ำข้ามช่องอย่างรุนแรง (Severe Overfill / Bleed Across Options)
             has_heavy_bleed = is_adjacent and (
                 (
-                    bridge_val >= 0.12
-                    and second_n >= dynamic_fill_min * 0.50
-                    and (second_n / max(1e-5, max_n))
-                    >= float(getattr(OMRConfig, "OVERFLOW_BLEED_RATIO", 0.40))
+                    bridge_val >= 0.15
+                    and second_n >= dynamic_fill_min * 0.70
+                    and (second_n / max(1e-5, max_n)) >= 0.48
                 )
-                or (bridge_val >= 0.18 and second_n >= dynamic_fill_min * 0.40)
+                or (
+                    bridge_val >= 0.22
+                    and second_n >= dynamic_fill_min * 0.75
+                    and (second_n / max(1e-5, max_n)) >= 0.42
+                )
             )
 
             has_multi_marks = second_n >= dynamic_fill_min * 0.65 and (
@@ -984,23 +990,6 @@ def decide_answers(raw_scores, n_q=None):
                     }
                 )
                 answers[q_no] = detected_str
-
-            elif (
-                (second_n >= dynamic_fill_min * 0.55 and second_n >= 0.075)
-                or (is_adjacent and bridge_val >= 0.10 and second_n >= 0.055)
-            ):
-                # 2. รอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่นระดับปานกลาง (ตัวเลือกหลักยังเด่นชัด) -> ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนผู้ใช้
-                flagged.append(
-                    {
-                        "question": q_no,
-                        "reason": "overflow_smudge",
-                        "detected": choices[max_idx],
-                        "smudge_choice": choices[second_idx],
-                        "message": f"มีรอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือก {choices[second_idx]}",
-                        "ratios": dict(zip(choices, ratios)),
-                    }
-                )
-                answers[q_no] = choices[max_idx]
 
             elif gap < OMRConfig.NORM_GAP_MIN:
                 # 3. ความเชื่อมั่นต่ำ (คะแนนใกล้เคียงกัน)
@@ -1264,12 +1253,20 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
     return result
 
 
-def calculate_score(answers, answer_key):
+def calculate_score(answers, answer_key, total_q=0):
     correct, wrong, skipped = [], [], []
     total_score = 0.0
     earned_score = 0.0
 
     for q_no, key_data in answer_key.items():
+        try:
+            q_int = int(q_no)
+        except ValueError:
+            q_int = 0
+            
+        if total_q > 0 and q_int > total_q:
+            continue
+
         q_score = 1.0
         if isinstance(key_data, dict):
             key = key_data.get("answer", "")

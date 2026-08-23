@@ -1,13 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:http/http.dart' as http;
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:quickalert/quickalert.dart';
-import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/data/models/exam_model.dart';
 import 'package:exam_grading/data/services/auth_service.dart';
 import 'package:exam_grading/data/services/api_service.dart';
@@ -25,16 +19,22 @@ class _ResultsScreenState extends State<ResultsScreen> {
   List<ExamModel> _exams = [];
   List<Map<String, dynamic>> _results = [];
   bool _isLoading = true;
-  bool _isExporting = false;
+  final bool _isExporting = false;
   static const int _pageSize = 10;
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
   DateTime? _readResultTime(Map<String, dynamic> data) {
-    final dynamic createdAt = data['createdAt'];
-    if (createdAt != null) return DateTime.tryParse(createdAt.toString());
-    final dynamic timestamp = data['timestamp'];
-    if (timestamp != null) return DateTime.tryParse(timestamp.toString());
-    return null;
+    final dynamic val =
+        data['createdAt'] ??
+        data['created_at'] ??
+        data['timestamp'] ??
+        data['scanTime'];
+    if (val == null) return null;
+    if (val is int) {
+      if (val > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.fromMillisecondsSinceEpoch(val * 1000);
+    }
+    return DateTime.tryParse(val.toString());
   }
 
   List<String> get _subjects {
@@ -76,174 +76,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
       return extractAnswer(firstSet[qNum]);
     }
     return '-';
-  }
-
-  Future<void> _exportPdfReport() async {
-    if (_results.isEmpty) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        text: 'ไม่พบข้อมูลผลการสอบสำหรับส่งออกรายงาน',
-      );
-      return;
-    }
-    setState(() => _isExporting = true);
-    try {
-      ExamModel? targetExam;
-      if (_selectedSubject != 'ทั้งหมด') {
-        try {
-          targetExam = _exams.firstWhere((e) => e.subject == _selectedSubject);
-        } catch (_) {}
-      }
-      if (targetExam == null && _exams.isNotEmpty) {
-        targetExam = _exams.first;
-      }
-
-      http.Response response;
-      String filename;
-      if (targetExam != null) {
-        filename =
-            'Report_${targetExam.id}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        response = await http
-            .post(
-              ApiConfig.endpoint('/api/results/report/pdf/download'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': _uid,
-              },
-              body: json.encode({
-                'examId': targetExam.id,
-                'user_email': _uid,
-              }),
-            )
-            .timeout(const Duration(seconds: 60));
-      } else {
-        filename =
-            'Summary_Report_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        response = await http
-            .post(
-              ApiConfig.endpoint('/api/reports/summary/pdf/download'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': _uid,
-              },
-              body: json.encode({
-                'title': 'รายงานสรุปผลการสอบ',
-                'columns': ['รหัสนักเรียน', 'ชื่อ-นามสกุล', 'วิชา/ข้อสอบ', 'คะแนน'],
-                'rows': _results
-                    .map((r) => [
-                          r['studentCode'] ?? '-',
-                          r['studentName'] ?? '-',
-                          r['examId'] ?? '-',
-                          '${r['score'] ?? 0}',
-                        ])
-                    .toList(),
-              }),
-            )
-            .timeout(const Duration(seconds: 60));
-      }
-
-      if (response.statusCode == 200) {
-        final dir = await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/$filename');
-        await file.writeAsBytes(response.bodyBytes);
-        await OpenFilex.open(file.path, type: 'application/pdf');
-        if (mounted) {
-          QuickAlert.show(
-            context: context,
-            type: QuickAlertType.success,
-            title: 'ส่งออก PDF สำเร็จ',
-            text: 'บันทึกและเปิดไฟล์รายงานเรียบร้อยแล้ว',
-          );
-        }
-      } else {
-        throw Exception(
-          'Server error (${response.statusCode}): ${response.body}',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.error,
-          title: 'เกิดข้อผิดพลาด',
-          text: e.toString(),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
-  }
-
-  Future<void> _exportExcelReport() async {
-    if (_results.isEmpty) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.warning,
-        text: 'ไม่พบข้อมูลผลการสอบสำหรับส่งออกรายงาน',
-      );
-      return;
-    }
-    setState(() => _isExporting = true);
-    try {
-      ExamModel? targetExam;
-      if (_selectedSubject != 'ทั้งหมด') {
-        try {
-          targetExam = _exams.firstWhere((e) => e.subject == _selectedSubject);
-        } catch (_) {}
-      }
-      if (targetExam == null && _exams.isNotEmpty) {
-        targetExam = _exams.first;
-      }
-
-      final examId =
-          targetExam?.id ?? (_results.isNotEmpty ? _results.first['examId'] : '');
-      final response = await http
-          .post(
-            ApiConfig.endpoint('/api/results/report/excel/download'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': _uid,
-            },
-            body: json.encode({
-              'examId': examId,
-              'user_email': _uid,
-            }),
-          )
-          .timeout(const Duration(seconds: 60));
-
-      if (response.statusCode == 200) {
-        final dir = await getApplicationDocumentsDirectory();
-        final filename =
-            'Report_${examId}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
-        final file = File('${dir.path}/$filename');
-        await file.writeAsBytes(response.bodyBytes);
-        await OpenFilex.open(file.path);
-        if (mounted) {
-          QuickAlert.show(
-            context: context,
-            type: QuickAlertType.success,
-            title: 'ส่งออก Excel สำเร็จ',
-            text: 'บันทึกและเปิดไฟล์ Excel เรียบร้อยแล้ว',
-          );
-        }
-      } else {
-        throw Exception(
-          'Server error (${response.statusCode}): ${response.body}',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.error,
-          title: 'เกิดข้อผิดพลาด',
-          text: e.toString(),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
   }
 
   @override
@@ -374,67 +206,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isExporting ? null : _exportPdfReport,
-                            icon: const Icon(
-                              FontAwesomeIcons.filePdf,
-                              size: 14,
-                            ),
-                            label: const Text(
-                              'รายงาน (PDF)',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primary,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isExporting ? null : _exportExcelReport,
-                            icon: const Icon(
-                              FontAwesomeIcons.fileExcel,
-                              size: 14,
-                            ),
-                            label: const Text(
-                              'คะแนน (Excel)',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.success,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(
-                                color: AppColors.success.withValues(alpha: 0.3),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -530,18 +301,39 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           final examId =
                               data['examId']?.toString() ?? 'ไม่ระบุ';
                           final isPending = data['score'] == null;
+                          final rawFlagged = data['flagged'];
+                          final bool hasFlaggedData =
+                              (rawFlagged is List && rawFlagged.isNotEmpty) ||
+                              rawFlagged == true ||
+                              rawFlagged == 1 ||
+                              rawFlagged == '1' ||
+                              rawFlagged == 'true';
+                          final rawStatus = data['status']
+                              ?.toString()
+                              .toLowerCase();
+                          final bool isError =
+                              rawStatus == 'warning' ||
+                              rawStatus == 'error' ||
+                              rawStatus == 'failed' ||
+                              rawStatus == 'flagged';
+                          final bool isAbnormal =
+                              isPending || isError || hasFlaggedData;
+
                           ExamModel? currentExam;
                           try {
                             currentExam = _exams.firstWhere(
                               (e) => e.id == examId,
                             );
                           } catch (_) {}
+
                           double dynamicScore =
                               double.tryParse(
                                 data['score']?.toString() ?? '0',
                               ) ??
                               0;
-                          if (currentExam != null &&
+
+                          if (!isAbnormal &&
+                              currentExam != null &&
                               (data.containsKey('answers') ||
                                   data.containsKey('itemResults'))) {
                             double calculatedScore = 0;
@@ -574,9 +366,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             }
                             dynamicScore = calculatedScore;
                           }
-                          final scoreStr = isPending
-                              ? 'กำลังประมวลผล...'
-                              : dynamicScore.toString();
+
+                          String scoreStr = dynamicScore.toString();
+                          if (isError || hasFlaggedData) {
+                            scoreStr = 'พบปัญหา';
+                          } else if (isPending) {
+                            scoreStr = 'รอตรวจ';
+                          }
                           /* Parse exam ID for a cleaner display */
                           String subjectCode = '';
                           String examName = examId;
@@ -702,31 +498,39 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                             vertical: 8,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: isPending
-                                                ? AppColors.surface
-                                                : AppColors.infoSoft,
+                                            color: (isError || hasFlaggedData)
+                                                ? Colors.amber.shade50
+                                                : (isPending
+                                                      ? AppColors.surface
+                                                      : AppColors.infoSoft),
                                             borderRadius: BorderRadius.circular(
                                               14,
                                             ),
                                             border: Border.all(
-                                              color: isPending
-                                                  ? AppColors.border
-                                                  : AppColors.info.withValues(
-                                                      alpha: 0.2,
-                                                    ),
+                                              color: (isError || hasFlaggedData)
+                                                  ? Colors.amber.shade200
+                                                  : (isPending
+                                                        ? AppColors.border
+                                                        : AppColors.info
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )),
                                               width: 1.5,
                                             ),
                                           ),
                                           child: Text(
-                                            isPending
-                                                ? 'รอตรวจ'
+                                            isAbnormal
+                                                ? scoreStr
                                                 : '$scoreStr/${currentExam?.getTotalScore(data['set']?.toString()).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '') ?? 0} คะแนน',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 12,
-                                              color: isPending
-                                                  ? AppColors.textSecondary
-                                                  : AppColors.infoDark,
+                                              color: (isError || hasFlaggedData)
+                                                  ? Colors.amber.shade800
+                                                  : (isPending
+                                                        ? AppColors
+                                                              .textSecondary
+                                                        : AppColors.infoDark),
                                             ),
                                           ),
                                         ),
@@ -774,57 +578,92 @@ class _ResultsScreenState extends State<ResultsScreen> {
         .toList();
 
     final rawFlagged = result['flagged'];
-    final bool isFlagged =
+    final bool hasFlaggedData =
+        (rawFlagged is List && rawFlagged.isNotEmpty) ||
         rawFlagged == true ||
         rawFlagged == 1 ||
         rawFlagged == '1' ||
         rawFlagged == 'true';
-    String pendingTitle = 'รอตรวจสอบความถูกต้อง';
 
-    if (isFlagged) {
-      final List<String> problemQs = [];
-      for (int i = 1; i <= exam.questions; i++) {
-        final qNum = i.toString();
-        String studentAns = '';
-        bool isSkipped = false;
+    final rawStatus = result['status']?.toString().toLowerCase();
+    final bool isError =
+        rawStatus == 'warning' ||
+        rawStatus == 'error' ||
+        rawStatus == 'failed' ||
+        rawStatus == 'flagged';
+    final bool isPending = result['score'] == null;
 
-        if (answers.isNotEmpty && answers.containsKey(qNum)) {
-          studentAns = answers[qNum].toString().trim();
-          if (studentAns == '-' ||
-              studentAns.isEmpty ||
-              skippedQs.contains(qNum)) {
-            isSkipped = true;
-          }
-        } else if (itemResults.isNotEmpty) {
-          if (itemResults[qNum] == true) {
-            studentAns = ''; // Don't care for this check
-          } else if (itemResults[qNum] == false) {
-            studentAns = 'X';
-          } else {
-            studentAns = '-';
-            isSkipped = true;
-          }
-          if (skippedQs.contains(qNum)) isSkipped = true;
+    final List<String> flaggedReasons = [];
+    final Map<String, dynamic> flaggedMap = {};
+    if (result['flagged'] is List) {
+      for (var f in (result['flagged'] as List)) {
+        if (f is Map && f['question'] != null) {
+          flaggedMap[f['question'].toString()] = f;
         }
-
-        if (isSkipped) {
-          problemQs.add(qNum);
-        } else if (studentAns.length > 1 && studentAns != '-') {
-          problemQs.add(qNum);
-        }
-      }
-
-      if (problemQs.isNotEmpty) {
-        pendingTitle += ' (ข้อ ${problemQs.join(", ")})';
       }
     }
+
+    final totalQCount = exam.questions > 0
+        ? exam.questions
+        : (answers.isNotEmpty ? answers.length : 20);
+
+    for (int i = 1; i <= totalQCount; i++) {
+      final qNum = i.toString();
+      final flagInfo = flaggedMap[qNum];
+      String studentAns = '-';
+      bool isSkipped = false;
+      bool isMultiMark = false;
+
+      if (answers.isNotEmpty && answers.containsKey(qNum)) {
+        studentAns = answers[qNum].toString().trim();
+        if (studentAns == '-' ||
+            studentAns.isEmpty ||
+            skippedQs.contains(qNum)) {
+          isSkipped = true;
+        } else if (studentAns.contains(',') || studentAns.length > 1) {
+          isMultiMark = true;
+        }
+      } else if (itemResults.isNotEmpty) {
+        if (itemResults[qNum] == null || itemResults[qNum] == '-') {
+          isSkipped = true;
+        }
+      }
+
+      if (isMultiMark ||
+          (flagInfo != null && flagInfo['reason'] == 'multiple_mark')) {
+        flaggedReasons.add('ข้อ $qNum: ฝนมากกว่า 1 ตัวเลือก');
+      } else if (flagInfo != null && flagInfo['reason'] == 'low_confidence') {
+        flaggedReasons.add(
+          'ข้อ $qNum: ไม่มั่นใจในการอ่านจุดฝน (อาจลบไม่สะอาด)',
+        );
+      } else if (flagInfo != null && flagInfo['reason'] == 'out_of_bounds') {
+        flaggedReasons.add('ข้อ $qNum: ฝนเกินขอบเขตที่กำหนด');
+      } else if (isSkipped) {
+        flaggedReasons.add('ข้อ $qNum: ไม่ได้ฝนคำตอบ');
+      }
+    }
+
+    if (result['flagged'] is List) {
+      for (var f in (result['flagged'] as List)) {
+        if (f is Map && f['reason'] == 'not_filled') {
+          flaggedReasons.add('ข้อ ${f['question'] ?? "-"}: ไม่ได้ฝนคำตอบ');
+        }
+      }
+    }
+
+    final uniqueFlaggedReasons = flaggedReasons.toSet().toList();
+    final bool isActuallyFlagged =
+        uniqueFlaggedReasons.isNotEmpty ||
+        hasFlaggedData ||
+        isError ||
+        isPending;
 
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
 
-    final formattedScore = dynamicScore
-        .toStringAsFixed(1)
-        .replaceAll(RegExp(r'\.0$'), '');
+    final formattedScore = isActuallyFlagged
+        ? '-'
+        : dynamicScore.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
     final formattedTotal = exam
         .getTotalScore(result['set']?.toString())
         .toStringAsFixed(1)
@@ -875,7 +714,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'รายละเอียดคำตอบ',
                               style: TextStyle(
                                 fontSize: 20,
@@ -886,7 +725,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             const SizedBox(height: 4),
                             Text(
                               exam.name,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textSecondary,
                               ),
@@ -899,9 +738,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.info,
+                            color: isActuallyFlagged
+                                ? Colors.amber.shade700
+                                : AppColors.info,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: AppColors.infoShadow,
+                            boxShadow: isActuallyFlagged
+                                ? []
+                                : AppColors.infoShadow,
                           ),
                           child: Text(
                             '$formattedScore/$formattedTotal คะแนน',
@@ -923,7 +766,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (isFlagged) ...[
+                      if (isActuallyFlagged) ...[
                         Container(
                           padding: const EdgeInsets.all(16),
                           margin: const EdgeInsets.only(bottom: 24),
@@ -949,7 +792,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      pendingTitle,
+                                      'ผลสอบมีปัญหา กรุณาตรวจสอบ',
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontWeight: FontWeight.bold,
@@ -960,6 +803,44 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   ),
                                 ],
                               ),
+                              if (uniqueFlaggedReasons.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: uniqueFlaggedReasons.map((reason) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 24,
+                                        bottom: 4,
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '• ',
+                                            style: TextStyle(
+                                              color: Colors.amber.shade800,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              reason,
+                                              style: TextStyle(
+                                                color: Colors.amber.shade900,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),

@@ -314,8 +314,20 @@ class _AnswerSheetsScreenState extends State<AnswerSheetsScreen> {
                         ),
                         const SizedBox(height: 12),
                         _infoRow(
+                          FontAwesomeIcons.book,
+                          'ชื่อวิชา',
+                          subject.name.isNotEmpty ? subject.name : '-',
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow(
+                          FontAwesomeIcons.fileLines,
+                          'ชื่อการทดสอบ',
+                          exam.name.isNotEmpty ? exam.name : '-',
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow(
                           FontAwesomeIcons.solidCalendarDays,
-                          'วันที่สร้าง',
+                          'วันที่สอบ',
                           exam.date.isNotEmpty ? exam.date : '-',
                         ),
                         const SizedBox(height: 12),

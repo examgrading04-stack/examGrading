@@ -822,15 +822,17 @@ class MySQLAdapter(BaseDBAdapter):
 
             # insert details
             if isinstance(answers, dict):
+                wrong_qs = {str(w["question"]) if isinstance(w, dict) else str(w) for w in wrong}
+                skipped_qs = {str(s) for s in skipped}
                 for q_str, ans in answers.items():
                     try:
                         q_no = int(q_str)
                     except ValueError:
                         continue
                     status = "Correct"
-                    if q_str in wrong:
+                    if q_str in wrong_qs:
                         status = "Wrong"
-                    elif q_str in skipped:
+                    elif q_str in skipped_qs:
                         status = "Skipped"
 
                     det = SqlExamDetail(
@@ -955,6 +957,24 @@ class MySQLAdapter(BaseDBAdapter):
                 result.percent = (total_score / float(total_qs)) * 100.0
             else:
                 result.percent = 0.0
+
+            # pyrefly: ignore [missing-import]
+            from sqlalchemy import or_
+            remaining = (
+                session.query(SqlExamDetail)
+                .filter(
+                    SqlExamDetail.result_id == result_id,
+                    SqlExamDetail.user_id == user_email,
+                    or_(
+                        SqlExamDetail.status_answer == "Skipped",
+                        SqlExamDetail.student_answer.like("%,%"),
+                    ),
+                )
+                .count()
+            )
+
+            if remaining == 0:
+                result.flagged = False
 
             session.commit()
             return {"score": result.score, "percent": result.percent}
@@ -1784,45 +1804,16 @@ class MySQLAdapter(BaseDBAdapter):
                 return
 
             if collection == "sections":
-                # Move students to 'ไม่ระบุ' section to avoid CASCADE deletion of enrollments
                 sec_row = (
                     session.query(SqlSection)
                     .filter_by(id=doc_id, user_email=user_email)
                     .first()
                 )
                 if sec_row:
-                    subject_id = sec_row.subject
-                    unspec_id = f"{subject_id}_unspecified"
-                    unspec_sec = (
-                        session.query(SqlSection)
-                        .filter_by(id=unspec_id, user_email=user_email)
-                        .first()
-                    )
-                    if not unspec_sec:
-                        unspec_sec = SqlSection(
-                            id=unspec_id,
-                            sec="ไม่ระบุ",
-                            subject=subject_id,
-                            user_email=user_email,
-                        )
-                        session.add(unspec_sec)
-                        session.flush()
-
+                    # Rescue exams from CASCADE deletion
                     # pyrefly: ignore [missing-import]
                     from sqlalchemy import text
 
-                    session.execute(
-                        text(
-                            "UPDATE student_enrollments SET section_id = :new_sec WHERE section_id = :old_sec AND user_id = :uid"
-                        ),
-                        {
-                            "new_sec": unspec_sec.id,
-                            "old_sec": doc_id,
-                            "uid": user_email,
-                        },
-                    )
-
-                    # Rescue exams from CASCADE deletion
                     session.execute(
                         text(
                             "UPDATE exams SET section_id = NULL WHERE section_id = :old_sec AND user_id = :uid"
@@ -2010,13 +2001,19 @@ def get_db_adapter() -> BaseDBAdapter:
     if _cached_adapter is not None:
         return _cached_adapter
 
-    db_url = os.getenv(
-        "DATABASE_URL", "mysql+pymysql://root:@localhost:3306/exam_grading"
+    db_url = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("MYSQL_URL")
+        or os.getenv("MYSQL_PRIVATE_URL")
+        or "mysql+pymysql://root:@localhost:3306/exam_grading"
     )
     # Always use MySQL — ensure charset and correct driver prefix
     if db_url.startswith("postgresql") or db_url.startswith("postgres"):
         # Fallback safety: strip supabase/postgres URL and use local MySQL
         db_url = "mysql+pymysql://root:@localhost:3306/exam_grading"
+    elif db_url.startswith("mysql://"):
+        db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+
     if "charset=" not in db_url:
         db_url += "?charset=utf8mb4" if "?" not in db_url else "&charset=utf8mb4"
 

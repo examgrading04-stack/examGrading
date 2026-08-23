@@ -102,6 +102,19 @@ export function Icon({ name, className = "" }) {
   );
 }
 
+export function LoadingOverlay({ text = "กำลังดำเนินการ...", className = "" }) {
+  return (
+    <div className={`absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 ${className}`}>
+      <div className="relative">
+        <div className="w-12 h-12 rounded-full border-4 border-slate-100"></div>
+        <div className="absolute top-0 left-0 w-12 h-12 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+      </div>
+      {text && <p className="text-sm font-semibold text-slate-700 animate-pulse">{text}</p>}
+    </div>
+  );
+}
+
+
 export function Field({ label, children }) {
   return (
     <label className="block">
