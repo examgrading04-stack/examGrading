@@ -958,6 +958,24 @@ class MySQLAdapter(BaseDBAdapter):
             else:
                 result.percent = 0.0
 
+            # pyrefly: ignore [missing-import]
+            from sqlalchemy import or_
+            remaining = (
+                session.query(SqlExamDetail)
+                .filter(
+                    SqlExamDetail.result_id == result_id,
+                    SqlExamDetail.user_id == user_email,
+                    or_(
+                        SqlExamDetail.status_answer == "Skipped",
+                        SqlExamDetail.student_answer.like("%,%"),
+                    ),
+                )
+                .count()
+            )
+
+            if remaining == 0:
+                result.flagged = False
+
             session.commit()
             return {"score": result.score, "percent": result.percent}
         finally:

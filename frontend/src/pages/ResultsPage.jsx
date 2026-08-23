@@ -170,10 +170,10 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     ];
     const rows = filteredResults.map((r) => [
       r.studentCode || "-",
-      r.studentName || "-",
-      r.score || 0,
+      r.studentName ? (r.flagged ? `${r.studentName} (รอตรวจสอบ)` : r.studentName) : "-",
+      r.flagged ? "" : (r.score || 0),
       r.totalMaxScore || r.totalQuestions || 0,
-      (r.percentage || 0).toFixed(2),
+      r.flagged ? "" : (r.percentage || 0).toFixed(2),
       r.flagged ? "รอตรวจสอบ" : "ปกติ",
     ]);
     const csvContent = [header, ...rows].map((e) => e.join(",")).join("\n");
@@ -1102,7 +1102,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
 
   // Deduplicate reasons
   const uniqueFlaggedReasons = [...new Set(flaggedReasons)];
-  const isActuallyFlagged = uniqueFlaggedReasons.length > 0;
+  const isActuallyFlagged = result.flagged;
 
   useEffect(() => {
     setPage(1);

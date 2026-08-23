@@ -214,7 +214,7 @@ export function ReportsPage({ data, userEmail }) {
       ? subject.name || "ไม่ระบุวิชา"
       : exam.subject || "ไม่ระบุวิชา";
     const subjectCode = subject?.code || exam.subjectCode || exam.code || "-";
-    const results = data.results.filter((result) => result.examId === exam.id);
+    const results = data.results.filter((result) => result.examId === exam.id && !result.flagged);
     const scores = results
       .map((row) => {
         let dynamicScore = row.score || 0;
