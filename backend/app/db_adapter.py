@@ -1983,13 +1983,19 @@ def get_db_adapter() -> BaseDBAdapter:
     if _cached_adapter is not None:
         return _cached_adapter
 
-    db_url = os.getenv(
-        "DATABASE_URL", "mysql+pymysql://root:@localhost:3306/exam_grading"
+    db_url = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("MYSQL_URL")
+        or os.getenv("MYSQL_PRIVATE_URL")
+        or "mysql+pymysql://root:@localhost:3306/exam_grading"
     )
     # Always use MySQL — ensure charset and correct driver prefix
     if db_url.startswith("postgresql") or db_url.startswith("postgres"):
         # Fallback safety: strip supabase/postgres URL and use local MySQL
         db_url = "mysql+pymysql://root:@localhost:3306/exam_grading"
+    elif db_url.startswith("mysql://"):
+        db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+
     if "charset=" not in db_url:
         db_url += "?charset=utf8mb4" if "?" not in db_url else "&charset=utf8mb4"
 
