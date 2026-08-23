@@ -226,9 +226,11 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             );
                             return;
                           }
-                          
+
                           if (!isEdit || student.code != newCode) {
-                            final exists = _students.any((s) => s.code == newCode);
+                            final exists = _students.any(
+                              (s) => s.code == newCode,
+                            );
                             if (exists) {
                               QuickAlert.show(
                                 context: context,
@@ -239,7 +241,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               return;
                             }
                           }
-                          
+
                           SectionOption? selectedOpt;
                           if (selectedSectionId != null) {
                             try {
@@ -618,6 +620,18 @@ class _StudentsScreenState extends State<StudentsScreen> {
                                       ),
                                     ),
                                   ),
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text(
+                                      'ไม่ระบุวิชา',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
                                   ..._subjects.map(
                                     (s) => DropdownMenuItem<String>(
                                       value: s.id,
@@ -766,9 +780,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
         return student.className == _filterSectionId;
       }
       if (_filterSubjectId != null) {
-        final subjectCode = _subjects
-            .firstWhere((s) => s.id == _filterSubjectId)
-            .code;
+        if (_filterSubjectId == 'none') {
+          return student.className.trim().isEmpty || student.className == '-';
+        }
+        final subjectOpt = _subjects
+            .where((s) => s.id == _filterSubjectId)
+            .firstOrNull;
+        if (subjectOpt == null) return false;
+        final subjectCode = subjectOpt.code;
         return student.className.startsWith('${subjectCode}_') ||
             student.className == subjectCode;
       }

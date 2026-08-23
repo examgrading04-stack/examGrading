@@ -464,24 +464,6 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
               : "เลือกข้อสอบเพื่อดูรายละเอียดผลคะแนนแยกตามกลุ่มเรียน"}
           </p>
         </div>
-        {selectedResults.size > 0 && (
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={deleteSelectedResults}
-              className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-              title="ลบรายการที่เลือก"
-            >
-              <Icon name="fa-trash-can" /> ลบ
-            </button>
-            <button
-              onClick={() => setSelectedResults(new Set())}
-              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-              title="ยกเลิกการเลือก"
-            >
-              <Icon name="fa-xmark" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Stats Dashboard */}
@@ -557,13 +539,22 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           )}
         </div>
         {selectedResults.size > 0 && (
-          <button
-            onClick={deleteSelectedResults}
-            className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
-            title="ลบผลการตรวจที่เลือก"
-          >
-            <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedResults.size})
-          </button>
+          <div className="flex gap-2 shrink-0 w-full sm:w-auto mt-3 sm:mt-0">
+            <button
+              onClick={() => setSelectedResults(new Set())}
+              className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap flex-1 sm:flex-none h-10"
+              title="ยกเลิกการเลือก"
+            >
+              <Icon name="fa-xmark" />
+            </button>
+            <button
+              onClick={deleteSelectedResults}
+              className="bg-red-500 hover:bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap flex-1 sm:flex-none h-10"
+              title="ลบผลการตรวจที่เลือก"
+            >
+              <Icon name="fa-trash-can" /> ลบที่เลือก ({selectedResults.size})
+            </button>
+          </div>
         )}
       </div>
 

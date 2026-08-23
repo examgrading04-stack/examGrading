@@ -24,7 +24,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
   int _currentPage = 1;
   String _selectedSubject = 'ทั้งหมด';
   DateTime? _readResultTime(Map<String, dynamic> data) {
-    final dynamic val = data['createdAt'] ?? data['created_at'] ?? data['timestamp'] ?? data['scanTime'];
+    final dynamic val =
+        data['createdAt'] ??
+        data['created_at'] ??
+        data['timestamp'] ??
+        data['scanTime'];
     if (val == null) return null;
     if (val is int) {
       if (val > 1000000000000) return DateTime.fromMillisecondsSinceEpoch(val);
@@ -304,27 +308,32 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               rawFlagged == 1 ||
                               rawFlagged == '1' ||
                               rawFlagged == 'true';
-                          final rawStatus = data['status']?.toString().toLowerCase();
-                          final bool isError = rawStatus == 'warning' ||
+                          final rawStatus = data['status']
+                              ?.toString()
+                              .toLowerCase();
+                          final bool isError =
+                              rawStatus == 'warning' ||
                               rawStatus == 'error' ||
                               rawStatus == 'failed' ||
                               rawStatus == 'flagged';
-                          final bool isAbnormal = isPending || isError || hasFlaggedData;
-                          
+                          final bool isAbnormal =
+                              isPending || isError || hasFlaggedData;
+
                           ExamModel? currentExam;
                           try {
                             currentExam = _exams.firstWhere(
                               (e) => e.id == examId,
                             );
                           } catch (_) {}
-                          
+
                           double dynamicScore =
                               double.tryParse(
                                 data['score']?.toString() ?? '0',
                               ) ??
                               0;
-                              
-                          if (!isAbnormal && currentExam != null &&
+
+                          if (!isAbnormal &&
+                              currentExam != null &&
                               (data.containsKey('answers') ||
                                   data.containsKey('itemResults'))) {
                             double calculatedScore = 0;
@@ -357,7 +366,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             }
                             dynamicScore = calculatedScore;
                           }
-                          
+
                           String scoreStr = dynamicScore.toString();
                           if (isError || hasFlaggedData) {
                             scoreStr = 'พบปัญหา';
@@ -489,22 +498,23 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                             vertical: 8,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: isError
+                                            color: (isError || hasFlaggedData)
                                                 ? Colors.amber.shade50
                                                 : (isPending
-                                                    ? AppColors.surface
-                                                    : AppColors.infoSoft),
+                                                      ? AppColors.surface
+                                                      : AppColors.infoSoft),
                                             borderRadius: BorderRadius.circular(
                                               14,
                                             ),
                                             border: Border.all(
-                                              color: isError
+                                              color: (isError || hasFlaggedData)
                                                   ? Colors.amber.shade200
                                                   : (isPending
-                                                      ? AppColors.border
-                                                      : AppColors.info.withValues(
-                                                          alpha: 0.2,
-                                                        )),
+                                                        ? AppColors.border
+                                                        : AppColors.info
+                                                              .withValues(
+                                                                alpha: 0.2,
+                                                              )),
                                               width: 1.5,
                                             ),
                                           ),
@@ -515,11 +525,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 12,
-                                              color: isError
+                                              color: (isError || hasFlaggedData)
                                                   ? Colors.amber.shade800
                                                   : (isPending
-                                                      ? AppColors.textSecondary
-                                                      : AppColors.infoDark),
+                                                        ? AppColors
+                                                              .textSecondary
+                                                        : AppColors.infoDark),
                                             ),
                                           ),
                                         ),
@@ -575,7 +586,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
         rawFlagged == 'true';
 
     final rawStatus = result['status']?.toString().toLowerCase();
-    final bool isError = rawStatus == 'warning' ||
+    final bool isError =
+        rawStatus == 'warning' ||
         rawStatus == 'error' ||
         rawStatus == 'failed' ||
         rawStatus == 'flagged';
@@ -621,7 +633,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
           (flagInfo != null && flagInfo['reason'] == 'multiple_mark')) {
         flaggedReasons.add('ข้อ $qNum: ฝนมากกว่า 1 ตัวเลือก');
       } else if (flagInfo != null && flagInfo['reason'] == 'low_confidence') {
-        flaggedReasons.add('ข้อ $qNum: ไม่มั่นใจในการอ่านจุดฝน (อาจลบไม่สะอาด)');
+        flaggedReasons.add(
+          'ข้อ $qNum: ไม่มั่นใจในการอ่านจุดฝน (อาจลบไม่สะอาด)',
+        );
       } else if (flagInfo != null && flagInfo['reason'] == 'out_of_bounds') {
         flaggedReasons.add('ข้อ $qNum: ฝนเกินขอบเขตที่กำหนด');
       } else if (isSkipped) {
@@ -639,7 +653,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     final uniqueFlaggedReasons = flaggedReasons.toSet().toList();
     final bool isActuallyFlagged =
-        uniqueFlaggedReasons.isNotEmpty || hasFlaggedData || isError || isPending;
+        uniqueFlaggedReasons.isNotEmpty ||
+        hasFlaggedData ||
+        isError ||
+        isPending;
 
     final imageUrl = result['imageUrl']?.toString().trim() ?? '';
     final hasImageUrl = imageUrl.isNotEmpty;
