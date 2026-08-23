@@ -153,8 +153,11 @@ def find_anchor_points(thresh_img):
         if len(approx) < 4:
             continue
 
-        # score: ให้ความสำคัญกับพื้นที่ + ความทึบ
-        score = area * (0.5 + fill)
+        import math
+        # score: ให้ความสำคัญกับความเป็นสี่เหลี่ยมจัตุรัส และความทึบ
+        # ใช้ sqrt(area) เพื่อไม่ให้เงาดำขนาดใหญ่ได้คะแนนเวอร์เกินไป
+        shape_score = fill * (1.0 - abs(1.0 - asp))
+        score = math.sqrt(area) * shape_score
         cands.append((x + w // 2, y + h // 2, score, w, h))
     zones = {
         "TL": (0, W * 0.45, 0, H * 0.45),
@@ -936,10 +939,13 @@ def decide_answers(raw_scores, n_q=None):
                 (
                     bridge_val >= 0.15
                     and second_n >= dynamic_fill_min * 0.70
-                    and (second_n / max(1e-5, max_n))
-                    >= float(getattr(OMRConfig, "OVERFLOW_BLEED_RATIO", 0.40))
+                    and (second_n / max(1e-5, max_n)) >= 0.48
                 )
-                or (bridge_val >= 0.22 and second_n >= dynamic_fill_min * 0.75)
+                or (
+                    bridge_val >= 0.22
+                    and second_n >= dynamic_fill_min * 0.75
+                    and (second_n / max(1e-5, max_n)) >= 0.42
+                )
             )
 
             has_multi_marks = second_n >= dynamic_fill_min * 0.65 and (
@@ -985,23 +991,6 @@ def decide_answers(raw_scores, n_q=None):
                     }
                 )
                 answers[q_no] = detected_str
-
-            elif (
-                (second_n >= dynamic_fill_min * 0.65 and second_n >= 0.09)
-                or (is_adjacent and bridge_val >= 0.15 and second_n >= 0.07)
-            ):
-                # 2. รอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่นระดับปานกลาง (ตัวเลือกหลักยังเด่นชัด) -> ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนผู้ใช้
-                flagged.append(
-                    {
-                        "question": q_no,
-                        "reason": "overflow_smudge",
-                        "detected": choices[max_idx],
-                        "smudge_choice": choices[second_idx],
-                        "message": f"มีรอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือก {choices[second_idx]}",
-                        "ratios": dict(zip(choices, ratios)),
-                    }
-                )
-                answers[q_no] = choices[max_idx]
 
             elif gap < OMRConfig.NORM_GAP_MIN:
                 # 3. ความเชื่อมั่นต่ำ (คะแนนใกล้เคียงกัน)
