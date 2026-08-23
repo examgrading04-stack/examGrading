@@ -777,7 +777,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                     b_contrast = (
                         max(
                             0.0,
-                            (row_paper_bg - float(np.mean(b_patch)))
+                            (row_paper_bg - float(np.median(b_patch)))
                             / max(10.0, row_paper_bg),
                         )
                         if b_patch.size > 0
@@ -877,7 +877,8 @@ def _compute_decision_stats(raw_scores, n_q=None):
             except Exception:
                 pass
 
-    dynamic_fill_min = min(max(dynamic_fill_min, 0.070), 0.120)
+    # Clamp threshold between 0.10 and 0.25 to handle extreme lighting
+    dynamic_fill_min = min(max(dynamic_fill_min, 0.10), 0.250)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 
@@ -933,12 +934,12 @@ def decide_answers(raw_scores, n_q=None):
             # 1. ตรวจสอบการฝนหลายตัวเลือก หรือการฝนล้ำข้ามช่องอย่างรุนแรง (Severe Overfill / Bleed Across Options)
             has_heavy_bleed = is_adjacent and (
                 (
-                    bridge_val >= 0.12
-                    and second_n >= dynamic_fill_min * 0.50
+                    bridge_val >= 0.15
+                    and second_n >= dynamic_fill_min * 0.70
                     and (second_n / max(1e-5, max_n))
                     >= float(getattr(OMRConfig, "OVERFLOW_BLEED_RATIO", 0.40))
                 )
-                or (bridge_val >= 0.18 and second_n >= dynamic_fill_min * 0.40)
+                or (bridge_val >= 0.22 and second_n >= dynamic_fill_min * 0.75)
             )
 
             has_multi_marks = second_n >= dynamic_fill_min * 0.65 and (
@@ -986,8 +987,8 @@ def decide_answers(raw_scores, n_q=None):
                 answers[q_no] = detected_str
 
             elif (
-                (second_n >= dynamic_fill_min * 0.55 and second_n >= 0.075)
-                or (is_adjacent and bridge_val >= 0.10 and second_n >= 0.055)
+                (second_n >= dynamic_fill_min * 0.65 and second_n >= 0.09)
+                or (is_adjacent and bridge_val >= 0.15 and second_n >= 0.07)
             ):
                 # 2. รอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่นระดับปานกลาง (ตัวเลือกหลักยังเด่นชัด) -> ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนผู้ใช้
                 flagged.append(
