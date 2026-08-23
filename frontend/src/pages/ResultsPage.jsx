@@ -914,22 +914,14 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
     nextSet.add(question);
     setVerifiedQuestions(nextSet);
 
-    // Check if all problematic questions are verified
+    // Check if all problematic questions are now verified
     const allProblematic = rows
-      .filter(
-        (r) =>
-          r.isMultiMark ||
-          r.flagInfo?.reason === "multiple_mark" ||
-          r.flagInfo?.reason === "low_confidence" ||
-          r.flagInfo?.reason === "out_of_bounds" ||
-          r.isSkipped,
-      )
+      .filter((r) => r.hasProblem)
       .map((r) => r.question);
 
-    if (
-      allProblematic.length > 0 &&
-      allProblematic.every((q) => nextSet.has(q) || q === question)
-    ) {
+    const remainingUnverified = allProblematic.filter((q) => !nextSet.has(q));
+
+    if (allProblematic.length > 0 && remainingUnverified.length === 0) {
       await handleFlag(result.id, false);
     }
   };
@@ -991,6 +983,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
     return map;
   }, [result.flagged]);
 
+  const isSheetCompleted = !checkIsFlagged(result);
   const questionsCount = Number(exam.questions || result.totalQuestions || 0);
   const rows = Array.from({ length: questionsCount }, (_, i) => {
     const questionStr = String(i + 1);
@@ -1001,9 +994,10 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
     let isSkipped = false;
     let isMultiMark = false;
 
+    const isVerified = isSheetCompleted || verifiedQuestions.has(questionStr);
+
     if (result.answers) {
       const val = result.answers[questionStr];
-      const isVerified = verifiedQuestions.has(questionStr);
 
       if (val !== undefined && val !== null && val !== "" && val !== "-") {
         studentAns = String(val);
@@ -1015,23 +1009,14 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
           isMultiMark = false;
           isCorrect = studentAns === correctAns;
         }
-      } else if (val === "" || val === "-") {
-        // User explicitly cleared the answer, or it was originally empty
+      } else {
         studentAns = "-";
         isSkipped = true;
-        // Only show as multi_mark if it hasn't been verified AND flagInfo says so
         if (flagInfo && flagInfo.reason === "multiple_mark" && !isVerified) {
           isMultiMark = true;
           isSkipped = false;
           studentAns = flagInfo.detected || "ฝนมากกว่า 1 ตัวเลือก";
         }
-      } else if (flagInfo && flagInfo.reason === "multiple_mark" && !isVerified) {
-        isMultiMark = true;
-        isSkipped = false;
-        studentAns = flagInfo.detected || "ฝนมากกว่า 1 ตัวเลือก";
-      } else {
-        studentAns = "-";
-        isSkipped = true;
       }
     } else if (result.itemResults) {
       isCorrect = result.itemResults[questionStr] === true;
@@ -1043,11 +1028,14 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
       if (studentAns === "-") isSkipped = true;
     }
 
-    if (flagInfo && flagInfo.reason === "multiple_mark" && !verifiedQuestions.has(questionStr)) {
-      if (studentAns === "-" || studentAns === "ฝนมากกว่า 1 ตัวเลือก" || studentAns.includes(",")) {
-         isMultiMark = true;
-      }
-    }
+    const hasProblem = !isVerified && (
+      isMultiMark ||
+      isSkipped ||
+      flagInfo?.reason === "multiple_mark" ||
+      flagInfo?.reason === "low_confidence" ||
+      flagInfo?.reason === "out_of_bounds" ||
+      flagInfo?.reason === "not_filled"
+    );
 
     return {
       question: questionStr,
@@ -1057,6 +1045,8 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
       isSkipped,
       isMultiMark,
       flagInfo,
+      isVerified,
+      hasProblem,
     };
   });
 
@@ -1065,28 +1055,22 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
 
   const flaggedReasons = [];
   rows.forEach((r) => {
-    if (r.isMultiMark || r.flagInfo?.reason === "multiple_mark") {
-      flaggedReasons.push(`ข้อ ${r.question}: ฝนมากกว่า 1 ตัวเลือก`);
-    } else if (r.flagInfo?.reason === "low_confidence") {
-      flaggedReasons.push(`ข้อ ${r.question}: ความมั่นใจในการอ่านจุดฝนต่ำ (ฝนจางหรือลบไม่สะอาด)`);
-    } else if (r.flagInfo?.reason === "out_of_bounds") {
-      flaggedReasons.push(`ข้อ ${r.question}: ฝนเกินขอบเขตที่กำหนด`);
-    } else if (r.isSkipped) {
-      flaggedReasons.push(`ข้อ ${r.question}: ไม่ได้ฝนคำตอบ`);
+    if (r.hasProblem) {
+      if (r.isMultiMark || r.flagInfo?.reason === "multiple_mark") {
+        flaggedReasons.push(`ข้อ ${r.question}: ฝนมากกว่า 1 ตัวเลือก`);
+      } else if (r.flagInfo?.reason === "low_confidence") {
+        flaggedReasons.push(`ข้อ ${r.question}: ความมั่นใจในการอ่านจุดฝนต่ำ (ฝนจางหรือลบไม่สะอาด)`);
+      } else if (r.flagInfo?.reason === "out_of_bounds") {
+        flaggedReasons.push(`ข้อ ${r.question}: ฝนเกินขอบเขตที่กำหนด`);
+      } else if (r.isSkipped || r.flagInfo?.reason === "not_filled") {
+        flaggedReasons.push(`ข้อ ${r.question}: ไม่ได้ฝนคำตอบ`);
+      }
     }
   });
 
-  if (Array.isArray(result.flagged)) {
-    result.flagged.forEach((f) => {
-      if (f && f.reason === "not_filled") {
-        flaggedReasons.push(`ข้อ ${f.question || "-"}: ไม่ได้ฝนคำตอบ`);
-      }
-    });
-  }
-
   // Deduplicate reasons
   const uniqueFlaggedReasons = [...new Set(flaggedReasons)];
-  const isActuallyFlagged = result.flagged;
+  const isActuallyFlagged = checkIsFlagged(result) && uniqueFlaggedReasons.length > 0;
 
   useEffect(() => {
     setPage(1);
@@ -1130,19 +1114,32 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
       </div>
 
       {isActuallyFlagged ? (
-        <div className="bg-amber-50 text-amber-900 rounded-lg p-4 text-base flex flex-col gap-2 border border-amber-200">
-          <div className="flex items-center gap-2 font-bold text-amber-800">
-            <Icon
-              name="fa-triangle-exclamation"
-              className="text-lg text-amber-600"
-            />
-            <span>รอตรวจสอบความถูกต้อง</span>
+        <div className="bg-amber-50 text-amber-900 rounded-lg p-4 text-base flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-amber-200">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 font-bold text-amber-800">
+              <Icon
+                name="fa-triangle-exclamation"
+                className="text-lg text-amber-600"
+              />
+              <span>รอตรวจสอบความถูกต้อง ({uniqueFlaggedReasons.length} ปัญหา)</span>
+            </div>
+            <ul className="list-disc list-inside pl-1 text-amber-700 text-sm space-y-0.5 font-medium">
+              {uniqueFlaggedReasons.map((reason, idx) => (
+                <li key={idx}>{reason}</li>
+              ))}
+            </ul>
           </div>
-          <ul className="list-disc list-inside pl-1 text-amber-700 text-sm space-y-1 font-medium">
-            {uniqueFlaggedReasons.map((reason, idx) => (
-              <li key={idx}>{reason}</li>
-            ))}
-          </ul>
+          <button
+            onClick={async () => {
+              const allQ = rows.map((r) => r.question);
+              setVerifiedQuestions(new Set(allQ));
+              await handleFlag(result.id, false);
+            }}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm shadow-sm hover:shadow transition-all shrink-0 flex items-center gap-2 cursor-pointer"
+          >
+            <Icon name="fa-check-double" />
+            ยอมรับผลตรวจทั้งหมด
+          </button>
         </div>
       ) : (
         <div className="flex items-center justify-between bg-emerald-50 text-emerald-800 rounded-lg p-3.5 px-4 text-sm border border-emerald-200">
@@ -1195,10 +1192,9 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                               .includes(opt)
                           : false;
                           
-                        const hasProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
                         const isUnlocked = unlockedQuestions.has(row.question);
                         const isUpdating = updatingQuestions.has(row.question);
-                        const isDisabled = (!hasProblem && !isUnlocked) || isUpdating;
+                        const isDisabled = (!row.hasProblem && !isUnlocked) || isUpdating;
 
                         return (
                           <button
@@ -1210,17 +1206,17 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-200 ease-in-out relative ${
                               isDisabled && !isUpdating
                                 ? isSelected
-                                  ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
-                                  : "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
-                                : isUpdating
-                                  ? isSelected
-                                    ? "bg-emerald-300 text-white cursor-wait"
-                                    : "bg-slate-100 text-slate-300 cursor-wait"
+                                ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
+                                : "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                              : isUpdating
+                                ? isSelected
+                                  ? "bg-emerald-300 text-white cursor-wait"
+                                  : "bg-slate-100 text-slate-300 cursor-wait"
                                 : isSelected
-                                ? "bg-emerald-500 text-white border-emerald-500 scale-105 shadow-md hover:scale-110"
-                                : "bg-slate-50 text-slate-500 border border-slate-200 shadow-sm hover:scale-110 hover:shadow-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
+                                ? "bg-emerald-500 text-white border-emerald-500 scale-105 shadow-md hover:scale-110 cursor-pointer"
+                                : "bg-slate-50 text-slate-500 border border-slate-200 shadow-sm hover:scale-110 hover:shadow-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500 cursor-pointer"
                             }`}
-                            title={isDisabled && !isUpdating ? "ข้อนี้ปกติ ไม่สามารถแก้ไขได้" : `เลือกคำตอบ ${opt}`}
+                            title={isDisabled && !isUpdating ? "กดปุ่ม 'แก้ไข' เพื่อเปลี่ยนคำตอบ" : `เลือกคำตอบ ${opt}`}
                           >
                             {isUpdating && isSelected ? (
                                <Icon name="fa-spinner" className="animate-spin text-white" />
@@ -1236,12 +1232,10 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                     {row.correctAns}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {row.isSkipped ||
-                    row.isMultiMark ||
-                    row.flagInfo?.reason === "multiple_mark" ? (
+                    {row.hasProblem ? (
                       <span
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400"
-                        title="ไม่ได้คะแนน"
+                        title="รอตรวจสอบความถูกต้อง"
                       >
                         <Icon name="fa-minus" />
                       </span>
@@ -1265,45 +1259,47 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                     <div className="flex items-center justify-center gap-2">
                       {/* Badge Rendering */}
                       {(() => {
-                        const isVerified = verifiedQuestions.has(row.question);
-                        const isProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
-                        
-                        if (!isProblem || isVerified) {
-                           return (
-                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap">
-                               <Icon name="fa-circle-check" /> ปกติ
-                             </span>
-                           );
+                        if (!row.hasProblem) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap">
+                              <Icon name="fa-circle-check" /> ปกติ
+                            </span>
+                          );
                         }
-                        
+
                         if (row.isMultiMark || row.flagInfo?.reason === "multiple_mark") {
-                           return (
-                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
-                               <Icon name="fa-triangle-exclamation" className="text-amber-600" /> ฝนเกิน
-                             </span>
-                           );
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+                              <Icon name="fa-triangle-exclamation" className="text-amber-600" /> ฝนเกิน
+                            </span>
+                          );
                         }
                         if (row.flagInfo?.reason === "low_confidence") {
-                           return (
-                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                               <Icon name="fa-triangle-exclamation" className="text-amber-500" /> ฝนจาง
-                             </span>
-                           );
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                              <Icon name="fa-triangle-exclamation" className="text-amber-500" /> ฝนจาง
+                            </span>
+                          );
                         }
                         if (row.flagInfo?.reason === "out_of_bounds") {
-                           return (
-                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                               <Icon name="fa-triangle-exclamation" className="text-rose-600" /> ฝนเกินขอบ
-                             </span>
-                           );
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                              <Icon name="fa-triangle-exclamation" className="text-rose-600" /> ฝนเกินขอบ
+                            </span>
+                          );
                         }
-                        if (row.isSkipped) {
-                           return (
-                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                               <Icon name="fa-triangle-exclamation" className="text-rose-600 text-[10px]" /> ไม่ได้ฝน
-                             </span>
-                           );
+                        if (row.isSkipped || row.flagInfo?.reason === "not_filled") {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                              <Icon name="fa-triangle-exclamation" className="text-rose-600 text-[10px]" /> ไม่ได้ฝน
+                            </span>
+                          );
                         }
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+                            <Icon name="fa-triangle-exclamation" className="text-amber-600" /> รอตรวจสอบ
+                          </span>
+                        );
                       })()}
                     </div>
                   </td>
@@ -1311,55 +1307,46 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                     <div className="flex items-center justify-center">
                       {/* Action Buttons */}
                       {(() => {
-                        const isVerified = verifiedQuestions.has(row.question);
                         const isUnlocked = unlockedQuestions.has(row.question);
-                        const isProblem = row.isMultiMark || row.flagInfo?.reason === "multiple_mark" || row.flagInfo?.reason === "low_confidence" || row.flagInfo?.reason === "out_of_bounds" || row.isSkipped;
 
-                        if (isProblem && !isVerified) {
+                        if (row.hasProblem) {
                           return (
                             <button
                               onClick={() => handleVerifyRow(row.question)}
-                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-all text-xs font-bold shadow-sm hover:shadow"
-                              title="ยอมรับข้อผิดพลาด (ยืนยันให้คะแนนตามจริงและเปลี่ยนสถานะเป็นปกติ)"
+                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 border border-transparent hover:border-emerald-200 transition-all text-xs font-bold shadow-sm hover:shadow cursor-pointer"
+                              title="ยอมรับข้อผิดพลาด (ยืนยันคำตอบตามนี้และเปลี่ยนสถานะเป็นปกติ)"
                             >
                               <Icon name="fa-check" /> ยอมรับ
                             </button>
                           );
                         }
-                        if (!isUnlocked && (!isProblem || isVerified)) {
+                        if (!isUnlocked) {
                           return (
                             <button
                               onClick={() => {
                                 setUnlockedQuestions(prev => new Set(prev).add(row.question));
                               }}
-                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-all text-xs font-bold shadow-sm hover:shadow"
+                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-all text-xs font-bold shadow-sm hover:shadow cursor-pointer"
                               title="ปลดล็อคเพื่อแก้ไขคำตอบ"
                             >
                               <Icon name="fa-pen" /> แก้ไข
                             </button>
                           );
                         }
-                        if (isUnlocked) {
-                          return (
-                            <button
-                              onClick={() => {
-                                setUnlockedQuestions(prev => {
-                                  const next = new Set(prev);
-                                  next.delete(row.question);
-                                  return next;
-                                });
-                              }}
-                              className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-slate-100 hover:text-slate-600 border border-blue-200 hover:border-transparent transition-all text-xs font-bold shadow-sm hover:shadow"
-                              title="ล็อคการแก้ไข"
-                            >
-                              <Icon name="fa-lock" /> ล็อค
-                            </button>
-                          );
-                        }
                         return (
-                          <span className="px-3 py-1.5 flex items-center justify-center rounded-md text-slate-300 text-xs font-bold">
-                            -
-                          </span>
+                          <button
+                            onClick={() => {
+                              setUnlockedQuestions(prev => {
+                                const next = new Set(prev);
+                                next.delete(row.question);
+                                return next;
+                              });
+                            }}
+                            className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-slate-100 hover:text-slate-600 border border-blue-200 hover:border-transparent transition-all text-xs font-bold shadow-sm hover:shadow cursor-pointer"
+                            title="ล็อคการแก้ไข"
+                          >
+                            <Icon name="fa-lock" /> ล็อค
+                          </button>
                         );
                       })()}
                     </div>
