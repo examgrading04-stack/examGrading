@@ -197,7 +197,8 @@ def _select_anchor_points_from_candidates(cands, W, H):
             return False
         return True
 
-    candidates = sorted(cands, key=lambda p: p[2], reverse=True)[:80]
+    # ลดจำนวน candidates ลงเหลือ 25 เพื่อแก้ปัญหาคอขวดตอนรันบน Server (25^4 = 390k ลูป ใช้เวลา < 0.1 วินาที, ถ้า 80^4 จะล่อไป 40 ล้านลูป)
+    candidates = sorted(cands, key=lambda p: p[2], reverse=True)[:25]
     tl = min(candidates, key=lambda p: p[0] / W + p[1] / H)
     tr = max(candidates, key=lambda p: p[0] / W - p[1] / H)
     bl = max(candidates, key=lambda p: p[1] / H - p[0] / W)
@@ -292,7 +293,21 @@ def decode_qr(img):
         gray[: int(H * 0.45), :],
         gray[: int(H * 0.65), :],
     ]
-    candidates = []
+    def try_decode(cand):
+        if PYZBAR_AVAILABLE:
+            try:
+                for r in _pyzbar.decode(cand):
+                    return r.data.decode("utf-8")
+            except:
+                pass
+        try:
+            data, _, _ = detector.detectAndDecode(cand)
+            if data:
+                return data
+        except:
+            pass
+        return None
+
     for crop in crops:
         if crop.size == 0:
             continue
@@ -300,38 +315,22 @@ def decode_qr(img):
         _, otsu = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         variants.extend([otsu, 255 - otsu])
         adaptive = cv2.adaptiveThreshold(
-            clahe.apply(crop),
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            31,
-            5,
+            clahe.apply(crop), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
         )
         variants.extend([adaptive, 255 - adaptive])
+        
         for variant in variants:
-            candidates.append(variant)
+            res = try_decode(variant)
+            if res:
+                return _parse_qr_data(res, meta)
+                
             h, w = variant.shape[:2]
             if min(h, w) < 900:
-                candidates.append(
-                    cv2.resize(variant, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-                )
-    for cand in candidates:
-        try:
-            data, _, _ = detector.detectAndDecode(cand)
-            if data:
-                return _parse_qr_data(data, meta)
-        except:
-            pass
-    # pyzbar fallback
-    if PYZBAR_AVAILABLE:
-        for cand in candidates:
-            try:
-                for r in _pyzbar.decode(cand):
-                    data = r.data.decode("utf-8")
-                    if data:
-                        return _parse_qr_data(data, meta)
-            except:
-                pass
+                resized = cv2.resize(variant, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                res = try_decode(resized)
+                if res:
+                    return _parse_qr_data(res, meta)
+                    
     return meta
 
 
