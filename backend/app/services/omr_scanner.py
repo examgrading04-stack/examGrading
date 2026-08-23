@@ -111,16 +111,20 @@ def load_and_preprocess(path_or_img):
     thresh = cv2.adaptiveThreshold(
         blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 8
     )
-    # ลด noise จุดเล็กๆ เพื่อให้หา anchor เสถียรขึ้น
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k, iterations=1)
+    # ไม่ลด noise ใน thresh หลัก เพราะจะทำให้เส้นตารางหาย
     return img, gray, thresh
 
 
 def find_anchor_points(thresh_img):
     H, W = thresh_img.shape[:2]
+    
+    # ลบรอยเปื้อนเล็กๆ หรือเส้นบางๆ ที่ไปเกาะ anchor ก่อนหา contour
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    clean_thresh = cv2.morphologyEx(thresh_img, cv2.MORPH_OPEN, k, iterations=1)
+    
+    # เราจะหา contour ภายนอกทั้งหมด
     contours, _ = cv2.findContours(
-        thresh_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        clean_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
     cands = []
     for cnt in contours:
@@ -318,6 +322,10 @@ def decode_qr(img):
             clahe.apply(crop), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 5
         )
         variants.extend([adaptive, 255 - adaptive])
+        # Add upscaled versions for creased/distorted QRs
+        if max(crop.shape) > 0:
+            upscaled = cv2.resize(crop, (0, 0), fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+            variants.append(upscaled)
         
         for variant in variants:
             res = try_decode(variant)
