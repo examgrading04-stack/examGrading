@@ -485,8 +485,7 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
         y_arr = [int(v) for v in np.sort(grp[:, 1])]
 
         def cluster_1d(arr, max_gap):
-            if not arr:
-                return []
+            if not arr: return []
             clusters = []
             curr = [arr[0]]
             for v in arr[1:]:
@@ -499,8 +498,7 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
             return clusters
 
         def select_best_5_cols(xc):
-            if not xc:
-                return []
+            if not xc: return []
             if len(xc) == 5:
                 return xc
             if len(xc) < 5:
@@ -522,16 +520,11 @@ def _adaptive_bubble_positions(warped, grid_rect, n_q):
             return list(best_window)
 
         def fit_rpg_rows(yc, expected_rpg):
-            if not yc:
-                return []
+            if not yc: return []
             if len(yc) == expected_rpg:
                 return yc
             if len(yc) < expected_rpg:
-                step = (
-                    int(np.median(np.diff(yc)))
-                    if len(yc) >= 2
-                    else (28 if expected_rpg > 15 else 48)
-                )
+                step = int(np.median(np.diff(yc))) if len(yc) >= 2 else (28 if expected_rpg > 15 else 48)
                 while len(yc) < expected_rpg:
                     yc.append(int(yc[-1] + step))
                 return yc
@@ -571,7 +564,7 @@ def get_bubble_positions(warped, grid_rect, n_q):
     หากหาไม่เจอจริงๆ หรือได้จำนวนแถว/คอลัมน์ไม่ตรง ให้ใช้ fallback
     """
     adapt = _adaptive_bubble_positions(warped, grid_rect, n_q)
-
+    
     if adapt:
         # Validate that adaptive found exactly 5 cols and rpg rows for all groups
         n_groups = 4 if n_q > 50 else 2
@@ -581,14 +574,12 @@ def get_bubble_positions(warped, grid_rect, n_q):
             if len(xs) != 5 or len(ys) != rpg:
                 valid = False
                 break
-
+                
         if valid:
             print("[DEBUG] Using adaptive bubble positions")
             return adapt
         else:
-            print(
-                "[DEBUG] Adaptive found incorrect rows/cols. Using fallback positions"
-            )
+            print("[DEBUG] Adaptive found incorrect rows/cols. Using fallback positions")
 
     print("[DEBUG] Adaptive failed, using fallback positions")
     return _fallback_positions(grid_rect, n_q)
@@ -666,8 +657,9 @@ def measure_bubble_ratios(warped, grid_rect, positions):
         rpg = len(ys)
         for row, y in enumerate(ys):
             q_no = gi * rpg + row + 1
-
-            current_xs = xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            current_xs = (
+                xs[row] if (xs and isinstance(xs[0], (list, tuple))) else xs
+            )
             cy = int(y)
 
             # Local row paper background from safe margins outside column A and column E
@@ -686,7 +678,9 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 bg_vals.extend(row_bg_left.flatten())
             if row_bg_right.size > 0:
                 bg_vals.extend(row_bg_right.flatten())
-            row_paper_bg = float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
+            row_paper_bg = (
+                float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
+            )
             dark_thresh = max(0, row_paper_bg - 25)
 
             q_scores = []
@@ -710,7 +704,9 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 core_mask = np.zeros((h_p, w_p), dtype=np.uint8)
                 cv2.circle(core_mask, center_p, r_core, 255, -1)
                 core_vals = patch[core_mask > 0]
-                core_mean = float(np.mean(core_vals)) if len(core_vals) > 0 else 255.0
+                core_mean = (
+                    float(np.mean(core_vals)) if len(core_vals) > 0 else 255.0
+                )
                 core_contrast = max(
                     0.0, (row_paper_bg - core_mean) / max(10.0, row_paper_bg)
                 )
@@ -752,7 +748,11 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 # Adaptive combined score:
                 # - หากฝนในวงหรือฝนเกินเล็กน้อยภายใน safe margin -> ให้คะแนนเต็มที่ ไม่ตัดทิ้ง
                 if core_score >= 0.10 or inner_score >= 0.10:
-                    score = 0.50 * core_score + 0.40 * inner_score + 0.10 * outer_dark
+                    score = (
+                        0.50 * core_score
+                        + 0.40 * inner_score
+                        + 0.10 * outer_dark
+                    )
                 else:
                     score = 0.40 * core_score + 0.60 * inner_score
 
@@ -783,7 +783,9 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                         if b_patch.size > 0
                         else 0.0
                     )
-                    q_bridges[ch] = round(0.50 * b_contrast + 0.50 * b_dark, 4)
+                    q_bridges[ch] = round(
+                        0.50 * b_contrast + 0.50 * b_dark, 4
+                    )
                 else:
                     q_bridges[ch] = 0.0
 
@@ -797,7 +799,9 @@ def measure_bubble_ratios(warped, grid_rect, positions):
 
 def _compute_baselines(raw_scores, n_q):
     """column baseline per group = 20th percentile ratio ของแต่ละ choice"""
-    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    filtered_scores = {
+        k: v for k, v in raw_scores.items() if isinstance(k, int)
+    }
     if filtered_scores:
         n_q = max(n_q, max(filtered_scores.keys()))
 
@@ -818,7 +822,9 @@ def _compute_baselines(raw_scores, n_q):
         for r in qs.values():
             for i, v in enumerate(r):
                 cv[i].append(v)
-        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)]
+        bl = [
+            float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)
+        ]
         for q in qs:
             baselines[q] = bl
     return baselines
@@ -831,7 +837,9 @@ def _compute_decision_stats(raw_scores, n_q=None):
     - norms_by_q: normalized score (ratio - baseline)
     - dynamic_fill_min: threshold ฝน (จำกัดไม่เกิน 0.12 เพื่อไม่ตัดดินสอสีอ่อน)
     """
-    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    filtered_scores = {
+        k: v for k, v in raw_scores.items() if isinstance(k, int)
+    }
     if n_q and n_q > 0:
         bls = _compute_baselines(filtered_scores, n_q)
     else:
@@ -839,7 +847,9 @@ def _compute_decision_stats(raw_scores, n_q=None):
         for r in filtered_scores.values():
             for i, v in enumerate(r):
                 cv[i].append(v)
-        bl = [float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)]
+        bl = [
+            float(np.percentile(cv[i], 20)) if cv[i] else 0.0 for i in range(5)
+        ]
         bls = {q: bl for q in filtered_scores}
 
     norms_by_q = {}
@@ -883,7 +893,9 @@ def decide_answers(raw_scores, n_q=None):
     flagged = []
 
     bridges = raw_scores.get("__bridges__", {})
-    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    filtered_scores = {
+        k: v for k, v in raw_scores.items() if isinstance(k, int)
+    }
 
     bls, norms_by_q, dynamic_fill_min = _compute_decision_stats(
         filtered_scores, n_q=n_q
@@ -973,8 +985,9 @@ def decide_answers(raw_scores, n_q=None):
                 )
                 answers[q_no] = detected_str
 
-            elif (second_n >= dynamic_fill_min * 0.55 and second_n >= 0.075) or (
-                is_adjacent and bridge_val >= 0.10 and second_n >= 0.055
+            elif (
+                (second_n >= dynamic_fill_min * 0.55 and second_n >= 0.075)
+                or (is_adjacent and bridge_val >= 0.10 and second_n >= 0.055)
             ):
                 # 2. รอยฝนเกินหรือรอยเปื้อนใกล้ตัวเลือกอื่นระดับปานกลาง (ตัวเลือกหลักยังเด่นชัด) -> ตรวจให้ตัวเลือกหลัก แต่แจ้งเตือนผู้ใช้
                 flagged.append(
@@ -1015,7 +1028,9 @@ def summarize_marks(raw_scores, n_q):
     - suspicious: list ของข้อที่ควรตรวจด้วยตา
     """
     choices = OMRConfig.CHOICES
-    filtered_scores = {k: v for k, v in raw_scores.items() if isinstance(k, int)}
+    filtered_scores = {
+        k: v for k, v in raw_scores.items() if isinstance(k, int)
+    }
     _, norms_by_q, fill_min = _compute_decision_stats(filtered_scores, n_q=n_q)
 
     filled = 0
@@ -1190,33 +1205,29 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
         meta = decode_qr(warped)
         if not meta.exam_id and not meta.sheet_id:
             meta = _merge_metadata(meta, decode_qr(img))
-
+            
         grid_rect_tmp = detect_grid_region(warped_gray, 0)
         detected_layout_q = auto_detect_questions(warped_gray, grid_rect_tmp)
-
-        total_q = (
-            meta.total_questions
-            if meta.total_questions > 0
-            else (force_questions or detected_layout_q)
-        )
+        
+        total_q = meta.total_questions if meta.total_questions > 0 else (force_questions or detected_layout_q)
         if meta.total_questions > 0:
             print(f"[4] QR: subject='{meta.subject_code}' tq={total_q}")
         else:
             print(f"[4] QR decode ไม่ได้ → auto-detect: {total_q} ข้อ")
-
+            
         meta.total_questions = total_q
         result.metadata = meta
-
+        
         layout_q = detected_layout_q
         if layout_q != total_q:
             print(f"[4.1] Layout normalize: exam={total_q} -> sheet_layout={layout_q}")
-
+            
         grid_rect = detect_grid_region(warped_gray, layout_q)
         print(f"[5] Grid: {grid_rect}")
         positions = get_bubble_positions(warped, grid_rect, layout_q)
         print(f"[6] Positions: {sum(1 for p in positions if p)} groups OK")
         raw_scores = measure_bubble_ratios(warped, grid_rect, positions)
-
+        
         answers, flagged = decide_answers(raw_scores, n_q=layout_q)
         clean_scores = {
             int(q): v
@@ -1224,15 +1235,19 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
             if isinstance(q, int) or str(q).isdigit()
         }
         if total_q and total_q < layout_q:
-            answers = {int(q): a for q, a in answers.items() if int(q) <= total_q}
-            flagged = [f for f in flagged if int(f.get("question", 0)) <= total_q]
+            answers = {
+                int(q): a for q, a in answers.items() if int(q) <= total_q
+            }
+            flagged = [
+                f for f in flagged if int(f.get("question", 0)) <= total_q
+            ]
             raw_scores = {
                 int(q): v for q, v in clean_scores.items() if int(q) <= total_q
             }
         else:
             answers = {int(q): a for q, a in answers.items()}
             raw_scores = {int(q): v for q, v in clean_scores.items()}
-
+            
         result.raw_scores = raw_scores
         result.answers = answers
         result.flagged = flagged
@@ -1249,33 +1264,18 @@ def scan_answer_sheet(image_input, force_questions=0, debug=False):
     return result
 
 
-def calculate_score(answers, answer_key, total_q=0):
+def calculate_score(answers, answer_key):
     correct, wrong, skipped = [], [], []
     total_score = 0.0
     earned_score = 0.0
 
     for q_no, key_data in answer_key.items():
-        try:
-            q_int = int(q_no)
-        except ValueError:
-            q_int = 0
-            
-        if total_q > 0 and q_int > total_q:
-            continue
-
         q_score = 1.0
         if isinstance(key_data, dict):
             key = key_data.get("answer", "")
             q_score = float(key_data.get("score", 1.0))
         else:
             key = key_data
-
-        if isinstance(key, str):
-            key = key.strip().upper()
-
-        # Skip empty answers so they don't count towards the max score
-        if not key or key == "" or key == "-":
-            continue
 
         total_score += q_score
 
@@ -1293,19 +1293,14 @@ def calculate_score(answers, answer_key, total_q=0):
                 pass
         if isinstance(a, str):
             a = a.strip().upper()
+        if isinstance(key, str):
+            key = key.strip().upper()
 
         if a is None or a == "" or a == "NONE":
             skipped.append(q_no)
         elif "," in a or len(a) > 1:
             # ฝนหลายข้อ หรือเครื่องหมายไม่ถูกต้อง -> ให้ 0 คะแนนและบันทึกใน wrong
-            wrong.append(
-                {
-                    "question": q_no,
-                    "student": a,
-                    "correct": key,
-                    "reason": "multiple_marks",
-                }
-            )
+            wrong.append({"question": q_no, "student": a, "correct": key, "reason": "multiple_marks"})
         elif a == key:
             correct.append(q_no)
             earned_score += q_score
@@ -1382,11 +1377,7 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
                 ch = choices.index(a_item)
                 cx = gx + int(current_xs[ch])
                 cy = gy + int(y)
-                color = (
-                    (0, 165, 255)
-                    if (q_no in flagged_qs or len(ans_list) > 1)
-                    else (0, 255, 0)
-                )
+                color = (0, 165, 255) if (q_no in flagged_qs or len(ans_list) > 1) else (0, 255, 0)
                 cv2.circle(debug, (cx, cy), dbg_r, color, 2)
                 cv2.putText(
                     debug,
@@ -1398,11 +1389,7 @@ def _save_debug(warped, grid_rect, positions, answers, flagged, orig_path):
                     1,
                 )
             # If flagged for overflow/smudge, also highlight smudge choice
-            smudge_items = [
-                f.get("smudge_choice")
-                for f in flagged
-                if f.get("question") == q_no and f.get("smudge_choice")
-            ]
+            smudge_items = [f.get("smudge_choice") for f in flagged if f.get("question") == q_no and f.get("smudge_choice")]
             for s_item in smudge_items:
                 if s_item in choices and s_item not in ans_list:
                     ch = choices.index(s_item)
