@@ -1276,7 +1276,7 @@ function QuestionDetailModal({
               {detail.difficultyLabel}
             </span>
             <span className="text-[10px] text-slate-400 block mt-1">
-              (สัดส่วนคนตอบถูกทั้งห้อง)
+              (สัดส่วนคนตอบถูกทั้งหมด)
             </span>
           </div>
 
@@ -1366,7 +1366,7 @@ function QuestionDetailModal({
                     </div>
                   </th>
                   <th className="py-3 px-4 text-center bg-slate-200/50">
-                    <div>รวมทั้งห้อง</div>
+                    <div>รวมทั้งหมด</div>
                     <div className="text-[10px] font-normal text-slate-500">
                       N={validResults.length} คน (รวมกลุ่มกลาง)
                     </div>
@@ -1487,7 +1487,7 @@ function QuestionDetailModal({
               ควรปรับเปลี่ยนเนื้อหาตัวเลือกให้มีความน่าจะเป็นและดึงดูดมากขึ้น
             </li>
             <li className="text-slate-500">
-              <strong>โครงสร้างจำนวนผู้สอบ:</strong> ช่อง <em>"รวมทั้งห้อง"</em> จะรวมกลุ่มปานกลางอีก {middleCount} คนเข้าไปด้วย จึงทำให้ผลรวมมากกว่ากลุ่มสูงและต่ำบวกกัน
+              <strong>โครงสร้างจำนวนผู้สอบ:</strong> ช่อง <em>"รวมทั้งหมด"</em> จะรวมกลุ่มปานกลางอีก {middleCount} คนเข้าไปด้วย จึงทำให้ผลรวมมากกว่ากลุ่มสูงและต่ำบวกกัน
             </li>
           </ul>
         </div>
