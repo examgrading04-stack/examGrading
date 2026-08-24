@@ -907,7 +907,7 @@ class MySQLAdapter(BaseDBAdapter):
             )
 
             status = "Correct"
-            if not new_answer:
+            if not new_answer or new_answer == "-":
                 status = "Skipped"
             elif not key:
                 status = "Wrong"

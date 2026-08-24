@@ -1234,7 +1234,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                   </td>
                   <td className="px-4 py-3 text-center font-bold">
                     <div className="flex flex-wrap gap-1.5 justify-center">
-                      {["A", "B", "C", "D", "E"].map((opt, i) => {
+                      {["A", "B", "C", "D", "E", "-"].map((opt, i) => {
                         // Check if the student's answer includes this option (for multi-mark support)
                         const isSelected = row.studentAns
                           ? row.studentAns
@@ -1255,7 +1255,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                             onClick={() =>
                               handleUpdateAnswer(row.question, opt)
                             }
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-200 ease-in-out relative ${
+                            className={`${opt === "-" ? "px-2 h-7 rounded-lg" : "w-7 h-7 rounded-full"} flex items-center justify-center text-[11px] font-bold transition-all duration-200 ease-in-out relative ${
                               isDisabled && !isUpdating
                                 ? isSelected
                                   ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
@@ -1271,7 +1271,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                             title={
                               isDisabled && !isUpdating
                                 ? "กดปุ่ม 'แก้ไข' เพื่อเปลี่ยนคำตอบ"
-                                : `เลือกคำตอบ ${opt}`
+                                : opt === "-" ? "ไม่เลือกคำตอบ" : `เลือกคำตอบ ${opt}`
                             }
                           >
                             {isUpdating && isSelected ? (
@@ -1279,6 +1279,8 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                                 name="fa-spinner"
                                 className="animate-spin text-white"
                               />
+                            ) : opt === "-" ? (
+                              "ไม่เลือก"
                             ) : (
                               opt
                             )}
