@@ -26,77 +26,8 @@ function itemTone(value, type) {
 
 function isPendingReview(result, exam) {
   if (!result) return true;
-
-  // 1. Check flagged property
-  let hasFlag = false;
-  const flagged = result.flagged;
-
-  if (flagged === true || flagged === "true") {
-    hasFlag = true;
-  } else if (Array.isArray(flagged) && flagged.length > 0) {
-    hasFlag = true;
-  } else if (typeof flagged === "string" && flagged.trim()) {
-    const norm = flagged.trim().toLowerCase();
-    if (
-      ["true", "pending", "flagged", "needs_review", "review"].includes(norm)
-    ) {
-      hasFlag = true;
-    } else {
-      try {
-        const parsed = JSON.parse(flagged);
-        if (Array.isArray(parsed) && parsed.length > 0) hasFlag = true;
-        if (parsed === true) hasFlag = true;
-      } catch {}
-    }
-  }
-
-  // If flagged is explicitly false, it means it was verified
-  if (
-    flagged === false ||
-    flagged === "false" ||
-    (Array.isArray(flagged) && flagged.length === 0) ||
-    flagged === "[]"
-  ) {
-    // Explicitly resolved
-    hasFlag = false;
-  } else if (!hasFlag) {
-    // 2. Check status property only if not explicitly flagged
-    if (
-      result.status &&
-      [
-        "needs_review",
-        "pending",
-        "flagged",
-        "error",
-        "waiting",
-        "review",
-      ].includes(String(result.status).toLowerCase())
-    ) {
-      hasFlag = true;
-    }
-  }
-
-  if (hasFlag) return true;
-
-  // 3. Must have answers or itemResults
-  if (!result.answers && !result.itemResults) return true;
-
-  // 4. Check questions and answers completeness
-  const totalQ = Number(
-    exam?.questions || result.totalQuestions || result.total || 0,
-  );
-  if (result.answers && totalQ > 0) {
-    for (let i = 1; i <= totalQ; i++) {
-      const answer = result.answers[String(i)];
-      if (answer === undefined || answer === null) return true;
-
-      const answerText = String(answer).trim();
-      if (answerText === "") {
-        return true;
-      }
-    }
-  }
-
+  if (Array.isArray(result.flagged) && result.flagged.length > 0) return true;
+  if (result.flagged === true || String(result.flagged).toLowerCase() === "true") return true;
   return false;
 }
 
