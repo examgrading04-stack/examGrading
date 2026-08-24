@@ -1223,6 +1223,11 @@ function QuestionDetailModal({
     return !a || a === "-" || a === "ฝนมากกว่า 1 ตัวเลือก" || a.length > 1;
   }).length;
 
+  const middleCount = Math.max(
+    0,
+    validResults.length - upperGroup.length - lowerGroup.length,
+  );
+
   return (
     <Modal
       isOpen={isOpen}
@@ -1244,7 +1249,7 @@ function QuestionDetailModal({
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
             <span className="text-xs font-semibold text-slate-500 block mb-1">
-              ตอบถูก / ทั้งหมด
+              ตอบถูก / ผู้สอบทั้งหมด
             </span>
             <span className="text-xl font-bold text-slate-800">
               {detail.correctCount} / {validResults.length}
@@ -1270,6 +1275,9 @@ function QuestionDetailModal({
             >
               {detail.difficultyLabel}
             </span>
+            <span className="text-[10px] text-slate-400 block mt-1">
+              (สัดส่วนคนตอบถูกทั้งห้อง)
+            </span>
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
@@ -1284,28 +1292,53 @@ function QuestionDetailModal({
             >
               {detail.discriminationLabel}
             </span>
+            <span className="text-[10px] text-slate-400 block mt-1">
+              (แยกกลุ่มเก่ง vs กลุ่มอ่อน)
+            </span>
           </div>
         </div>
 
         {/* Group Info Callout */}
-        <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-users text-slate-400" />
-            <span>
-              กลุ่มสูง (27% บน):{" "}
-              <strong className="text-slate-800">{upperGroup.length} คน</strong>{" "}
-              (ตอบถูก {detail.upperCorrectCount} คน ={" "}
-              {Math.round((detail.upperCorrect || 0) * 100)}%)
+        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <i className="fa-solid fa-users text-blue-600" />
+              การจัดกลุ่มผู้สอบเพื่อวิเคราะห์ ({validResults.length} คน)
+            </span>
+            <span className="text-[11px] text-slate-500">
+              เทคนิค 27% Upper-Lower Group
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <i className="fa-solid fa-users text-slate-400" />
-            <span>
-              กลุ่มต่ำ (27% ล่าง):{" "}
-              <strong className="text-slate-800">{lowerGroup.length} คน</strong>{" "}
-              (ตอบถูก {detail.lowerCorrectCount} คน ={" "}
-              {Math.round((detail.lowerCorrect || 0) * 100)}%)
-            </span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-slate-600">
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+              <div className="font-bold text-slate-800 flex items-center justify-between">
+                <span>กลุ่มสูง (27% บน)</span>
+                <span className="text-blue-600">{upperGroup.length} คน</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                ตอบถูก {detail.upperCorrectCount} คน ({Math.round((detail.upperCorrect || 0) * 100)}%)
+              </p>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+              <div className="font-bold text-slate-800 flex items-center justify-between">
+                <span>กลุ่มปานกลาง (46%)</span>
+                <span className="text-slate-600">{middleCount} คน</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                (ไม่นำมาคิดค่า D เพื่อให้ผลคมชัด)
+              </p>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+              <div className="font-bold text-slate-800 flex items-center justify-between">
+                <span>กลุ่มต่ำ (27% ล่าง)</span>
+                <span className="text-rose-600">{lowerGroup.length} คน</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                ตอบถูก {detail.lowerCorrectCount} คน ({Math.round((detail.lowerCorrect || 0) * 100)}%)
+              </p>
+            </div>
           </div>
         </div>
 
@@ -1321,13 +1354,22 @@ function QuestionDetailModal({
                 <tr>
                   <th className="py-3 px-4 text-center w-20">ตัวเลือก</th>
                   <th className="py-3 px-4 text-center">
-                    กลุ่มสูง (N={upperGroup.length})
+                    <div>กลุ่มสูง (27% บน)</div>
+                    <div className="text-[10px] font-normal text-slate-400">
+                      N={upperGroup.length} คน
+                    </div>
                   </th>
                   <th className="py-3 px-4 text-center">
-                    กลุ่มต่ำ (N={lowerGroup.length})
+                    <div>กลุ่มต่ำ (27% ล่าง)</div>
+                    <div className="text-[10px] font-normal text-slate-400">
+                      N={lowerGroup.length} คน
+                    </div>
                   </th>
-                  <th className="py-3 px-4 text-center">
-                    รวมทั้งหมด (N={validResults.length})
+                  <th className="py-3 px-4 text-center bg-slate-200/50">
+                    <div>รวมทั้งห้อง</div>
+                    <div className="text-[10px] font-normal text-slate-500">
+                      N={validResults.length} คน (รวมกลุ่มกลาง)
+                    </div>
                   </th>
                   <th className="py-3 px-4">การประเมินตัวเลือก</th>
                 </tr>
@@ -1369,7 +1411,7 @@ function QuestionDetailModal({
                         ({row.lowerPct}%)
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center bg-slate-50/50">
                       <div className="font-bold text-slate-800">
                         {row.totalCount} คน
                       </div>
@@ -1397,7 +1439,7 @@ function QuestionDetailModal({
                     <td className="py-2.5 px-4 text-center" colSpan={2}>
                       -
                     </td>
-                    <td className="py-2.5 px-4 text-center font-bold">
+                    <td className="py-2.5 px-4 text-center font-bold bg-slate-100/60">
                       {noAnswerCount} คน
                     </td>
                     <td className="py-2.5 px-4 italic text-slate-400">
@@ -1441,8 +1483,11 @@ function QuestionDetailModal({
               ควรเลือกมากกว่ากลุ่มคะแนนสูง (เด็กเก่ง)
             </li>
             <li>
-              <strong>ตัวลวงที่ไม่มีคนเลือก:</strong>{" "}
+              <strong>ตัวลวงที่ไม่มีคนเลือก:</strong>
               ควรปรับเปลี่ยนเนื้อหาตัวเลือกให้มีความน่าจะเป็นและดึงดูดมากขึ้น
+            </li>
+            <li className="text-slate-500">
+              <strong>โครงสร้างจำนวนผู้สอบ:</strong> ช่อง <em>"รวมทั้งห้อง"</em> จะรวมกลุ่มปานกลางอีก {middleCount} คนเข้าไปด้วย จึงทำให้ผลรวมมากกว่ากลุ่มสูงและต่ำบวกกัน
             </li>
           </ul>
         </div>
