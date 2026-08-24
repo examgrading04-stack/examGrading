@@ -121,17 +121,28 @@ class _StudentsScreenState extends State<StudentsScreen> {
   void _showStudentDialog([StudentModel? student]) {
     final codeController = TextEditingController(text: student?.code);
     final nameController = TextEditingController(text: student?.name);
-    String? selectedSectionId = student?.className;
+    String? selectedSectionId = student?.className ?? _filterSectionId;
     String? selectedSubjectId;
-    if (selectedSectionId != null) {
-      final sectionOpt = _sections.cast<SectionOption?>().firstWhere(
-        (s) => s?.id == selectedSectionId,
-        orElse: () => null,
-      );
-      selectedSubjectId = sectionOpt?.subjectId;
+    if (student != null) {
+      if (selectedSectionId != null && selectedSectionId.isNotEmpty) {
+        final sectionOpt = _sections.cast<SectionOption?>().firstWhere(
+          (s) =>
+              s?.id == selectedSectionId ||
+              (s?.subjectId == student.subjectCode &&
+                  s?.sectionId == student.section),
+          orElse: () => null,
+        );
+        selectedSubjectId = sectionOpt?.subjectId ?? student.subjectCode;
+      } else {
+        selectedSubjectId = student.subjectCode;
+      }
+    } else {
+      if (_filterSubjectId != null && _filterSubjectId != 'none') {
+        selectedSubjectId = _filterSubjectId;
+      }
     }
     final isEdit = student != null;
-    // Removed section check for Hybrid Mode
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -179,6 +190,20 @@ class _StudentsScreenState extends State<StudentsScreen> {
                       'รหัสนักเรียน',
                       codeController,
                       FontAwesomeIcons.idCard,
+                      onChanged: (val) {
+                        if (!isEdit && nameController.text.trim().isEmpty) {
+                          final typed = val.trim().toLowerCase();
+                          final existing = _students
+                              .cast<StudentModel?>()
+                              .firstWhere(
+                                (s) => s?.code.trim().toLowerCase() == typed,
+                                orElse: () => null,
+                              );
+                          if (existing != null && existing.name.isNotEmpty) {
+                            nameController.text = existing.name;
+                          }
+                        }
+                      },
                     ),
                     const SizedBox(height: 20),
                     _buildPopupField(
@@ -227,21 +252,6 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             return;
                           }
 
-                          if (!isEdit || student.code != newCode) {
-                            final exists = _students.any(
-                              (s) => s.code == newCode,
-                            );
-                            if (exists) {
-                              QuickAlert.show(
-                                context: context,
-                                type: QuickAlertType.warning,
-                                text: 'รหัสนักเรียนนี้มีอยู่ในระบบแล้ว',
-                                confirmBtnColor: AppColors.success,
-                              );
-                              return;
-                            }
-                          }
-
                           SectionOption? selectedOpt;
                           if (selectedSectionId != null) {
                             try {
@@ -250,26 +260,105 @@ class _StudentsScreenState extends State<StudentsScreen> {
                               );
                             } catch (_) {}
                           }
+
+                          final targetSubjectCode =
+                              selectedOpt?.subjectId ?? selectedSubjectId ?? '';
+
+                          final bool isDuplicate;
+                          if (!isEdit) {
+                            if (targetSubjectCode.isNotEmpty) {
+                              isDuplicate = _students.any((s) {
+                                final sameCode = s.code.trim().toLowerCase() ==
+                                    newCode.toLowerCase();
+                                final sSubject = (s.subjectCode ??
+                                        (s.className.contains('_')
+                                            ? s.className.split('_').first
+                                            : s.className))
+                                    .trim();
+                                return sameCode &&
+                                    sSubject.toLowerCase() ==
+                                        targetSubjectCode.toLowerCase();
+                              });
+                            } else {
+                              isDuplicate = _students.any((s) {
+                                final sameCode = s.code.trim().toLowerCase() ==
+                                    newCode.toLowerCase();
+                                final sSubject = (s.subjectCode ??
+                                        (s.className.contains('_')
+                                            ? s.className.split('_').first
+                                            : s.className))
+                                    .trim();
+                                return sameCode && sSubject.isEmpty;
+                              });
+                            }
+                          } else {
+                            final origSubject = (student.subjectCode ??
+                                    (student.className.contains('_')
+                                        ? student.className.split('_').first
+                                        : student.className))
+                                .trim();
+                            final isSameRecord =
+                                (student.code.trim().toLowerCase() ==
+                                        newCode.toLowerCase()) &&
+                                    (origSubject.toLowerCase() ==
+                                        targetSubjectCode.toLowerCase());
+
+                            if (!isSameRecord) {
+                              isDuplicate = _students.any((s) {
+                                final sameCode = s.code.trim().toLowerCase() ==
+                                    newCode.toLowerCase();
+                                final sSubject = (s.subjectCode ??
+                                        (s.className.contains('_')
+                                            ? s.className.split('_').first
+                                            : s.className))
+                                    .trim();
+                                if (targetSubjectCode.isNotEmpty) {
+                                  return sameCode &&
+                                      sSubject.toLowerCase() ==
+                                          targetSubjectCode.toLowerCase();
+                                } else {
+                                  return sameCode && sSubject.isEmpty;
+                                }
+                              });
+                            } else {
+                              isDuplicate = false;
+                            }
+                          }
+
+                          if (isDuplicate) {
+                            QuickAlert.show(
+                              context: context,
+                              type: QuickAlertType.warning,
+                              text: targetSubjectCode.isNotEmpty
+                                  ? 'รหัสนักเรียนนี้มีอยู่ในรายวิชานี้แล้ว'
+                                  : 'รหัสนักเรียนนี้มีอยู่ในระบบแล้ว',
+                              confirmBtnColor: AppColors.success,
+                            );
+                            return;
+                          }
+
                           final data = {
                             'id': newCode,
                             'code': newCode,
                             'name': newName,
                             'class': selectedSectionId,
-                            'subjectCode': selectedOpt?.subjectId,
+                            'subjectCode': targetSubjectCode.isNotEmpty
+                                ? targetSubjectCode
+                                : null,
                             'section': selectedOpt?.sectionId,
                           };
                           if (isEdit) {
                             await ApiService.instance.updateDoc(
                               _uid,
                               'students',
-                              student.id,
+                              student.code,
                               data,
                             );
                           } else {
                             await ApiService.instance.setDoc(
                               _uid,
                               'students',
-                              codeController.text,
+                              newCode,
                               data,
                             );
                           }
@@ -316,10 +405,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
   Widget _buildPopupField(
     String label,
     TextEditingController controller,
-    IconData icon,
-  ) {
+    IconData icon, {
+    ValueChanged<String>? onChanged,
+  }) {
     return TextField(
       controller: controller,
+      onChanged: onChanged,
       style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
@@ -470,19 +561,26 @@ class _StudentsScreenState extends State<StudentsScreen> {
     );
   }
 
-  void _deleteStudent(String id) {
+  void _deleteStudent(StudentModel student) {
     QuickAlert.show(
       context: context,
       type: QuickAlertType.warning,
       title: 'ยืนยันการลบ',
-      text: 'ต้องการลบผู้เรียนคนนี้ใช่หรือไม่',
+      text: 'ต้องการลบข้อมูลผู้เรียนคนนี้ใช่หรือไม่',
       confirmBtnText: 'ลบ',
       cancelBtnText: 'ยกเลิก',
       showCancelBtn: true,
       confirmBtnColor: Colors.red,
       onConfirmBtnTap: () async {
         Navigator.pop(context);
-        await ApiService.instance.deleteDoc(_uid, 'students', id);
+        final studentSubj = student.subjectCode ??
+            (student.className.contains('_')
+                ? student.className.split('_').first
+                : '');
+        final deleteId = studentSubj.isNotEmpty
+            ? '${student.code}_$studentSubj'
+            : student.id;
+        await ApiService.instance.deleteDoc(_uid, 'students', deleteId);
         await _fetchData();
         if (!mounted || !context.mounted) return;
         QuickAlert.show(
@@ -777,18 +875,26 @@ class _StudentsScreenState extends State<StudentsScreen> {
   Widget _buildStudentsContent() {
     final students = _students.where((student) {
       if (_filterSectionId != null) {
-        return student.className == _filterSectionId;
+        return student.className == _filterSectionId ||
+            (student.subjectCode != null &&
+                student.section != null &&
+                '${student.subjectCode}_${student.section}' == _filterSectionId);
       }
       if (_filterSubjectId != null) {
         if (_filterSubjectId == 'none') {
           return student.className.trim().isEmpty || student.className == '-';
         }
         final subjectOpt = _subjects
-            .where((s) => s.id == _filterSubjectId)
+            .where((s) => s.id == _filterSubjectId || s.code == _filterSubjectId)
             .firstOrNull;
         if (subjectOpt == null) return false;
         final subjectCode = subjectOpt.code;
-        return student.className.startsWith('${subjectCode}_') ||
+        final studentSubj = student.subjectCode ??
+            (student.className.contains('_')
+                ? student.className.split('_').first
+                : student.className);
+        return studentSubj == subjectCode ||
+            student.className.startsWith('${subjectCode}_') ||
             student.className == subjectCode;
       }
       return true;
@@ -859,13 +965,37 @@ class _StudentsScreenState extends State<StudentsScreen> {
             String subjectName = '-';
             String sectionName = 'ไม่ระบุ';
             try {
-              final section = _sections.firstWhere(
-                (s) => s.id == student.className,
+              final section = _sections.cast<SectionOption?>().firstWhere(
+                (s) =>
+                    s?.id == student.className ||
+                    (s?.subjectId == student.subjectCode &&
+                        s?.sectionId == student.section),
+                orElse: () => null,
               );
-              sectionName = section.sec;
-              subjectName = _subjects
-                  .firstWhere((s) => s.id == section.subjectId)
-                  .name;
+              if (section != null) {
+                sectionName = section.sec;
+                final subj = _subjects.cast<SubjectModel?>().firstWhere(
+                  (s) => s?.id == section.subjectId || s?.code == section.subjectId,
+                  orElse: () => null,
+                );
+                if (subj != null) {
+                  subjectName = subj.name;
+                }
+              } else {
+                if (student.subjectCode != null &&
+                    student.subjectCode!.isNotEmpty) {
+                  final subj = _subjects.cast<SubjectModel?>().firstWhere(
+                    (s) =>
+                        s?.id == student.subjectCode ||
+                        s?.code == student.subjectCode,
+                    orElse: () => null,
+                  );
+                  subjectName = subj?.name ?? student.subjectCode!;
+                }
+                if (student.section != null && student.section!.isNotEmpty) {
+                  sectionName = student.section!;
+                }
+              }
             } catch (e) {
               /* ignore */
             }
@@ -980,7 +1110,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         ),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: () => _deleteStudent(student.id),
+                          onTap: () => _deleteStudent(student),
                           child: Container(
                             width: 36,
                             height: 36,
