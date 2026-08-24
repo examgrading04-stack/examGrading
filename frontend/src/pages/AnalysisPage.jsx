@@ -355,8 +355,8 @@ export function AnalysisPage({ data }) {
   }, [examId, exam, data.results]);
 
   const validResults = useMemo(() => {
-    return results.filter((r) => r.status && String(r.status).toLowerCase() === "completed");
-  }, [results]);
+    return results.filter((r) => !isPendingReview(r, exam));
+  }, [results, exam]);
 
   const scores = validResults
     .map((result) => Number(result.score || 0))
