@@ -393,20 +393,77 @@ export function ReportsPage({ data, userEmail }) {
         "warning",
       );
     }
-    const exportRows = reportRows.map((row, index) => ({
-      ลำดับ: index + 1,
-      ข้อสอบ: row.name,
-      รหัสวิชา: row.subjectCode,
-      รายวิชา: row.subjectName,
-      กลุ่มที่: row.sectionName,
-      จำนวนผู้สอบ: row.participantCount,
-      คะแนนเต็ม: row.totalMaxScore,
-      คะแนนเฉลี่ย: row.average.toFixed(2),
-      มัธยฐาน: row.median.toFixed(2),
-      ฐานนิยม: row.mode,
-      "สูงสุด/ต่ำสุด": `${row.maxScore}/${row.minScore}`,
-    }));
-    const ws = window.XLSX.utils.json_to_sheet(exportRows);
+    const N = reportRows.length;
+    const headerRow = [
+      "ลำดับ",
+      "ข้อสอบ",
+      "รหัสวิชา",
+      "รายวิชา",
+      "กลุ่มที่",
+      "จำนวนผู้สอบ",
+      "คะแนนเต็ม",
+      "คะแนนเฉลี่ย",
+      "มัธยฐาน",
+      "ฐานนิยม",
+      "สูงสุด/ต่ำสุด",
+    ];
+
+    const dataRows = reportRows.map((row, index) => [
+      index + 1,
+      row.name,
+      row.subjectCode,
+      row.subjectName,
+      row.sectionName,
+      Number(row.participantCount || 0),
+      Number(row.totalMaxScore || 0),
+      Number(row.average || 0),
+      Number(row.median || 0),
+      row.mode,
+      `${row.maxScore}/${row.minScore}`,
+    ]);
+
+    const summaryRow = [
+      "รวม/เฉลี่ย",
+      "",
+      "",
+      "",
+      "",
+      { t: "n", f: `SUM(F2:F${N + 1})`, v: totalParticipants },
+      "",
+      {
+        t: "n",
+        f: `AVERAGE(H2:H${N + 1})`,
+        v: totalExams
+          ? reportRows.reduce((acc, r) => acc + (r.average || 0), 0) /
+            totalExams
+          : 0,
+      },
+      "",
+      "",
+      "",
+    ];
+
+    const allRows = [headerRow, ...dataRows];
+    if (format === "xlsx") {
+      allRows.push([]);
+      allRows.push(summaryRow);
+    }
+
+    const ws = window.XLSX.utils.aoa_to_sheet(allRows);
+    ws["!cols"] = [
+      { wch: 8 },
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 24 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 16 },
+    ];
+
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "Report");
     const subjectSuffix = selectedSubject ? `_${selectedSubject}` : "_all";

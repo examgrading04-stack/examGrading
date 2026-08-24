@@ -928,64 +928,143 @@ export function AnalysisPage({ data }) {
                   const sorted = [...results].sort(
                     (a, b) => Number(b.score || 0) - Number(a.score || 0),
                   );
-                  const gs = Math.max(1, Math.ceil(sorted.length * 0.27));
+                  const N = sorted.length;
+                  const gs = Math.max(1, Math.ceil(N * 0.27));
                   const { upper: ug, lower: lg } = splitGroups(sorted, gs);
 
+                  const getColLetter = (c) => {
+                    let letter = "";
+                    while (c >= 0) {
+                      letter = String.fromCharCode((c % 26) + 65) + letter;
+                      c = Math.floor(c / 26) - 1;
+                    }
+                    return letter;
+                  };
+
+                  const lastQColLetter = getColLetter(numQ);
                   const headerRow = [
                     "คนที่",
                     ...qs.map((q) => `ข้อ ${q}`),
                     "รวม",
                   ];
-                  const studentRows = sorted.map((r, idx) => [
-                    idx + 1,
-                    ...qs.map((q) => (r.itemResults?.[q] === true ? 1 : 0)),
-                    Number(r.score || 0),
-                  ]);
+
+                  const studentRows = sorted.map((r, idx) => {
+                    const rowNum = idx + 2;
+                    return [
+                      idx + 1,
+                      ...qs.map((q) => (r.itemResults?.[q] === true ? 1 : 0)),
+                      {
+                        t: "n",
+                        f: `SUM(B${rowNum}:${lastQColLetter}${rowNum})`,
+                        v: Number(r.score || 0),
+                      },
+                    ];
+                  });
+
                   const blank = Array(headerRow.length).fill("");
-                  const mkRow = (label, fn) => [label, ...qs.map(fn), ""];
+
+                  // Summary row indices in Excel (1-based)
+                  const rowRH = N + 3;
+                  const rowNH = N + 4;
+                  const rowPH = N + 5;
+                  const rowRL = N + 7;
+                  const rowNL = N + 8;
+                  const rowPL = N + 9;
+                  const rowP = N + 11;
+                  const rowD = N + 12;
 
                   const allRows = [
                     headerRow,
                     ...studentRows,
                     blank,
-                    mkRow(
+                    [
                       "คนที่ตอบถูกในกลุ่มสูง",
-                      (q) =>
-                        ug.filter((r) => r.itemResults?.[q] === true).length,
-                    ),
-                    mkRow("คนทั้งหมดในกลุ่มสูง", () => ug.length),
-                    mkRow("PH", (q) =>
-                      ug.length
-                        ? ug.filter((r) => r.itemResults?.[q] === true).length /
-                          ug.length
-                        : 0,
-                    ),
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `SUM(${getColLetter(i + 1)}2:${getColLetter(i + 1)}${gs + 1})`,
+                        v: ug.filter((r) => r.itemResults?.[qs[i]] === true)
+                          .length,
+                      })),
+                      "",
+                    ],
+                    [
+                      "คนทั้งหมดในกลุ่มสูง",
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `COUNTA(A2:A${gs + 1})`,
+                        v: ug.length,
+                      })),
+                      "",
+                    ],
+                    [
+                      "PH",
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `${getColLetter(i + 1)}${rowRH}/${getColLetter(i + 1)}${rowNH}`,
+                        v: ug.length
+                          ? ug.filter((r) => r.itemResults?.[qs[i]] === true)
+                              .length / ug.length
+                          : 0,
+                      })),
+                      "",
+                    ],
                     blank,
-                    mkRow(
+                    [
                       "คนที่ตอบถูกในกลุ่มต่ำ",
-                      (q) =>
-                        lg.filter((r) => r.itemResults?.[q] === true).length,
-                    ),
-                    mkRow("คนทั้งหมดในกลุ่มต่ำ", () => lg.length),
-                    mkRow("PL", (q) =>
-                      lg.length
-                        ? lg.filter((r) => r.itemResults?.[q] === true).length /
-                          lg.length
-                        : 0,
-                    ),
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `SUM(${getColLetter(i + 1)}${N - lg.length + 2}:${getColLetter(i + 1)}${N + 1})`,
+                        v: lg.filter((r) => r.itemResults?.[qs[i]] === true)
+                          .length,
+                      })),
+                      "",
+                    ],
+                    [
+                      "คนทั้งหมดในกลุ่มต่ำ",
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `COUNTA(A${N - lg.length + 2}:A${N + 1})`,
+                        v: lg.length,
+                      })),
+                      "",
+                    ],
+                    [
+                      "PL",
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `${getColLetter(i + 1)}${rowRL}/${getColLetter(i + 1)}${rowNL}`,
+                        v: lg.length
+                          ? lg.filter((r) => r.itemResults?.[qs[i]] === true)
+                              .length / lg.length
+                          : 0,
+                      })),
+                      "",
+                    ],
                     blank,
-                    mkRow(
+                    [
                       "p (ความยากง่าย)",
-                      (q) =>
-                        answeredItemAnalysis.find((i) => i.question === q)
-                          ?.difficulty ?? "",
-                    ),
-                    mkRow(
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `AVERAGE(${getColLetter(i + 1)}2:${getColLetter(i + 1)}${N + 1})`,
+                        v:
+                          answeredItemAnalysis.find(
+                            (item) => item.question === qs[i],
+                          )?.difficulty ?? 0,
+                      })),
+                      "",
+                    ],
+                    [
                       "D (อำนาจจำแนก)",
-                      (q) =>
-                        answeredItemAnalysis.find((i) => i.question === q)
-                          ?.discrimination ?? "",
-                    ),
+                      ...qs.map((_, i) => ({
+                        t: "n",
+                        f: `${getColLetter(i + 1)}${rowPH}-${getColLetter(i + 1)}${rowPL}`,
+                        v:
+                          answeredItemAnalysis.find(
+                            (item) => item.question === qs[i],
+                          )?.discrimination ?? 0,
+                      })),
+                      "",
+                    ],
                   ];
 
                   const ws = utils.aoa_to_sheet(allRows);

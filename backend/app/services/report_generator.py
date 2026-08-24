@@ -113,16 +113,128 @@ def prepare_report_data(
 def generate_excel_report(
     exam: dict, results: list, students: list, subject_name: str, sections: list
 ) -> str:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
     data = prepare_report_data(exam, results, students, subject_name, sections)
 
-    df = pd.DataFrame(data)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Report"
+
+    headers = [
+        "รหัสผู้เรียน",
+        "ชื่อ-นามสกุล",
+        "วิชา",
+        "กลุ่มเรียน",
+        "คะแนนที่ได้",
+        "คะแนนเต็ม",
+        "เปอร์เซ็นต์ (%)",
+    ]
+    ws.append(headers)
+
+    # Style Header
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_font = Font(name="TH Sarabun New", size=12, bold=True, color="FFFFFF")
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center")
+    right_align = Alignment(horizontal="right", vertical="center")
+
+    thin_border = Border(
+        left=Side(style="thin", color="D1D5DB"),
+        right=Side(style="thin", color="D1D5DB"),
+        top=Side(style="thin", color="D1D5DB"),
+        bottom=Side(style="thin", color="D1D5DB"),
+    )
+
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+
+    # Add student rows
+    for i, row in enumerate(data, start=2):
+        score_val = row["คะแนนที่ได้"]
+        total_val = row["คะแนนเต็ม"]
+
+        ws.cell(row=i, column=1, value=row["รหัสผู้เรียน"]).alignment = center_align
+        ws.cell(row=i, column=2, value=row["ชื่อ-นามสกุล"]).alignment = left_align
+        ws.cell(row=i, column=3, value=row["วิชา"]).alignment = center_align
+        ws.cell(row=i, column=4, value=row["กลุ่มเรียน"]).alignment = center_align
+
+        score_cell = ws.cell(row=i, column=5, value=score_val)
+        score_cell.alignment = right_align
+
+        total_cell = ws.cell(row=i, column=6, value=total_val)
+        total_cell.alignment = right_align
+
+        percent_cell = ws.cell(row=i, column=7)
+        if isinstance(score_val, (int, float)) and score_val != "":
+            percent_cell.value = f"=IF(ISNUMBER(E{i}), (E{i}/F{i})*100, \"\")"
+            percent_cell.number_format = "0.00"
+        else:
+            percent_cell.value = ""
+        percent_cell.alignment = right_align
+
+        for col_num in range(1, 8):
+            ws.cell(row=i, column=col_num).border = thin_border
+
+    num_students = len(data)
+    last_student_row = num_students + 1
+
+    if num_students > 0:
+        # Add summary rows
+        blank_row = last_student_row + 1
+        summary_start = blank_row + 1
+
+        summaries = [
+            ("ค่าเฉลี่ย (Mean)", f"=AVERAGE(E2:E{last_student_row})", f"=AVERAGE(G2:G{last_student_row})"),
+            ("ส่วนเบี่ยงเบนมาตรฐาน (SD)", f"=STDEV.S(E2:E{last_student_row})", f"=STDEV.S(G2:G{last_student_row})"),
+            ("มัธยฐาน (Median)", f"=MEDIAN(E2:E{last_student_row})", f"=MEDIAN(G2:G{last_student_row})"),
+            ("คะแนนสูงสุด (Max)", f"=MAX(E2:E{last_student_row})", f"=MAX(G2:G{last_student_row})"),
+            ("คะแนนต่ำสุด (Min)", f"=MIN(E2:E{last_student_row})", f"=MIN(G2:G{last_student_row})"),
+        ]
+
+        summary_font = Font(name="TH Sarabun New", size=11, bold=True, color="1F2937")
+        summary_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+
+        for idx, (label, score_formula, percent_formula) in enumerate(summaries):
+            r = summary_start + idx
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+            label_cell = ws.cell(row=r, column=1, value=label)
+            label_cell.font = summary_font
+            label_cell.alignment = Alignment(horizontal="right", vertical="center")
+            label_cell.fill = summary_fill
+
+            s_cell = ws.cell(row=r, column=5, value=score_formula)
+            s_cell.font = summary_font
+            s_cell.alignment = right_align
+            s_cell.fill = summary_fill
+            s_cell.number_format = "0.00"
+
+            tot_cell = ws.cell(row=r, column=6, value="")
+            tot_cell.fill = summary_fill
+
+            p_cell = ws.cell(row=r, column=7, value=percent_formula)
+            p_cell.font = summary_font
+            p_cell.alignment = right_align
+            p_cell.fill = summary_fill
+            p_cell.number_format = "0.00"
+
+            for col_num in range(1, 8):
+                ws.cell(row=r, column=col_num).border = thin_border
+
+    # Adjust column widths
+    column_widths = {"A": 16, "B": 28, "C": 14, "D": 12, "E": 14, "F": 12, "G": 16}
+    for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
 
     fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
     os.close(fd)
-
-    # Write to Excel
-    df.to_excel(temp_path, index=False, engine="openpyxl")
+    wb.save(temp_path)
     return temp_path
+
 
 
 def generate_pdf_report(
