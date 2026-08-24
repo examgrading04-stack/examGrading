@@ -967,13 +967,13 @@ def _compute_decision_stats(raw_scores, n_q=None):
                 thr_u8, _ = cv2.threshold(
                     mx_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
                 )
-                otsu_thr = float(thr_u8) / 255.0
+                otsu_thr = (float(thr_u8) / 255.0) * 0.75
                 dynamic_fill_min = max(dynamic_fill_min, otsu_thr)
             except Exception:
                 pass
 
-    # Clamp threshold between 0.10 and 0.25 to handle extreme lighting
-    dynamic_fill_min = min(max(dynamic_fill_min, 0.10), 0.250)
+    # Clamp threshold between 0.055 and 0.180 to handle extreme lighting but keep sensitive for light shading
+    dynamic_fill_min = min(max(dynamic_fill_min, 0.055), 0.180)
     return bls, norms_by_q, float(dynamic_fill_min)
 
 
