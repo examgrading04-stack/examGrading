@@ -897,6 +897,31 @@ def auth_login(payload: dict = Body(...), db=Depends(get_db)):
     }
 
 
+@app.post("/api/auth/change-password")
+def auth_change_password(payload: dict = Body(...), db=Depends(get_db)):
+    email = payload.get("email")
+    old_password = payload.get("old_password")
+    new_password = payload.get("new_password")
+    
+    if not email or not old_password or not new_password:
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    user_doc = db.get_doc("users", email)
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    hashed_input = hashlib.sha256(old_password.encode()).hexdigest()
+    if user_doc.get("password") != old_password and user_doc.get("password") != hashed_input:
+        raise HTTPException(status_code=401, detail="รหัสผ่านเดิมไม่ถูกต้อง")
+
+    hashed_new_password = hashlib.sha256(new_password.encode()).hexdigest()
+    
+    user_doc["password"] = hashed_new_password
+    db.set_doc("users", email, None, user_doc)
+    
+    return {"success": True, "message": "Password changed successfully"}
+
+
 @app.post("/api/auth/google")
 def auth_google(payload: dict = Body(...), db=Depends(get_db)):
     access_token = payload.get("access_token")

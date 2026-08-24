@@ -61,9 +61,30 @@ def prepare_report_data(
             student_sec = "All Section"
 
         total = r.get("total") or r.get("totalQuestions") or exam.get("questions") or 0
-        flagged = r.get("flagged") or r.get("isFlagged")
         
-        if flagged:
+        raw_flagged = r.get("flagged")
+        if raw_flagged is None:
+            raw_flagged = r.get("isFlagged")
+            
+        is_pending = False
+        if raw_flagged in (True, "true", "True", "1", 1):
+            is_pending = True
+        elif isinstance(raw_flagged, str) and raw_flagged.strip().lower() in ("true", "pending", "flagged", "needs_review", "review"):
+            is_pending = True
+        elif isinstance(raw_flagged, list) and len(raw_flagged) > 0:
+            is_pending = True
+        elif isinstance(raw_flagged, str) and raw_flagged.strip().startswith("[") and raw_flagged.strip() != "[]":
+            is_pending = True
+            
+        # check explicit false
+        if raw_flagged in (False, "false", "False", "0", 0, "[]"):
+            is_pending = False
+        elif not is_pending:
+            status = r.get("status")
+            if isinstance(status, str) and status.lower() in ("needs_review", "pending", "flagged", "error", "waiting", "review"):
+                is_pending = True
+
+        if is_pending:
             score = ""
             percent_str = ""
             student_name = f"{student_name} (รอตรวจสอบ)"

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:exam_grading/config/api_config.dart';
 import 'package:exam_grading/presentation/theme/app_colors.dart';
 import 'package:exam_grading/presentation/screens/camera_screen.dart';
+import 'package:exam_grading/presentation/screens/results_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -103,12 +104,17 @@ class _ScanScreenState extends State<ScanScreen> {
             title: 'สแกนสำเร็จ แต่พบข้อผิดพลาด',
             text:
                 'กรุณาตรวจสอบความถูกต้องในหน้ารายละเอียดคำตอบ (อาจลืมฝน ฝนซ้ำ หรือฝนเกิน)',
+            confirmBtnText: 'ตรวจสอบ',
             confirmBtnColor: AppColors.primary,
             onConfirmBtnTap: () {
               Navigator.pop(context); // close alert
               setState(() {
                 _image = null;
               });
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ResultsScreen()),
+              );
             },
           );
         } else {
@@ -269,6 +275,26 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
+  Widget _buildInstructionRow(String emoji, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -347,6 +373,58 @@ class _ScanScreenState extends State<ScanScreen> {
                               ),
                             ],
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Scan Instructions
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(
+                              FontAwesomeIcons.circleInfo,
+                              color: AppColors.primary,
+                              size: 16,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'คำแนะนำเพื่อการสแกนที่ดีที่สุด',
+                              style: TextStyle(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInstructionRow(
+                          '📱',
+                          'ถ่ายให้ตรง ไม่เอียงและไม่กลับหัว',
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInstructionRow(
+                          '💡',
+                          'ถ่ายภาพให้ชัดเจน ในที่ที่มีแสงสว่างเพียงพอ',
+                        ),
+                        const SizedBox(height: 8),
+                        _buildInstructionRow(
+                          '🖼️',
+                          'ถ่ายกระดาษคำตอบให้อยู่ภายในบริเวณกรอบครบทั้ง 4 มุม',
                         ),
                       ],
                     ),

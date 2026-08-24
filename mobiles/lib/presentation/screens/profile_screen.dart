@@ -147,6 +147,122 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showChangePasswordDialog() {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text(
+            'เปลี่ยนรหัสผ่าน',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: oldPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'รหัสผ่านเดิม'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'รหัสผ่านใหม่'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'ยืนยันรหัสผ่านใหม่',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'ยกเลิก',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final oldPassword = oldPasswordController.text.trim();
+                final newPassword = newPasswordController.text.trim();
+                final confirmPassword = confirmPasswordController.text.trim();
+
+                if (oldPassword.isEmpty ||
+                    newPassword.isEmpty ||
+                    confirmPassword.isEmpty) {
+                  QuickAlert.show(
+                    context: context,
+                    type: QuickAlertType.warning,
+                    text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                  );
+                  return;
+                }
+                if (newPassword != confirmPassword) {
+                  QuickAlert.show(
+                    context: context,
+                    type: QuickAlertType.warning,
+                    text: 'รหัสผ่านใหม่ไม่ตรงกัน',
+                  );
+                  return;
+                }
+
+                Navigator.pop(context);
+                setState(() => _isLoading = true);
+                try {
+                  await AuthService.instance.changePassword(
+                    _email,
+                    oldPassword,
+                    newPassword,
+                  );
+                  if (!mounted) return;
+                  QuickAlert.show(
+                    context: context,
+                    type: QuickAlertType.success,
+                    title: 'สำเร็จ',
+                    text: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว',
+                    confirmBtnColor: AppColors.success,
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  QuickAlert.show(
+                    context: context,
+                    type: QuickAlertType.error,
+                    title: 'เกิดข้อผิดพลาด',
+                    text: e.toString().replaceAll('Exception: ', ''),
+                    confirmBtnColor: AppColors.error,
+                  );
+                } finally {
+                  if (mounted) setState(() => _isLoading = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              child: const Text(
+                'บันทึก',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _logout() async {
     QuickAlert.show(
       context: context,
@@ -538,14 +654,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: double.infinity,
                             height: 52,
                             child: TextButton.icon(
-                              onPressed: () {
-                                QuickAlert.show(
-                                  context: context,
-                                  type: QuickAlertType.info,
-                                  text: 'กรุณาเปลี่ยนรหัสผ่านผ่านทาง Web Application',
-                                  confirmBtnColor: AppColors.primary,
-                                );
-                              },
+                              onPressed: _showChangePasswordDialog,
                               icon: const Icon(
                                 FontAwesomeIcons.key,
                                 color: AppColors.primary,
@@ -567,7 +676,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18),
                                   side: BorderSide(
-                                    color: AppColors.primary.withValues(alpha: 0.2),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     width: 1.5,
                                   ),
                                 ),

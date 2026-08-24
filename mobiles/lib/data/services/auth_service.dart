@@ -40,7 +40,9 @@ class AuthService {
 
   // ── Save session ────────────────────────────────────────────────────────
   Future<void> _saveSession(Map<String, dynamic> user) async {
-    final providerId = (user['providerData'] != null && (user['providerData'] as List).isNotEmpty)
+    final providerId =
+        (user['providerData'] != null &&
+            (user['providerData'] as List).isNotEmpty)
         ? user['providerData'][0]['providerId']
         : 'password';
     user['providerId'] = providerId;
@@ -104,6 +106,32 @@ class AuthService {
 
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
+    }
+
+    final detail = _extractDetail(resp);
+    throw AuthException(detail);
+  }
+
+  // ── Change Password ─────────────────────────────────────────────────────
+  Future<void> changePassword(
+    String email,
+    String oldPassword,
+    String newPassword,
+  ) async {
+    final resp = await http
+        .post(
+          ApiConfig.endpoint('/api/auth/change-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': email,
+            'old_password': oldPassword,
+            'new_password': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    if (resp.statusCode == 200) {
+      return;
     }
 
     final detail = _extractDetail(resp);

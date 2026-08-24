@@ -11,6 +11,56 @@ import {
   API_BASE_URL,
 } from "../ui.jsx";
 
+function isPendingReview(result) {
+  if (!result) return true;
+
+  let hasFlag = false;
+  const flagged = result.flagged;
+
+  if (flagged === true || flagged === "true") {
+    hasFlag = true;
+  } else if (Array.isArray(flagged) && flagged.length > 0) {
+    hasFlag = true;
+  } else if (typeof flagged === "string" && flagged.trim()) {
+    const norm = flagged.trim().toLowerCase();
+    if (
+      ["true", "pending", "flagged", "needs_review", "review"].includes(norm)
+    ) {
+      hasFlag = true;
+    } else {
+      try {
+        const parsed = JSON.parse(flagged);
+        if (Array.isArray(parsed) && parsed.length > 0) hasFlag = true;
+        if (parsed === true) hasFlag = true;
+      } catch {}
+    }
+  }
+
+  if (
+    flagged === false ||
+    flagged === "false" ||
+    (Array.isArray(flagged) && flagged.length === 0) ||
+    flagged === "[]"
+  ) {
+    hasFlag = false;
+  } else if (!hasFlag) {
+    if (
+      result.status &&
+      [
+        "needs_review",
+        "pending",
+        "flagged",
+        "error",
+        "waiting",
+        "review",
+      ].includes(String(result.status).toLowerCase())
+    ) {
+      hasFlag = true;
+    }
+  }
+  return hasFlag;
+}
+
 function getCorrectAnswer(exam, question) {
   if (!exam || !exam.answerKey) return "-";
 
@@ -214,7 +264,9 @@ export function ReportsPage({ data, userEmail }) {
       ? subject.name || "ไม่ระบุวิชา"
       : exam.subject || "ไม่ระบุวิชา";
     const subjectCode = subject?.code || exam.subjectCode || exam.code || "-";
-    const results = data.results.filter((result) => result.examId === exam.id && !result.flagged);
+    const results = data.results.filter(
+      (result) => result.examId === exam.id && !isPendingReview(result),
+    );
     const scores = results
       .map((row) => {
         let dynamicScore = row.score || 0;

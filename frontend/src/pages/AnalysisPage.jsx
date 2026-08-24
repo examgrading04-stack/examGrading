@@ -28,37 +28,55 @@ function isPendingReview(result, exam) {
   if (!result) return true;
 
   // 1. Check flagged property
+  let hasFlag = false;
   const flagged = result.flagged;
-  if (flagged === true || flagged === "true") return true;
-  if (Array.isArray(flagged) && flagged.length > 0) return true;
-  if (typeof flagged === "string" && flagged.trim()) {
+
+  if (flagged === true || flagged === "true") {
+    hasFlag = true;
+  } else if (Array.isArray(flagged) && flagged.length > 0) {
+    hasFlag = true;
+  } else if (typeof flagged === "string" && flagged.trim()) {
     const norm = flagged.trim().toLowerCase();
     if (
       ["true", "pending", "flagged", "needs_review", "review"].includes(norm)
     ) {
-      return true;
+      hasFlag = true;
+    } else {
+      try {
+        const parsed = JSON.parse(flagged);
+        if (Array.isArray(parsed) && parsed.length > 0) hasFlag = true;
+        if (parsed === true) hasFlag = true;
+      } catch {}
     }
-    try {
-      const parsed = JSON.parse(flagged);
-      if (Array.isArray(parsed) && parsed.length > 0) return true;
-      if (parsed === true) return true;
-    } catch {}
   }
 
-  // 2. Check status property
+  // If flagged is explicitly false, it means it was verified
   if (
-    result.status &&
-    [
-      "needs_review",
-      "pending",
-      "flagged",
-      "error",
-      "waiting",
-      "review",
-    ].includes(String(result.status).toLowerCase())
+    flagged === false ||
+    flagged === "false" ||
+    (Array.isArray(flagged) && flagged.length === 0) ||
+    flagged === "[]"
   ) {
-    return true;
+    // Explicitly resolved
+    hasFlag = false;
+  } else if (!hasFlag) {
+    // 2. Check status property only if not explicitly flagged
+    if (
+      result.status &&
+      [
+        "needs_review",
+        "pending",
+        "flagged",
+        "error",
+        "waiting",
+        "review",
+      ].includes(String(result.status).toLowerCase())
+    ) {
+      hasFlag = true;
+    }
   }
+
+  if (hasFlag) return true;
 
   // 3. Must have answers or itemResults
   if (!result.answers && !result.itemResults) return true;
@@ -586,7 +604,7 @@ export function AnalysisPage({ data }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-8">
         <StatCard
           title="จำนวนผู้สอบ"
           value={!examId ? "-" : results.length}
@@ -630,8 +648,22 @@ export function AnalysisPage({ data }) {
               "-"
             )
           }
-          icon="fa-arrow-up-right-dots"
+          icon="fa-arrow-up-wide-short"
           color="rose"
+        />
+        <StatCard
+          title="ความยากง่ายเฉลี่ย (p)"
+          value={avgDifficulty !== null ? avgDifficulty.toFixed(2) : "-"}
+          icon="fa-chart-line"
+          color="amber"
+        />
+        <StatCard
+          title="อำนาจจำแนกเฉลี่ย (r)"
+          value={
+            avgDiscrimination !== null ? avgDiscrimination.toFixed(2) : "-"
+          }
+          icon="fa-bolt"
+          color="fuchsia"
         />
       </div>
 

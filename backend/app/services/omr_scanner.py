@@ -55,7 +55,7 @@ class OMRResult:
 
 
 class OMRConfig:
-    NORM_FILL_MIN = 0.090
+    NORM_FILL_MIN = 0.055
     NORM_GAP_MIN = 0.035
     MULTI_MARK_RATIO = 0.52
     OVERFLOW_BLEED_RATIO = 0.42  # หากฝนล้ำข้ามช่องไปยังตัวเลือกข้างเคียง
@@ -96,6 +96,60 @@ def _layout_question_count(total_q: int) -> int:
     return 100
 
 
+def auto_orient_image(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img.copy()
+    H, W = gray.shape
+    
+    crops = [
+        ("TR", gray[: int(H * 0.45), int(W * 0.55) :]),
+        ("TL", gray[: int(H * 0.45), : int(W * 0.45)]),
+        ("BR", gray[int(H * 0.55) :, int(W * 0.55) :]),
+        ("BL", gray[int(H * 0.55) :, : int(W * 0.45)]),
+    ]
+
+    def try_decode(cand):
+        if cand.size == 0: return False
+        if PYZBAR_AVAILABLE:
+            try:
+                if _pyzbar.decode(cand):
+                    return True
+            except: pass
+        try:
+            det = cv2.QRCodeDetector()
+            data, pts, _ = det.detectAndDecode(cand)
+            if pts is not None and len(pts) > 0 and len(data) > 0: return True
+        except: pass
+        return False
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+
+    for corner, crop in crops:
+        if crop.size == 0: continue
+        variants = [crop, clahe.apply(crop)]
+        _, otsu = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        variants.extend([otsu, 255 - otsu])
+        
+        found = False
+        for v in variants:
+            if try_decode(v):
+                found = True
+                break
+            
+            if min(v.shape[:2]) > 0:
+                upscaled = cv2.resize(v, (0, 0), fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+                if try_decode(upscaled):
+                    found = True
+                    break
+                    
+        if found:
+            if corner == "TR": return img
+            elif corner == "TL": return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+            elif corner == "BL": return cv2.rotate(img, cv2.ROTATE_180)
+            elif corner == "BR": return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    return img
+
+
 def load_and_preprocess(path_or_img):
     if isinstance(path_or_img, str):
         img = cv2.imread(path_or_img)
@@ -103,10 +157,19 @@ def load_and_preprocess(path_or_img):
             raise FileNotFoundError(f"ไม่พบ: {path_or_img}")
     else:
         img = path_or_img.copy()
+        
+    # แก้ปัญหาภาพหมุนผิดทิศ
+    img = auto_orient_image(img)
+    
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # แก้ปัญหาภาพเบลอด้วยการ Sharpening
+    blurred_for_sharp = cv2.GaussianBlur(gray, (0, 0), 3)
+    sharpened = cv2.addWeighted(gray, 1.5, blurred_for_sharp, -0.5, 0)
+    
     # เพิ่มความทนต่อแสง/เงา: CLAHE + adaptive threshold แบบ Gaussian
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    gray_eq = clahe.apply(gray)
+    gray_eq = clahe.apply(sharpened)
     blur = cv2.GaussianBlur(gray_eq, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(
         blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 8
@@ -411,11 +474,13 @@ def detect_grid_region(warped_gray, total_questions):
         gw, gh = gx2 - gx, gy2 - gy
         # sanity check: grid ต้องครอบ >= 30% ของภาพ
         if gw * gh > img_area * 0.20:
+            if gw < W * 0.75:
+                gx = 44
+                gw = 814
             return (gx, gy, gw, gh)
 
     # fallback
-    iw, ih = W, H
-    return (int(iw * 0.02), int(ih * 0.30), int(iw * 0.96), int(ih * 0.62))
+    return (44, 356, 814, 804)
 
 
 def robust_grid_1d(data_1d, k, expected_spacing=30):
@@ -691,7 +756,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
             row_paper_bg = (
                 float(np.percentile(bg_vals, 80)) if bg_vals else 220.0
             )
-            dark_thresh = max(0, row_paper_bg - 25)
+            dark_thresh = max(0, row_paper_bg - 40)
 
             q_scores = []
             for ch, x in enumerate(current_xs):
@@ -714,35 +779,55 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 core_mask = np.zeros((h_p, w_p), dtype=np.uint8)
                 cv2.circle(core_mask, center_p, r_core, 255, -1)
                 core_vals = patch[core_mask > 0]
-                core_mean = (
-                    float(np.median(core_vals)) if len(core_vals) > 0 else 255.0
+                core_val_25 = (
+                    float(np.percentile(core_vals, 25)) if len(core_vals) > 0 else 255.0
+                )
+                core_val_5 = (
+                    float(np.percentile(core_vals, 5)) if len(core_vals) > 0 else 255.0
                 )
                 core_contrast = max(
-                    0.0, (row_paper_bg - core_mean) / max(10.0, row_paper_bg)
+                    0.0, (row_paper_bg - core_val_25) / max(10.0, row_paper_bg)
+                )
+                core_stroke_contrast = max(
+                    0.0, (row_paper_bg - core_val_5) / max(10.0, row_paper_bg)
                 )
                 core_dark = (
                     float(np.mean(core_vals < dark_thresh))
                     if len(core_vals) > 0
                     else 0.0
                 )
-                core_score = 0.50 * core_contrast + 0.50 * core_dark
+                # Smudge Penalty: If the darkest pixels (val_5) are not very dark, penalize the score
+                stroke_depth = row_paper_bg - core_val_5
+                penalty = float(np.clip((stroke_depth - 60) / 40.0, 0.0, 1.0))
+                
+                core_score = (0.35 * core_contrast + 0.30 * core_dark + 0.35 * core_stroke_contrast) * penalty
 
                 # 2. Inner circle mask (r <= 11px)
                 inner_mask = np.zeros((h_p, w_p), dtype=np.uint8)
                 cv2.circle(inner_mask, center_p, r_inner, 255, -1)
                 inner_vals = patch[inner_mask > 0]
-                inner_mean = (
-                    float(np.median(inner_vals)) if len(inner_vals) > 0 else 255.0
+                inner_val_25 = (
+                    float(np.percentile(inner_vals, 25)) if len(inner_vals) > 0 else 255.0
+                )
+                inner_val_5 = (
+                    float(np.percentile(inner_vals, 5)) if len(inner_vals) > 0 else 255.0
                 )
                 inner_contrast = max(
-                    0.0, (row_paper_bg - inner_mean) / max(10.0, row_paper_bg)
+                    0.0, (row_paper_bg - inner_val_25) / max(10.0, row_paper_bg)
+                )
+                inner_stroke_contrast = max(
+                    0.0, (row_paper_bg - inner_val_5) / max(10.0, row_paper_bg)
                 )
                 inner_dark = (
                     float(np.mean(inner_vals < dark_thresh))
                     if len(inner_vals) > 0
                     else 0.0
                 )
-                inner_score = 0.50 * inner_contrast + 0.50 * inner_dark
+                # Smudge Penalty
+                stroke_depth = row_paper_bg - inner_val_5
+                penalty = float(np.clip((stroke_depth - 60) / 40.0, 0.0, 1.0))
+                
+                inner_score = (0.35 * inner_contrast + 0.30 * inner_dark + 0.35 * inner_stroke_contrast) * penalty
 
                 # 3. Safe perimeter ring (11 < r <= 14px)
                 outer_ring_mask = np.zeros((h_p, w_p), dtype=np.uint8)

@@ -154,8 +154,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     ];
     const rows = filteredResults.map((r) => [
       r.studentCode || "-",
-      r.studentName ? (r.flagged ? `${r.studentName} (รอตรวจสอบ)` : r.studentName) : "-",
-      r.flagged ? "" : (r.score || 0),
+      r.studentName
+        ? r.flagged
+          ? `${r.studentName} (รอตรวจสอบ)`
+          : r.studentName
+        : "-",
+      r.flagged ? "" : r.score || 0,
       r.totalMaxScore || r.totalQuestions || 0,
       r.flagged ? "" : (r.percentage || 0).toFixed(2),
       r.flagged ? "รอตรวจสอบ" : "ปกติ",
@@ -289,11 +293,15 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     if (selectedExamId) {
       list = list.filter((r) => r.examId === selectedExamId);
     }
-    
+
     // Sort by timestamp descending (latest first)
     list = [...list].sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.timestamp || a.created_at || 0).getTime();
-      const timeB = new Date(b.createdAt || b.timestamp || b.created_at || 0).getTime();
+      const timeA = new Date(
+        a.createdAt || a.timestamp || a.created_at || 0,
+      ).getTime();
+      const timeB = new Date(
+        b.createdAt || b.timestamp || b.created_at || 0,
+      ).getTime();
       return timeB - timeA;
     });
 
@@ -315,7 +323,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
           const qStr = String(i);
           const correctAns = getCorrectAnswer(exam, qStr);
           const qScore = getQuestionScore(exam, qStr);
-          
+
           if (correctAns !== "-" && correctAns !== "") {
             calculatedMax += qScore;
           }
@@ -389,7 +397,9 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
   // Sync selectedResult with updated filteredResults
   useEffect(() => {
     if (selectedResult) {
-      const updatedResult = filteredResults.find((r) => r.id === selectedResult.id);
+      const updatedResult = filteredResults.find(
+        (r) => r.id === selectedResult.id,
+      );
       if (updatedResult) {
         // Only update if there are meaningful changes (e.g., score, answers) to avoid unnecessary re-renders
         setSelectedResult(updatedResult);
@@ -397,23 +407,50 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
     }
   }, [filteredResults]);
 
+  const currentExam = data.exams.find((e) => e.id === selectedExamId);
+
   // Summary Statistics
   const stats = useMemo(() => {
-    if (filteredResults.length === 0) return null;
+    if (!currentExam) return null;
+
+    // Expected students count
+    const subjectStudents = (data.students || []).filter(
+      (s) =>
+        s.subjectCode === currentExam.subject_id ||
+        s.subjectCode === currentExam.subjectCode ||
+        s.subjectCode === currentExam.subject,
+    );
+    const expectedCount =
+      currentExam.section === "All Section" || !currentExam.section
+        ? subjectStudents.length
+        : subjectStudents.filter(
+            (s) => String(s.section) === String(currentExam.section),
+          ).length;
+
+    if (filteredResults.length === 0) {
+      return {
+        avg: "0.0",
+        count: 0,
+        uniqueStudents: expectedCount,
+        flaggedCount: 0,
+        completedCount: 0,
+      };
+    }
+
     const scores = filteredResults.map((r) => r.score);
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const uniqueStudents = new Set(filteredResults.map((r) => r.studentCode))
-      .size;
-    const flaggedCount = filteredResults.filter((r) => checkIsFlagged(r)).length;
+    const flaggedCount = filteredResults.filter((r) =>
+      checkIsFlagged(r),
+    ).length;
+    const completedCount = filteredResults.length - flaggedCount;
     return {
       avg: avg.toFixed(1),
       count: filteredResults.length,
-      uniqueStudents: uniqueStudents,
+      uniqueStudents: expectedCount,
       flaggedCount,
+      completedCount,
     };
-  }, [filteredResults]);
-
-  const currentExam = data.exams.find((e) => e.id === selectedExamId);
+  }, [filteredResults, currentExam, data.students]);
 
   return (
     <div className="page-enter max-w-[1600px] mx-auto pb-20 px-4 space-y-6">
@@ -452,9 +489,9 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
 
       {/* Stats Dashboard */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard
-            title="จำนวนผู้เข้าสอบ"
+            title="จำนวนผู้สอบทั้งหมด"
             value={stats.uniqueStudents}
             icon="fa-users"
             color="indigo"
@@ -464,6 +501,12 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
             value={stats.count}
             icon="fa-file-lines"
             color="violet"
+          />
+          <StatCard
+            title="สแกนสมบูรณ์"
+            value={stats.completedCount}
+            icon="fa-check-circle"
+            color="emerald"
           />
           <StatCard
             title="รอตรวจสอบ (Flagged)"
@@ -743,7 +786,7 @@ export function ResultsPage({ data, api, refresh, query, userEmail }) {
                     <Icon name="fa-check" /> สมบูรณ์
                   </span>
                 );
-              }
+              },
             },
             {
               key: "actions",
@@ -929,18 +972,21 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
   const handleUpdateAnswer = async (question, newAns) => {
     if (updatingQuestions.has(question)) return;
     try {
-      setUpdatingQuestions(prev => new Set(prev).add(question));
-      const res = await fetch(`${API_BASE_URL}/api/results/${result.id}/update_answer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${userEmail || ""}`,
+      setUpdatingQuestions((prev) => new Set(prev).add(question));
+      const res = await fetch(
+        `${API_BASE_URL}/api/results/${result.id}/update_answer`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userEmail || ""}`,
+          },
+          body: JSON.stringify({
+            question_no: parseInt(question),
+            new_answer: newAns,
+          }),
         },
-        body: JSON.stringify({
-          question_no: parseInt(question),
-          new_answer: newAns,
-        }),
-      });
+      );
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -959,7 +1005,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
         "error",
       );
     } finally {
-      setUpdatingQuestions(prev => {
+      setUpdatingQuestions((prev) => {
         const next = new Set(prev);
         next.delete(question);
         return next;
@@ -1028,14 +1074,14 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
       if (studentAns === "-") isSkipped = true;
     }
 
-    const hasProblem = !isVerified && (
-      isMultiMark ||
-      isSkipped ||
-      flagInfo?.reason === "multiple_mark" ||
-      flagInfo?.reason === "low_confidence" ||
-      flagInfo?.reason === "out_of_bounds" ||
-      flagInfo?.reason === "not_filled"
-    );
+    const hasProblem =
+      !isVerified &&
+      (isMultiMark ||
+        isSkipped ||
+        flagInfo?.reason === "multiple_mark" ||
+        flagInfo?.reason === "low_confidence" ||
+        flagInfo?.reason === "out_of_bounds" ||
+        flagInfo?.reason === "not_filled");
 
     return {
       question: questionStr,
@@ -1059,7 +1105,9 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
       if (r.isMultiMark || r.flagInfo?.reason === "multiple_mark") {
         flaggedReasons.push(`ข้อ ${r.question}: ฝนมากกว่า 1 ตัวเลือก`);
       } else if (r.flagInfo?.reason === "low_confidence") {
-        flaggedReasons.push(`ข้อ ${r.question}: ความมั่นใจในการอ่านจุดฝนต่ำ (ฝนจางหรือลบไม่สะอาด)`);
+        flaggedReasons.push(
+          `ข้อ ${r.question}: ความมั่นใจในการอ่านจุดฝนต่ำ (ฝนจางหรือลบไม่สะอาด)`,
+        );
       } else if (r.flagInfo?.reason === "out_of_bounds") {
         flaggedReasons.push(`ข้อ ${r.question}: ฝนเกินขอบเขตที่กำหนด`);
       } else if (r.isSkipped || r.flagInfo?.reason === "not_filled") {
@@ -1070,7 +1118,8 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
 
   // Deduplicate reasons
   const uniqueFlaggedReasons = [...new Set(flaggedReasons)];
-  const isActuallyFlagged = checkIsFlagged(result) && uniqueFlaggedReasons.length > 0;
+  const isActuallyFlagged =
+    checkIsFlagged(result) && uniqueFlaggedReasons.length > 0;
 
   useEffect(() => {
     setPage(1);
@@ -1121,7 +1170,9 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                 name="fa-triangle-exclamation"
                 className="text-lg text-amber-600"
               />
-              <span>รอตรวจสอบความถูกต้อง ({uniqueFlaggedReasons.length} ปัญหา)</span>
+              <span>
+                รอตรวจสอบความถูกต้อง ({uniqueFlaggedReasons.length} ปัญหา)
+              </span>
             </div>
             <ul className="list-disc list-inside pl-1 text-amber-700 text-sm space-y-0.5 font-medium">
               {uniqueFlaggedReasons.map((reason, idx) => (
@@ -1191,10 +1242,11 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                               .map((s) => s.trim())
                               .includes(opt)
                           : false;
-                          
+
                         const isUnlocked = unlockedQuestions.has(row.question);
                         const isUpdating = updatingQuestions.has(row.question);
-                        const isDisabled = (!row.hasProblem && !isUnlocked) || isUpdating;
+                        const isDisabled =
+                          (!row.hasProblem && !isUnlocked) || isUpdating;
 
                         return (
                           <button
@@ -1206,22 +1258,29 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all duration-200 ease-in-out relative ${
                               isDisabled && !isUpdating
                                 ? isSelected
-                                ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
-                                : "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
-                              : isUpdating
-                                ? isSelected
-                                  ? "bg-emerald-300 text-white cursor-wait"
-                                  : "bg-slate-100 text-slate-300 cursor-wait"
-                                : isSelected
-                                ? "bg-emerald-500 text-white border-emerald-500 scale-105 shadow-md hover:scale-110 cursor-pointer"
-                                : "bg-slate-50 text-slate-500 border border-slate-200 shadow-sm hover:scale-110 hover:shadow-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500 cursor-pointer"
+                                  ? "bg-slate-400 text-white cursor-not-allowed shadow-sm"
+                                  : "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                                : isUpdating
+                                  ? isSelected
+                                    ? "bg-emerald-300 text-white cursor-wait"
+                                    : "bg-slate-100 text-slate-300 cursor-wait"
+                                  : isSelected
+                                    ? "bg-emerald-500 text-white border-emerald-500 scale-105 shadow-md hover:scale-110 cursor-pointer"
+                                    : "bg-slate-50 text-slate-500 border border-slate-200 shadow-sm hover:scale-110 hover:shadow-md hover:bg-emerald-500 hover:text-white hover:border-emerald-500 cursor-pointer"
                             }`}
-                            title={isDisabled && !isUpdating ? "กดปุ่ม 'แก้ไข' เพื่อเปลี่ยนคำตอบ" : `เลือกคำตอบ ${opt}`}
+                            title={
+                              isDisabled && !isUpdating
+                                ? "กดปุ่ม 'แก้ไข' เพื่อเปลี่ยนคำตอบ"
+                                : `เลือกคำตอบ ${opt}`
+                            }
                           >
                             {isUpdating && isSelected ? (
-                               <Icon name="fa-spinner" className="animate-spin text-white" />
+                              <Icon
+                                name="fa-spinner"
+                                className="animate-spin text-white"
+                              />
                             ) : (
-                               opt
+                              opt
                             )}
                           </button>
                         );
@@ -1267,37 +1326,63 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                           );
                         }
 
-                        if (row.isMultiMark || row.flagInfo?.reason === "multiple_mark") {
+                        if (
+                          row.isMultiMark ||
+                          row.flagInfo?.reason === "multiple_mark"
+                        ) {
                           return (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
-                              <Icon name="fa-triangle-exclamation" className="text-amber-600" /> ฝนเกิน
+                              <Icon
+                                name="fa-triangle-exclamation"
+                                className="text-amber-600"
+                              />{" "}
+                              ฝนเกิน
                             </span>
                           );
                         }
                         if (row.flagInfo?.reason === "low_confidence") {
                           return (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                              <Icon name="fa-triangle-exclamation" className="text-amber-500" /> ฝนจาง
+                              <Icon
+                                name="fa-triangle-exclamation"
+                                className="text-amber-500"
+                              />{" "}
+                              ฝนจาง
                             </span>
                           );
                         }
                         if (row.flagInfo?.reason === "out_of_bounds") {
                           return (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                              <Icon name="fa-triangle-exclamation" className="text-rose-600" /> ฝนเกินขอบ
+                              <Icon
+                                name="fa-triangle-exclamation"
+                                className="text-rose-600"
+                              />{" "}
+                              ฝนเกินขอบ
                             </span>
                           );
                         }
-                        if (row.isSkipped || row.flagInfo?.reason === "not_filled") {
+                        if (
+                          row.isSkipped ||
+                          row.flagInfo?.reason === "not_filled"
+                        ) {
                           return (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                              <Icon name="fa-triangle-exclamation" className="text-rose-600 text-[10px]" /> ไม่ได้ฝน
+                              <Icon
+                                name="fa-triangle-exclamation"
+                                className="text-rose-600 text-[10px]"
+                              />{" "}
+                              ไม่ได้ฝน
                             </span>
                           );
                         }
                         return (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
-                            <Icon name="fa-triangle-exclamation" className="text-amber-600" /> รอตรวจสอบ
+                            <Icon
+                              name="fa-triangle-exclamation"
+                              className="text-amber-600"
+                            />{" "}
+                            รอตรวจสอบ
                           </span>
                         );
                       })()}
@@ -1324,7 +1409,9 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                           return (
                             <button
                               onClick={() => {
-                                setUnlockedQuestions(prev => new Set(prev).add(row.question));
+                                setUnlockedQuestions((prev) =>
+                                  new Set(prev).add(row.question),
+                                );
                               }}
                               className="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 border border-transparent hover:border-blue-200 transition-all text-xs font-bold shadow-sm hover:shadow cursor-pointer"
                               title="ปลดล็อคเพื่อแก้ไขคำตอบ"
@@ -1336,7 +1423,7 @@ function StudentAnswersView({ result, exam, api, refresh, userEmail }) {
                         return (
                           <button
                             onClick={() => {
-                              setUnlockedQuestions(prev => {
+                              setUnlockedQuestions((prev) => {
                                 const next = new Set(prev);
                                 next.delete(row.question);
                                 return next;
