@@ -15,6 +15,11 @@ try:
 except ImportError:
     pass
 
+from datetime import timezone, timedelta
+
+def get_local_now():
+    return datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).replace(tzinfo=None)
+
 
 # SQLAlchemy Imports
 # pyrefly: ignore [missing-import]
@@ -100,7 +105,7 @@ class SqlSystemLog(Base):
     activity = Column("action", String(255), nullable=False)
     displayName = Column("displayName", String(200))
     role = Column("role", String(20))
-    datetime = Column("action_time", DateTime, default=datetime.now)
+    datetime = Column("action_time", DateTime, default=get_local_now)
     userEmail = Column(
         "user_id",
         String(100),
@@ -1322,10 +1327,10 @@ class MySQLAdapter(BaseDBAdapter):
                             try:
                                 dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
                                 if dt.tzinfo:
-                                    dt = dt.astimezone().replace(tzinfo=None)
+                                    dt = dt.astimezone(timezone(timedelta(hours=7))).replace(tzinfo=None)
                                 cleaned_data[k] = dt
                             except ValueError:
-                                cleaned_data[k] = datetime.now()
+                                cleaned_data[k] = get_local_now()
                         else:
                             if k == "flagged" and isinstance(v, list):
                                 cleaned_data[k] = bool(v)

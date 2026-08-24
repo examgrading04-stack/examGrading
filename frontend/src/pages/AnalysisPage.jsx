@@ -353,7 +353,12 @@ export function AnalysisPage({ data }) {
 
     return Array.from(deduplicatedMap.values());
   }, [examId, exam, data.results]);
-  const scores = results
+
+  const validResults = useMemo(() => {
+    return results.filter((r) => r.status && String(r.status).toLowerCase() === "completed");
+  }, [results]);
+
+  const scores = validResults
     .map((result) => Number(result.score || 0))
     .sort((a, b) => a - b);
   const mean = scores.length
@@ -399,7 +404,7 @@ export function AnalysisPage({ data }) {
       : null;
 
   // Low-N warning: 27% grouping unreliable below 15 students
-  const isLowN = results.length > 0 && results.length < 15;
+  const isLowN = validResults.length > 0 && validResults.length < 15;
 
   const expectedStudentsCount = !examId
     ? null
@@ -418,9 +423,9 @@ export function AnalysisPage({ data }) {
         ).length;
       })();
 
-  const itemAnalysis = calculateItemAnalysis(results, exam);
+  const itemAnalysis = calculateItemAnalysis(validResults, exam);
   const answeredItemAnalysis = itemAnalysis.filter((item) =>
-    results.some((result) => result.itemResults?.[item.question] !== undefined),
+    validResults.some((result) => result.itemResults?.[item.question] !== undefined),
   );
   const avgDifficulty = answeredItemAnalysis.length
     ? answeredItemAnalysis.reduce((sum, item) => sum + item.difficulty, 0) /
@@ -585,7 +590,7 @@ export function AnalysisPage({ data }) {
           <i className="fa-solid fa-triangle-exclamation mt-0.5 text-amber-500 shrink-0" />
           <div>
             <p className="font-bold text-sm">
-              คำเตือน: จำนวนผู้สอบน้อยเกินไป ({results.length} คน)
+              คำเตือน: จำนวนผู้สอบน้อยเกินไป ({validResults.length} คน)
             </p>
             <p className="text-xs mt-0.5 leading-relaxed">
               การวิเคราะห์คุณภาพข้อสอบแบบ 27% Upper-Lower Group
@@ -601,7 +606,7 @@ export function AnalysisPage({ data }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         <StatCard
           title="จำนวนผู้สอบ"
-          value={!examId ? "-" : results.length}
+          value={!examId ? "-" : validResults.length}
           icon="fa-users"
           color="indigo"
         />
