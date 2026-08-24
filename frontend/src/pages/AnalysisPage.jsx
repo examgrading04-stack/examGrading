@@ -91,13 +91,7 @@ function isPendingReview(result, exam) {
       if (answer === undefined || answer === null) return true;
 
       const answerText = String(answer).trim();
-      if (
-        answerText === "" ||
-        answerText === "-" ||
-        answerText === "ฝนมากกว่า 1 ตัวเลือก" ||
-        answerText.includes(",") ||
-        answerText.length > 1
-      ) {
+      if (answerText === "") {
         return true;
       }
     }
