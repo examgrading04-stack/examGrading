@@ -798,7 +798,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 )
                 # Smudge Penalty: If the darkest pixels (val_5) are not very dark, penalize the score
                 stroke_depth = row_paper_bg - core_val_5
-                penalty = float(np.clip((stroke_depth - 60) / 40.0, 0.0, 1.0))
+                penalty = float(np.clip((stroke_depth - 30) / 45.0, 0.0, 1.0))
                 
                 core_score = (0.35 * core_contrast + 0.30 * core_dark + 0.35 * core_stroke_contrast) * penalty
 
@@ -825,7 +825,7 @@ def measure_bubble_ratios(warped, grid_rect, positions):
                 )
                 # Smudge Penalty
                 stroke_depth = row_paper_bg - inner_val_5
-                penalty = float(np.clip((stroke_depth - 60) / 40.0, 0.0, 1.0))
+                penalty = float(np.clip((stroke_depth - 30) / 45.0, 0.0, 1.0))
                 
                 inner_score = (0.35 * inner_contrast + 0.30 * inner_dark + 0.35 * inner_stroke_contrast) * penalty
 
