@@ -166,6 +166,14 @@ def generate_pdf_report(
     elements.append(Paragraph(f"รายงานผลคะแนนสอบ: {exam_name}", title_style))
     elements.append(Paragraph(f"วิชา: {subject_name}", subtitle_style))
 
+    cell_style = ParagraphStyle(
+        "CellStyle",
+        parent=styles["Normal"],
+        fontName=FONT_NAME,
+        fontSize=10,
+        alignment=0,  # Left
+    )
+
     # Table data
     headers = [
         "รหัสผู้เรียน",
@@ -181,7 +189,7 @@ def generate_pdf_report(
         table_data.append(
             [
                 row["รหัสผู้เรียน"],
-                row["ชื่อ-นามสกุล"],
+                Paragraph(row["ชื่อ-นามสกุล"], cell_style),
                 row["วิชา"],
                 row["กลุ่มเรียน"],
                 str(row["คะแนนที่ได้"]),
@@ -190,7 +198,7 @@ def generate_pdf_report(
             ]
         )
 
-    table = Table(table_data, colWidths=[85, 130, 70, 55, 60, 60, 60])
+    table = Table(table_data, colWidths=[80, 140, 65, 55, 60, 60, 60])
     table.setStyle(
         TableStyle(
             [

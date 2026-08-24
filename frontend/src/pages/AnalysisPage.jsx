@@ -604,7 +604,7 @@ export function AnalysisPage({ data }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         <StatCard
           title="จำนวนผู้สอบ"
           value={!examId ? "-" : results.length}
